@@ -1,0 +1,9 @@
+__pycache__
+database
+states
+.vscode
+bot_token.py
+src/discord.log
+spec.txt
+.env
+video.mp4.webm
