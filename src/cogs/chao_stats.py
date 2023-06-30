@@ -15,20 +15,37 @@ class ChaoStats(commands.Cog):
         self.database_cog.data_queue.append((guild_id, user_id, stat_value, f"{stat}_level"))
         self.database_cog.data_queue.append((guild_id, user_id, tick_value, f"{stat}_ticks"))
 
-    async def feed_chao(self, ctx, stat):
+    @commands.command()
+    async def feed(self, ctx, chao_name, fruit_name):
+        black_market_cog = self.bot.get_cog("BlackMarket")
+        stat = black_market_cog.get_fruit_stat(fruit_name)
+
+        # Check if the fruit affects stats
+        if stat is None:
+            await ctx.send(f"{fruit_name} does not affect stats.")
+            return
+
         guild_id = ctx.guild.id
         user_id = ctx.author.id
-        stat_data, tick_data = await self.get_stat(guild_id, user_id, stat)
 
-        tick_increase = random.randint(2, 3)
-        new_tick_data = (tick_data or 0) + tick_increase
-        level_increase = new_tick_data // 10
-        new_stat_data = (stat_data or 0) + level_increase
-        new_tick_data %= 10
+        # Check if the user has the fruit in their inventory
+        inventory = await self.database_cog.get_data(guild_id, user_id, "inventory")
+        if fruit_name not in inventory:
+            await ctx.send(f"You do not have any {fruit_name}.")
+            return
 
-        await self.set_stat(guild_id, user_id, stat, new_stat_data, new_tick_data)
-        await ctx.send(f"Your Chao's {stat} level is now {new_stat_data} and it has {new_tick_data} ticks towards the next level.")
+        # Check if the user has the specified Chao
+        chao_data = await self.database_cog.get_data(guild_id, user_id, "chao")
+        if chao_name not in chao_data:
+            await ctx.send(f"You do not own a Chao named {chao_name}.")
+            return
 
+        # Feed the Chao
+        await self.feed_chao(ctx, stat)
+
+        # Update the inventory
+        inventory[fruit_name] -= 1
+        self.database_cog.data_queue.append((guild_id, user_id, inventory, 'inventory'))
     @commands.command()
     async def feed(self, ctx, stat):
         await self.feed_chao(ctx, stat)
