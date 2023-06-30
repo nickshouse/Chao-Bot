@@ -21,6 +21,19 @@ class BlackMarket(commands.Cog):
         {"emoji": "🍄", "name": "Strange Mushroom"},
     ]
 
+    chaos_drives = [
+        {"emoji": "🪛", "name": "Hero Drive"},
+        {"emoji": "🪛", "name": "Dark Drive"},
+        {"emoji": "🪛", "name": "Smart Drive"},
+        {"emoji": "🪛", "name": "Luck Drive"},
+        {"emoji": "🪛", "name": "Power Drive"},
+        {"emoji": "🪛", "name": "Swim Drive"},
+        {"emoji": "🪛", "name": "Run Drive"},
+        {"emoji": "🪛", "name": "Swim Drive"},
+        {"emoji": "🪛", "name": "Fly Drive"},
+        {"emoji": "🪛", "name": "Strange Drive"},
+    ]
+
     def __init__(self, bot):
         self.bot = bot
 
