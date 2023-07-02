@@ -69,7 +69,7 @@ class BlackMarket(commands.Cog):
 
         price = 15 * quantity
 
-        balance = await db_cog.get_balance(str(ctx.guild.id), str(ctx.author.id))
+        balance = await db_cog.get_rings(str(ctx.guild.id), str(ctx.author.id))
 
         if balance < price:
             await ctx.send(f"You do not have enough rings to buy {quantity} '{item}'.")
