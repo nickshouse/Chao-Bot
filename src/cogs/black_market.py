@@ -91,9 +91,10 @@ class BlackMarket(commands.Cog):
 
         inventory_items = []
 
+        df = await db_cog.get_inventory(str(ctx.guild.id), user_id)
+        
         for fruit in self.fruits:
             item = fruit["name"].lower()
-            df = await db_cog.get_inventory(str(ctx.guild.id), user_id, item)
             if df is not None and item in df.columns and df[item].sum() > 0:
                 fruit["quantity"] = int(df[item].sum())
                 inventory_items.append(fruit)
@@ -107,7 +108,7 @@ class BlackMarket(commands.Cog):
                     embed.add_field(name='\u200b', value='\u200b', inline=True)
 
         await ctx.send(embed=embed)
-
+        
     @commands.command()
     async def market(self, ctx):
         embed = Embed(title="Black Market", description="Here's what you can buy:", color=self.embed_color)
