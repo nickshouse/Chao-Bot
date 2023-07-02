@@ -37,7 +37,6 @@ class BlackMarket(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.embed_color = 0x1abc9c  # Replace this with the color you want to use for your embeds
-
     @commands.command()
     async def buy(self, ctx, *args):
         db_cog = self.bot.get_cog('Database')
@@ -75,7 +74,14 @@ class BlackMarket(commands.Cog):
             await ctx.send(f"You do not have enough rings to buy {quantity} '{item}'.")
             return
 
-        await db_cog.store_inventory(str(ctx.guild.id), str(ctx.author.id), [(-price, 'rings'), (quantity, item)])
+        new_balance = balance - price
+        await db_cog.store_rings(str(ctx.guild.id), str(ctx.author.id), new_balance)
+
+        inventory = await db_cog.get_inventory(str(ctx.guild.id), str(ctx.author.id))
+        if inventory is None:
+            inventory = []
+        inventory.append((datetime.now(), quantity, item))
+        await db_cog.store_inventory(str(ctx.guild.id), str(ctx.author.id), inventory)
 
         # Adjust item name for quantity
         item_name = item if quantity == 1 else item + 's'
