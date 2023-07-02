@@ -30,14 +30,6 @@ class ChaoCommands(commands.Cog):
                 await ctx.send(f"{member.name} doesn't have any Chao.")
 
     @commands.command()
-    async def give_rings(self, ctx):
-        """Give the user 100,000 rings"""
-        guild_id = ctx.guild.id
-        user_id = ctx.author.id
-        self.database_cog.data_queue.append((guild_id, user_id, 100000, 'rings'))
-        await ctx.send("You received 100,000 rings!") 
-
-    @commands.command()
     async def check_eggs(self, ctx, member: discord.Member = None):
         """Show the user or a specified member all of their Chao Eggs"""
         member = member or ctx.author

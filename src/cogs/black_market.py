@@ -124,6 +124,23 @@ class BlackMarket(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.command()
+    async def give_rings(self, ctx):
+        db_cog = self.bot.get_cog('Database')
+        guild_id = str(ctx.guild.id)
+        user_id = str(ctx.author.id)
+
+        # Add the rings to the user's current rings
+        current_rings = await db_cog.get_rings(guild_id, user_id)
+        if current_rings is None:
+            new_rings = 100000
+        else:
+            new_rings = current_rings + 100000
+
+        # Store the new amount of rings
+        await db_cog.store_rings(guild_id, user_id, new_rings)
+
+        await ctx.send(f"You have been given 100,000 rings! You now have {new_rings} rings.")
 
 
 
