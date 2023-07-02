@@ -16,8 +16,9 @@ class Database(commands.Cog):
         filename = f"{dir_path}/rings.parquet"
         if os.path.exists(filename):
             df = pd.read_parquet(filename)
-            return df
-        return None
+            return df['value'].sum()
+        return 0  # return 0 if the file doesn't exist
+
 
     async def store_rings(self, guild_id, user_id, value):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
