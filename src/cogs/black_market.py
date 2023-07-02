@@ -69,19 +69,18 @@ class BlackMarket(commands.Cog):
 
         price = 15 * quantity
 
-        df = await db_cog.get_inventory(str(ctx.guild.id), str(ctx.author.id), 'rings')
+        balance = await db_cog.get_balance(str(ctx.guild.id), str(ctx.author.id))
 
-        if df is None or df['rings'].sum() < price:
+        if balance < price:
             await ctx.send(f"You do not have enough rings to buy {quantity} '{item}'.")
             return
 
-        await db_cog.store_data(str(ctx.guild.id), str(ctx.author.id), [(-price, 'rings'), (quantity, item)])
+        await db_cog.store_inventory(str(ctx.guild.id), str(ctx.author.id), [(-price, 'rings'), (quantity, item)])
 
         # Adjust item name for quantity
         item_name = item if quantity == 1 else item + 's'
 
         await ctx.send(f"You have bought {quantity} '{item_name}' for {price} rings.")
-
 
     @commands.command()
     async def inventory(self, ctx):

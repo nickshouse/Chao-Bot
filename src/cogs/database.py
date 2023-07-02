@@ -25,7 +25,13 @@ class Database(commands.Cog):
         filename = f"{dir_path}/inventory.parquet"
         df = pd.DataFrame(inventory, columns=['time', 'type', 'value'])
         df.to_parquet(filename)
- 
+
+    async def get_balance(self, guild_id, user_id):
+        df = await self.get_inventory(guild_id, user_id)
+        if df is not None and 'rings' in df['type'].values:
+            return df.loc[df['type'] == 'rings', 'value'].sum()
+        return 0
+
 async def setup(bot):
     await bot.add_cog(Database(bot))
     print("Database cog loaded")
