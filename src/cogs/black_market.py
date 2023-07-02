@@ -69,7 +69,7 @@ class BlackMarket(commands.Cog):
 
         price = 15 * quantity
 
-        df = await db_cog.get_data(str(ctx.guild.id), str(ctx.author.id), 'rings')
+        df = await db_cog.get_inventory(str(ctx.guild.id), str(ctx.author.id), 'rings')
 
         if df is None or df['rings'].sum() < price:
             await ctx.send(f"You do not have enough rings to buy {quantity} '{item}'.")
@@ -93,7 +93,7 @@ class BlackMarket(commands.Cog):
 
         for fruit in self.fruits:
             item = fruit["name"].lower()
-            df = await db_cog.get_data(str(ctx.guild.id), user_id, item)
+            df = await db_cog.get_inventory(str(ctx.guild.id), user_id, item)
             if df is not None and item in df.columns and df[item].sum() > 0:
                 fruit["quantity"] = int(df[item].sum())
                 inventory_items.append(fruit)
