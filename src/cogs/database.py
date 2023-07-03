@@ -41,7 +41,7 @@ class Database(commands.Cog):
         filename = f"{dir_path}/inventory.parquet"
         df = pd.DataFrame(inventory, columns=['quantity', 'item'])
         df.to_parquet(filename)
-
+        
 async def setup(bot):
     await bot.add_cog(Database(bot))
     print("Database cog loaded")
