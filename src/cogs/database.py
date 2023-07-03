@@ -39,7 +39,7 @@ class Database(commands.Cog):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         os.makedirs(dir_path, exist_ok=True)
         filename = f"{dir_path}/inventory.parquet"
-        df = pd.DataFrame(inventory, columns=['time', 'type', 'value'])
+        df = pd.DataFrame(inventory, columns=['quantity', 'item'])
         df.to_parquet(filename)
 
 async def setup(bot):
