@@ -96,16 +96,21 @@ class BlackMarket(commands.Cog):
         embed = Embed(title=f"{ctx.author.name}'s Inventory", description="Here's what you have:", color=self.embed_color)
 
         df = await db_cog.get_inventory(str(ctx.guild.id), user_id)
-            
+        
         if df is not None:
             grouped_df = df.groupby('item').sum().reset_index()
+            inventory_items = grouped_df.to_dict('records')
 
-            for _, row in grouped_df.iterrows():
-                item_name = row['item']
-                quantity = row['quantity']
-                embed.add_field(name=item_name.capitalize(), value=f'Quantity: {quantity}\n', inline=True)
+            for i in range(0, len(inventory_items), 3):
+                for j in range(3):
+                    if i+j < len(inventory_items):
+                        item = inventory_items[i+j]
+                        embed.add_field(name=item['item'].capitalize(), value=f'Quantity: {item["quantity"]}\n', inline=True)
+                    else:
+                        embed.add_field(name='\u200b', value='\u200b', inline=True)
 
         await ctx.send(embed=embed)
+
 
         
     @commands.command()
