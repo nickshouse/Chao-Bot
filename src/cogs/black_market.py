@@ -84,7 +84,7 @@ class BlackMarket(commands.Cog):
         if inventory is None:
             inventory = new_data
         else:
-            inventory = inventory.append(new_data, ignore_index=True)
+            inventory = pd.concat([inventory, new_data], ignore_index=True)
         await db_cog.store_inventory(str(ctx.guild.id), str(ctx.author.id), inventory)
 
         # Adjust item name for quantity
@@ -93,8 +93,7 @@ class BlackMarket(commands.Cog):
         await ctx.send(f"You have bought {quantity} '{item_name}' for {price} rings.")
 
 
-
-        
+            
     @commands.command()
     async def market(self, ctx):
         embed = Embed(title="Black Market", description="Here's what you can buy:", color=self.embed_color)
@@ -111,6 +110,27 @@ class BlackMarket(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.command()
+    async def inventory(self, ctx):
+        db_cog = self.bot.get_cog('Database')
+        user_id = str(ctx.author.id)
+        embed = Embed(title=f"{ctx.author.name}'s Inventory", description="Here's what you have:", color=self.embed_color)
+
+        df = await db_cog.get_inventory(str(ctx.guild.id), user_id)
+        
+        if df is not None:
+            grouped_df = df.groupby('item').sum().reset_index()
+            inventory_items = grouped_df.to_dict('records')
+
+            for i in range(0, len(inventory_items), 3):
+                for j in range(3):
+                    if i+j < len(inventory_items):
+                        item = inventory_items[i+j]
+                        embed.add_field(name=item['item'].capitalize(), value=f'Quantity: {item["quantity"]}\n', inline=True)
+                    else:
+                        embed.add_field(name='\u200b', value='\u200b', inline=True)
+
+        await ctx.send(embed=embed)
 
     @commands.command()
     async def give_rings(self, ctx):
