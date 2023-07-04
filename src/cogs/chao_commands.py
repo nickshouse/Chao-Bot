@@ -46,23 +46,6 @@ class ChaoCommands(commands.Cog):
             else:
                 await ctx.send(f"{member.name} doesn't have any Chao Eggs.")
 
-
-
-    @commands.command()
-    async def rings(self, ctx, member: discord.Member = None):
-        if member is None:
-            member = ctx.author
-
-        df = await self.bot.cogs['Database'].get_data(ctx.guild.id, str(member.id), 'rings')
-
-        if df is None or 'rings' not in df.columns or df['rings'].sum() < 0:
-            await ctx.send(f"{member.name} has no Rings yet.")
-        else:
-            rings = int(df['rings'].sum())
-            embed = discord.Embed(title=f"{member.name}'s Rings", description=f"{member.name} has {rings} Rings!", color=self.embed_color)
-            await ctx.send(embed=embed)
-
-
     @commands.command()
     async def gift(self, ctx, *args):
         member = None
