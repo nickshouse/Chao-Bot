@@ -150,6 +150,13 @@ class BlackMarket(commands.Cog):
 
         await ctx.send(f"You have been given 100,000 rings! You now have {new_rings} rings.")
 
+    @commands.command()
+    async def rings(self, ctx, member: discord.Member = None):
+        """Check your or someone else's ring balance"""
+        member = member or ctx.author
+        rings = await self.bot.cogs['Database'].get_rings(ctx.guild.id, str(member.id))
+        embed = discord.Embed(title="Rings", description=f"{member.mention} has {rings} rings", color=discord.Color.gold())
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):
