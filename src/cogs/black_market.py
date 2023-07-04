@@ -95,25 +95,18 @@ class BlackMarket(commands.Cog):
         user_id = str(ctx.author.id)
         embed = Embed(title=f"{ctx.author.name}'s Inventory", description="Here's what you have:", color=self.embed_color)
 
-        inventory_items = []
-
         df = await db_cog.get_inventory(str(ctx.guild.id), user_id)
-        
-        for fruit in self.fruits:
-            item = fruit["name"].lower()
-            if df is not None and item in df.columns and df[item].sum() > 0:
-                fruit["quantity"] = int(df[item].sum())
-                inventory_items.append(fruit)
+            
+        if df is not None:
+            grouped_df = df.groupby('item').sum().reset_index()
 
-        for i in range(0, len(inventory_items), 3):
-            for j in range(3):
-                if i+j < len(inventory_items):
-                    fruit = inventory_items[i+j]
-                    embed.add_field(name=f'{fruit["emoji"]} {fruit["name"]}', value=f'Quantity: {fruit["quantity"]}\n', inline=True)
-                else:
-                    embed.add_field(name='\u200b', value='\u200b', inline=True)
+            for _, row in grouped_df.iterrows():
+                item_name = row['item']
+                quantity = row['quantity']
+                embed.add_field(name=item_name.capitalize(), value=f'Quantity: {quantity}\n', inline=True)
 
         await ctx.send(embed=embed)
+
         
     @commands.command()
     async def market(self, ctx):
