@@ -45,6 +45,7 @@ class Database(commands.Cog):
         os.makedirs(dir_path, exist_ok=True)
         filename = f"{dir_path}/{chao['name']}.parquet"
         df = pd.DataFrame(chao, index=[0])
+        df.reset_index(drop=True, inplace=True)  # Reset the index
         df.to_parquet(filename)
 
     async def get_chao(self, guild_id, user_id):
