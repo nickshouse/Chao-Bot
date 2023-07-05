@@ -53,8 +53,11 @@ class Database(commands.Cog):
         for file in os.listdir(dir_path):
             if file.endswith(".parquet"):
                 df = pd.read_parquet(f"{dir_path}/{file}")
-                chao.append(df.to_dict(orient='records')[0])
+                chao_dict = df.to_dict(orient='records')[0]
+                if 'name' in chao_dict:
+                    chao.append(chao_dict)
         return chao
+
 
 async def setup(bot):
     await bot.add_cog(Database(bot))
