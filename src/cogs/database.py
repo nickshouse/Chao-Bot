@@ -49,8 +49,8 @@ class Database(commands.Cog):
             df.update(pd.DataFrame(chao, index=[0]))
         else:  # If it's a new chao, we create it
             df = pd.DataFrame(chao, index=[0])
-        df.to_parquet(filename)
-        
+        df.to_parquet(filename, index=False)  # Don't save the index in the parquet file
+
     async def get_chao(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         chao = []
