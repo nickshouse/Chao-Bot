@@ -29,23 +29,26 @@ class Database(commands.Cog):
         self.bot = bot
         self.data_path = '../database'  
         os.makedirs(self.data_path, exist_ok=True)
-        self.locks = defaultdict(asyncio.Lock)
+        self.queues = defaultdict(asyncio.Queue)
         self.cache = LRUCache(500)
         self.executor = ThreadPoolExecutor(max_workers=16)  # Adjusted max_workers
+        self.tasks = {}  # To store worker tasks
 
-    async def get_file(self, filename):
-        start_time = time.time()  # Start the timer
-        data = self.cache.get(filename)
-        if data is None:
-            async with self.locks[filename]:
-                if os.path.exists(filename):
-                    loop = asyncio.get_running_loop()
-                    data = await loop.run_in_executor(self.executor, pd.read_parquet, filename)
-                    self.cache.put(filename, data)
-        print(f"get_file operation took {(time.time() - start_time) * 1000} milliseconds")
-        
-        return data
-    
+    async def worker(self, filename):
+        """A worker task that writes data from a queue to a file."""
+        while True:
+            data = await self.queues[filename].get()
+            if data is None:  # We send None to stop the worker.
+                break
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(self.executor, data.to_parquet, filename)
+            self.cache.put(filename, data)
+
+    async def write_file(self, filename, data):
+        if filename not in self.tasks or self.tasks[filename].done():
+            # Start a worker task if it's not already running.
+            self.tasks[filename] = asyncio.create_task(self.worker(filename))
+        await self.queues[filename].put(data)  # Put data into the queue.
 
     async def write_file(self, filename, data):
         start_time = time.time()  # Start the timer
