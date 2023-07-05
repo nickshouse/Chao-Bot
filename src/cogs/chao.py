@@ -33,9 +33,11 @@ class Chao(commands.Cog):
 
         # Create a new Chao
         chao = {
-            'name': chao_name,
+            'name': f'{color} {chao_type} Chao Egg',
             'color': color,
-            'type': egg_type
+            'type': chao_type,
+            'hatched': 0,
+            'birth_date': None  # We'll update this when the egg hatches
         }
 
         # Store the Chao in the user's database
