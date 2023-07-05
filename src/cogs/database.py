@@ -7,22 +7,26 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import time  # Import time for performance monitoring
 
-class LRUCache:
-    def __init__(self, capacity: int):
+class TimeAwareLRUCache:
+    def __init__(self, capacity: int, ttl: int = 3600):
         self.capacity = capacity
+        self.ttl = ttl  # Time-to-live in seconds
         self.cache = OrderedDict()
 
     def get(self, key):
-        if key not in self.cache:
+        current_time = time.time()
+        if key not in self.cache or current_time - self.cache[key][1] > self.ttl:
             return None
         self.cache.move_to_end(key)
-        return self.cache[key]
+        return self.cache[key][0]
 
     def put(self, key, value):
-        self.cache[key] = value
+        current_time = time.time()
+        self.cache[key] = (value, current_time)
         self.cache.move_to_end(key)
-        if len(self.cache) > self.capacity:
+        while len(self.cache) > self.capacity:
             self.cache.popitem(last=False)
+
 
 class Database(commands.Cog):
     def __init__(self, bot):
@@ -31,7 +35,7 @@ class Database(commands.Cog):
         os.makedirs(self.data_path, exist_ok=True)
         self.queues = defaultdict(asyncio.Queue)
         self.locks = defaultdict(asyncio.Lock)
-        self.cache = LRUCache(500)
+        self.cache = TimeAwareLRUCache(500)  # TTL is 3600 seconds (1 hour) by default
         self.executor = ThreadPoolExecutor(max_workers=16)  # Adjusted max_workers
         self.tasks = {}  # To store worker tasks
 
