@@ -43,6 +43,7 @@ class Database(commands.Cog):
                     data = await loop.run_in_executor(self.executor, pd.read_parquet, filename)
                     self.cache.put(filename, data)
         print(f"get_file operation took {(time.time() - start_time) * 1000} milliseconds")
+        
         return data
     
 
