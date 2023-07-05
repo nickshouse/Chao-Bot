@@ -46,6 +46,8 @@ class ChaoStats(commands.Cog):
         # Update the inventory
         inventory[fruit_name] -= 1
         self.database_cog.data_queue.append((guild_id, user_id, inventory, 'inventory'))
+
+        
     @commands.command()
     async def feed(self, ctx, stat):
         await self.feed_chao(ctx, stat)
