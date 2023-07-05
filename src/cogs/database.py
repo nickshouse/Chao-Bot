@@ -1,3 +1,4 @@
+import datetime
 import os
 import pandas as pd
 from discord.ext import commands
@@ -64,6 +65,27 @@ class Database(commands.Cog):
                 if 'name' in chao_dict:
                     chao.append(chao_dict)
         return chao
+
+
+    async def store_nickname(self, guild_id, user_id, nickname):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
+        os.makedirs(dir_path, exist_ok=True)
+        filename = f"{dir_path}/nicknames.parquet"
+        new_data = pd.DataFrame([{'time': datetime.now(), 'nickname': nickname}])
+        if os.path.exists(filename):
+            df = pd.read_parquet(filename)
+            df = df.append(new_data, ignore_index=True)
+        else:
+            df = new_data
+        df.to_parquet(filename, index=False)
+
+    async def get_nicknames(self, guild_id, user_id):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
+        filename = f"{dir_path}/nicknames.parquet"
+        if os.path.exists(filename):
+            df = pd.read_parquet(filename)
+            return df
+        return None
 
 
 async def setup(bot):
