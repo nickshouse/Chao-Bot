@@ -30,6 +30,7 @@ class Database(commands.Cog):
         self.data_path = '../database'  
         os.makedirs(self.data_path, exist_ok=True)
         self.queues = defaultdict(asyncio.Queue)
+        self.locks = defaultdict(asyncio.Lock)
         self.cache = LRUCache(500)
         self.executor = ThreadPoolExecutor(max_workers=16)  # Adjusted max_workers
         self.tasks = {}  # To store worker tasks
@@ -40,24 +41,31 @@ class Database(commands.Cog):
             data = await self.queues[filename].get()
             if data is None:  # We send None to stop the worker.
                 break
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(self.executor, data.to_parquet, filename)
-            self.cache.put(filename, data)
+            async with self.locks[filename]:  # Acquire the lock.
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(self.executor, data.to_parquet, filename)
+                self.cache.put(filename, data)
 
     async def write_file(self, filename, data):
+        start_time = time.time()
         if filename not in self.tasks or self.tasks[filename].done():
             # Start a worker task if it's not already running.
             self.tasks[filename] = asyncio.create_task(self.worker(filename))
         await self.queues[filename].put(data)  # Put data into the queue.
-
-    async def write_file(self, filename, data):
-        start_time = time.time()  # Start the timer
-        async with self.locks[filename]:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(self.executor, data.to_parquet, filename)
-            self.cache.put(filename, data)
         print(f"write_file operation took {(time.time() - start_time) * 1000} milliseconds")
 
+    async def get_file(self, filename):
+        start_time = time.time()  # Start the timer
+        data = self.cache.get(filename)
+        if data is None:
+            async with self.locks[filename]:  # Acquire the lock.
+                if os.path.exists(filename):
+                    loop = asyncio.get_running_loop()
+                    data = await loop.run_in_executor(self.executor, pd.read_parquet, filename)
+                    self.cache.put(filename, data)
+        print(f"get_file operation took {(time.time() - start_time) * 1000} milliseconds")
+        return data
+    
     async def store_rings(self, guild_id, user_id, value):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         os.makedirs(dir_path, exist_ok=True)
