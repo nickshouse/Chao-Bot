@@ -3,7 +3,6 @@ import pandas as pd
 from discord.ext import commands
 from collections import deque
 import asyncio
-from datetime import datetime
 
 class Database(commands.Cog):
     def __init__(self, bot):
@@ -24,7 +23,7 @@ class Database(commands.Cog):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         os.makedirs(dir_path, exist_ok=True)
         filename = f"{dir_path}/rings.parquet"
-        df = pd.DataFrame([{'time': datetime.now(), 'value': value}])
+        df = pd.DataFrame([{'value': value}])
         df.to_parquet(filename)
 
     async def get_inventory(self, guild_id, user_id):
