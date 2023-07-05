@@ -20,9 +20,16 @@ class Chao(commands.Cog):
         # Wait for 5 seconds
         await asyncio.sleep(5)
 
-        # Generate a name for the new Chao
+        # Retrieve all existing Chao owned by the user
+        db_cog = self.bot.get_cog('Database')
+        existing_chao = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
+        existing_chao_names = {chao['name'] for chao in existing_chao}
+
+        # Generate a unique name for the new Chao
         fortune_teller_cog = self.bot.get_cog('FortuneTeller')
         chao_name = fortune_teller_cog.generate_chao_name()
+        while chao_name in existing_chao_names:
+            chao_name = fortune_teller_cog.generate_chao_name()
 
         # Create a new Chao
         chao = {
@@ -32,10 +39,9 @@ class Chao(commands.Cog):
         }
 
         # Store the Chao in the user's database
-        db_cog = self.bot.get_cog('Database')
         await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao)
         
-        await ctx.send(f"Your {egg} has hatched into {chao_name}, a {color} {egg_type} Chao!")
+        await ctx.send(f"Your {egg} has hatched into {chao_name}, a {egg_type} chao.")
 
 
     async def hatch_egg(self, ctx, egg):
