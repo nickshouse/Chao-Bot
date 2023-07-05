@@ -16,7 +16,7 @@ async def load_all_cogs():
     await bot.load_extension('cogs.database')
     await bot.load_extension('cogs.black_market')
     await bot.load_extension('cogs.fortune_teller')
-    await bot.load_extension('cogs.chao_egg')
+    await bot.load_extension('cogs.chao')
     await bot.load_extension('cogs.chao_stats')
     await bot.load_extension('cogs.chao_commands')
 
