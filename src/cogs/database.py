@@ -44,10 +44,13 @@ class Database(commands.Cog):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         os.makedirs(dir_path, exist_ok=True)
         filename = f"{dir_path}/{chao['name']}.parquet"
-        df = pd.DataFrame(chao, index=[0])
-        df.reset_index(drop=True, inplace=True)  # Reset the index
+        if os.path.exists(filename):  # If the chao already exists, we need to update it
+            df = pd.read_parquet(filename)
+            df.update(pd.DataFrame(chao, index=[0]))
+        else:  # If it's a new chao, we create it
+            df = pd.DataFrame(chao, index=[0])
         df.to_parquet(filename)
-
+        
     async def get_chao(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         chao = []
