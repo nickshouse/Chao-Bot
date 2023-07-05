@@ -46,7 +46,7 @@ class Database(commands.Cog):
     async def store_chao(self, guild_id, user_id, chao):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         os.makedirs(dir_path, exist_ok=True)
-        filename = f"{dir_path}/chao_{len(os.listdir(dir_path)) + 1}.parquet"
+        filename = f"{dir_path}/{chao['name']}.parquet"
         df = pd.DataFrame(chao, index=[0])
         df.to_parquet(filename)
 
