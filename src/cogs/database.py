@@ -10,7 +10,6 @@ class Database(commands.Cog):
         self.data_path = '../database'  
         os.makedirs(self.data_path, exist_ok=True)
 
-
     async def store_rings(self, guild_id, user_id, value):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         os.makedirs(dir_path, exist_ok=True)
@@ -25,7 +24,6 @@ class Database(commands.Cog):
             df = pd.read_parquet(filename)
             return df['value'].sum()
         return 0  # return 0 if the file doesn't exist
-
 
     async def store_inventory(self, guild_id, user_id, inventory):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
@@ -42,7 +40,6 @@ class Database(commands.Cog):
             return df
         return None
 
-
     async def store_chao(self, guild_id, user_id, chao):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         os.makedirs(dir_path, exist_ok=True)
@@ -58,7 +55,6 @@ class Database(commands.Cog):
                 df = pd.read_parquet(f"{dir_path}/{file}")
                 chao.append(df.to_dict(orient='records')[0])
         return chao
-
 
 async def setup(bot):
     await bot.add_cog(Database(bot))
