@@ -44,21 +44,21 @@ class Database(commands.Cog):
 
 
     async def store_chao(self, guild_id, user_id, chao):
-        dir_path = f"{self.data_path}/chao_data/{guild_id}/{user_id}"
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         os.makedirs(dir_path, exist_ok=True)
         filename = f"{dir_path}/chao_{len(os.listdir(dir_path)) + 1}.parquet"
         df = pd.DataFrame(chao, index=[0])
         df.to_parquet(filename)
 
     async def get_chao(self, guild_id, user_id):
-        dir_path = f"{self.data_path}/chao_data/{guild_id}/{user_id}"
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         chao = []
         for file in os.listdir(dir_path):
             if file.endswith(".parquet"):
                 df = pd.read_parquet(f"{dir_path}/{file}")
                 chao.append(df.to_dict(orient='records')[0])
         return chao
-        
+
 
 async def setup(bot):
     await bot.add_cog(Database(bot))
