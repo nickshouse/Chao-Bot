@@ -5,6 +5,7 @@ from discord.ext import commands
 from collections import OrderedDict, defaultdict
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import time  # Import time for performance monitoring
 
 class LRUCache:
     def __init__(self, capacity: int):
@@ -33,22 +34,24 @@ class Database(commands.Cog):
         self.executor = ThreadPoolExecutor(max_workers=16)  # Adjusted max_workers
 
     async def get_file(self, filename):
+        start_time = time.time()  # Start the timer
         data = self.cache.get(filename)
         if data is None:
             async with self.locks[filename]:
                 if os.path.exists(filename):
-                    # Runs the I/O operation in a separate thread
                     loop = asyncio.get_running_loop()
                     data = await loop.run_in_executor(self.executor, pd.read_parquet, filename)
                     self.cache.put(filename, data)
+        print(f"get_file operation took {time.time() - start_time} seconds")  # Print the elapsed time
         return data
 
     async def write_file(self, filename, data):
+        start_time = time.time()  # Start the timer
         async with self.locks[filename]:
-            # Runs the I/O operation in a separate thread
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(self.executor, data.to_parquet, filename)
             self.cache.put(filename, data)
+        print(f"write_file operation took {time.time() - start_time} seconds")  # Print the elapsed time
 
     async def store_rings(self, guild_id, user_id, value):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
