@@ -1,5 +1,6 @@
 import asyncio
 import random
+import datetime
 from discord.ext import commands
 
 class Chao(commands.Cog):
@@ -9,29 +10,11 @@ class Chao(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-
     @commands.command()
     async def give_egg(self, ctx):
-        """Give a Chao Egg to the user and hatch it after 5 seconds"""
+        """Give a Chao Egg to the user"""
         color = random.choice(self.chao_colors)
-        egg_type = random.choice(self.chao_types)
-        egg = f"{color} {egg_type} Chao Egg"
-        
-        # Wait for 5 seconds
-        await asyncio.sleep(5)
-
-        # Retrieve all existing Chao owned by the user
-        db_cog = self.bot.get_cog('Database')
-        existing_chao = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
-        existing_chao_names = {chao['name'] for chao in existing_chao}
-
-        # Generate a unique name for the new Chao
-        fortune_teller_cog = self.bot.get_cog('FortuneTeller')
-        chao_name = fortune_teller_cog.generate_chao_name()
-        while chao_name in existing_chao_names:
-            chao_name = fortune_teller_cog.generate_chao_name()
-
-        # Create a new Chao
+        chao_type = random.choice(self.chao_types)
         chao = {
             'name': f'{color} {chao_type} Chao Egg',
             'color': color,
@@ -39,23 +22,14 @@ class Chao(commands.Cog):
             'hatched': 0,
             'birth_date': None  # We'll update this when the egg hatches
         }
-
-        # Store the Chao in the user's database
-        await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao)
-        
-        await ctx.send(f"Your {egg} has hatched into {chao_name}, a {egg_type} chao.")
-
-
-    async def hatch_egg(self, ctx, egg):
-        """Hatch the user's Chao Egg"""
-        guild_id = ctx.guild.id
-        user_id = ctx.author.id
-        color, _, egg_type = egg.split(' ', 2)
-        chao = {"color": color, "type": egg_type.rstrip(" Chao Egg")}
-
-        await self.bot.get_cog("Database").store_chao(guild_id, user_id, chao)
-        await ctx.send(f"Your {egg} has hatched into a {color} {egg_type} Chao!")
-
+        await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
+        await ctx.send(f"You received a {chao['name']}! It will hatch in 5 seconds.")
+        await asyncio.sleep(5)
+        chao['hatched'] = 1
+        chao['birth_date'] = datetime.datetime.now().date()
+        chao['name'] = f'{color} {chao_type} Chao'
+        await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
+        await ctx.send(f"Your {chao['name']} Egg has hatched into a {chao['name']}!")
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
