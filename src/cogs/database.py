@@ -42,8 +42,9 @@ class Database(commands.Cog):
                     loop = asyncio.get_running_loop()
                     data = await loop.run_in_executor(self.executor, pd.read_parquet, filename)
                     self.cache.put(filename, data)
-        print(f"get_file operation took {time.time() - start_time:.6f} seconds")
+        print(f"get_file operation took {(time.time() - start_time) * 1000} milliseconds")
         return data
+    
 
     async def write_file(self, filename, data):
         start_time = time.time()  # Start the timer
@@ -51,7 +52,7 @@ class Database(commands.Cog):
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(self.executor, data.to_parquet, filename)
             self.cache.put(filename, data)
-        print(f"write_file operation took {time.time() - start_time:.6f} seconds")
+        print(f"write_file operation took {(time.time() - start_time) * 1000} milliseconds")
 
     async def store_rings(self, guild_id, user_id, value):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
