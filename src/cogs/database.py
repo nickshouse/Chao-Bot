@@ -88,6 +88,27 @@ class Database(commands.Cog):
         return None
 
 
+    async def store_username(self, guild_id, user_id, username):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
+        os.makedirs(dir_path, exist_ok=True)
+        filename = f"{dir_path}/username.parquet"
+        new_data = pd.DataFrame([{'time': datetime.now(), 'username': username}])
+        if os.path.exists(filename):
+            df = pd.read_parquet(filename)
+            df = df.append(new_data, ignore_index=True)
+        else:
+            df = new_data
+        df.to_parquet(filename, index=False)
+
+    async def get_username(self, guild_id, user_id):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
+        filename = f"{dir_path}/username.parquet"
+        if os.path.exists(filename):
+            df = pd.read_parquet(filename)
+            return df
+        return None
+
+
 async def setup(bot):
     await bot.add_cog(Database(bot))
     print("Database cog loaded")
