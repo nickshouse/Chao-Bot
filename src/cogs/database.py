@@ -1,5 +1,6 @@
 import datetime
 import os
+import shutil
 import pandas as pd
 from discord.ext import commands
 from collections import OrderedDict, defaultdict
@@ -38,6 +39,26 @@ class Database(commands.Cog):
         self.cache = TimeAwareLRUCache(500)  # TTL is 3600 seconds (1 hour) by default
         self.executor = ThreadPoolExecutor(max_workers=16)  # Adjusted max_workers
         self.tasks = {}  # To store worker tasks
+
+    @tasks.loop(hours=1)
+    async def backup_data(self):
+        """Backup the database every hour."""
+        backup_path = f"{self.data_path}_backup"
+        shutil.rmtree(backup_path, ignore_errors=True)  # Delete any existing backup
+        shutil.copytree(self.data_path, backup_path)  # Create a new backup
+        print(f"Backup taken at {datetime.datetime.now()}")
+
+    async def restore_backup(self):
+        """Restore data from the backup."""
+        backup_path = f"{self.data_path}_backup"
+        if os.path.exists(backup_path):
+            shutil.rmtree(self.data_path, ignore_errors=True)  # Delete current database
+            shutil.copytree(backup_path, self.data_path)  # Replace with backup
+            print("Backup restored")
+
+    def cog_unload(self):
+        """Clean up when the cog is unloaded."""
+        self.backup_data.cancel()
 
     async def worker(self, filename):
         """A worker task that writes data from a queue to a file."""
@@ -135,5 +156,7 @@ class Database(commands.Cog):
         return await self.get_file(filename)
 
 async def setup(bot):
-    await bot.add_cog(Database(bot))
+    db = Database(bot)
+    await bot.add_cog(db)
     print("Database cog loaded")
+    db.backup_data.start()
