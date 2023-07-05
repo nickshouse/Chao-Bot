@@ -72,7 +72,8 @@ class Database(commands.Cog):
                     chao_dict = df.to_dict(orient='records')[0]
                     if 'name' in chao_dict:
                         chao.append(chao_dict)
-        return chao
+            return chao
+
 
     async def store_nickname(self, guild_id, user_id, nickname):
         async with self.lock:
