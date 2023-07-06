@@ -49,7 +49,6 @@ class Chao(commands.Cog):
         await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
         await ctx.send(f"Your {chao_name} Egg has hatched into a {color} {chao_type} Chao named {chao_name}!")
 
-
     @commands.command()
     async def stats(self, ctx, chao_name):
         """Displays the stats of a specific Chao"""
