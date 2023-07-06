@@ -33,7 +33,6 @@ class Chao(commands.Cog):
             'birth_date': None,
         }
 
-        # Create separate fields for each attribute and stat
         for stat in stats:
             grade = random.choice(grades)
             chao[f'{stat.lower()}_grade'] = grade
@@ -42,7 +41,20 @@ class Chao(commands.Cog):
             chao[f'{stat.lower()}_level'] = 0
 
         await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
-        # Rest of the method remains the same
+        
+        # Send egg received message
+        await ctx.send(f"You received a {color} {chao_type} Chao Egg named {chao_name}! It will hatch in 5 seconds.")
+
+        # Simulate waiting for 5 seconds before the egg hatches
+        await asyncio.sleep(5)
+        
+        chao['hatched'] = 1
+        chao['birth_date'] = datetime.datetime.now().date()
+        
+        await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
+        
+        # Send egg hatched message
+        await ctx.send(f"Your {chao_name} Egg has hatched into a {color} {chao_type} Chao named {chao_name}!")
 
     @commands.command()
     async def view_chao(self, ctx, chao_name):
