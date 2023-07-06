@@ -2,6 +2,8 @@ import asyncio
 import random
 import datetime
 from discord.ext import commands
+import os
+import shutil
 
 class Chao(commands.Cog):
     chao_colors = ['White', 'Blue', 'Red', 'Yellow', 'Orange', 'Sky Blue', 'Pink', 'Green', 'Mint', 'Brown', 'Purple', 'Grey', 'Lime Green', 'Black']
