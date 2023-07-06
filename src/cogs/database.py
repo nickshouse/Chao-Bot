@@ -150,7 +150,6 @@ class Database(commands.Cog):
             df = new_data
         await self.write_file(filename, df)
 
-
     async def get_nickname(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         filename = f"{dir_path}/nicknames.parquet"
