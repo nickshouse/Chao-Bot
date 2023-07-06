@@ -16,7 +16,16 @@ class Chao(commands.Cog):
         """Give a Chao Egg to the user"""
         color = random.choice(self.chao_colors)
         chao_type = random.choice(self.chao_types)
+        
         chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
+
+        # Get all the user's Chao
+        chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
+
+        # Check if generated name is already taken and generate new names until a unique one is found
+        while any(chao['name'] == chao_name for chao in chao_list):
+            chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
+
         chao = {
             'name': chao_name,
             'color': color,
