@@ -1,6 +1,7 @@
 import asyncio
 import random
 import datetime
+import discord
 from discord.ext import commands
 
 
@@ -55,6 +56,25 @@ class Chao(commands.Cog):
         await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
         await ctx.send(f"Your {chao_name} Egg has hatched into a {color} {chao_type} Chao named {chao_name}!")
 
+
+
+    @commands.command()
+    async def view_chao(self, ctx, chao_name):
+        """View the stats of a specified Chao"""
+        # Get all the user's Chao
+        chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
+
+        # Find the Chao with the specified name
+        for chao in chao_list:
+            if chao['name'] == chao_name:
+                embed = discord.Embed(title=f"{chao_name}'s Stats", color=discord.Color.blue())
+                embed.set_thumbnail(url="https://example.com/chao_image.png")  # You can replace this with an actual image URL
+                for stat, info in chao['stats'].items():
+                    embed.add_field(name=stat, value=f"Grade: {info['grade']}\nTicks: {info['ticks']}\nExp: {info['exp']}\nLevel: {info['level']}", inline=True)
+                await ctx.send(embed=embed)
+                break
+        else:
+            await ctx.send(f"You don't have a Chao named {chao_name}.")
 
 
 async def setup(bot):
