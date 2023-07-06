@@ -31,6 +31,24 @@ class Chao(commands.Cog):
         await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
         await ctx.send(f"Your {chao_name} Egg has hatched into a {color} {chao_type} Chao named {chao_name}!")
 
+
+    @commands.command()
+    async def name(self, ctx, old_name, new_name):
+        """Rename a user's Chao"""
+        # Get all the user's Chao
+        chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
+
+        # Find the Chao with the specified old name
+        for chao in chao_list:
+            if chao['name'] == old_name:
+                chao['name'] = new_name  # Change the name
+                await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)  # Store the updated Chao
+                await ctx.send(f"{old_name} has been renamed to {new_name}!")
+                break
+        else:
+            await ctx.send(f"You don't have a Chao named {old_name}.")
+
+
 async def setup(bot):
     await bot.add_cog(Chao(bot))
     print("Chao cog loaded")
