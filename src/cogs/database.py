@@ -145,10 +145,12 @@ class Database(commands.Cog):
         df = await self.get_file(filename)
         new_data = pd.DataFrame([{'time': datetime.datetime.now(), 'nickname': nickname}])
         if df is not None:
+            print(type(df))  # Print the type of df
             df = df.append(new_data, ignore_index=True)
         else:
             df = new_data
         await self.write_file(filename, df)
+
 
 
     async def get_nickname(self, guild_id, user_id):
