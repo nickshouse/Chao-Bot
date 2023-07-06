@@ -19,6 +19,11 @@ class FortuneTeller(commands.Cog):
         # Get all the user's Chao
         chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
 
+        # Check if new_name is already taken
+        if any(chao['name'] == new_name for chao in chao_list):
+            await ctx.send(f"The name {new_name} is already taken.")
+            return
+
         # Find the Chao with the specified old name
         for chao in chao_list:
             if chao['name'] == old_name:
