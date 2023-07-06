@@ -25,13 +25,27 @@ class Chao(commands.Cog):
         # Check if generated name is already taken and generate new names until a unique one is found
         while any(chao['name'] == chao_name for chao in chao_list):
             chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
+        
+        grades = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
+
+        stats = ['Fly', 'Run', 'Swim', 'Power', 'Stamina']
+        chao_stats = {}
+
+        for stat in stats:
+            chao_stats[stat] = {
+                'grade': random.choice(grades),
+                'ticks': 0,
+                'exp': 0,
+                'level': 0,
+            }
 
         chao = {
             'name': chao_name,
             'color': color,
             'type': chao_type,
             'hatched': 0,
-            'birth_date': None
+            'birth_date': None,
+            'stats': chao_stats,
         }
         await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
         await ctx.send(f"You received a {color} {chao_type} Chao Egg named {chao_name}! It will hatch in 5 seconds.")
