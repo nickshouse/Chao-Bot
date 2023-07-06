@@ -49,7 +49,7 @@ class Chao(commands.Cog):
         await asyncio.sleep(5)
         
         chao['hatched'] = 1
-        chao['birth_date'] = datetime.datetime.now().date()
+        chao['birth_date'] = datetime.datetime.utcnow().date()  # Save the birth date in UTC
         
         await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
         
