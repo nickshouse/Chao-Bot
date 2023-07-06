@@ -60,23 +60,23 @@ class Chao(commands.Cog):
     async def view_chao(self, ctx, chao_name):
         """View the stats of a specified Chao"""
         chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
-        for chao in chao_list:
-            if chao['name'] == chao_name:
-                embed = discord.Embed(title=f"{chao_name}'s Stats", color=discord.Color.blue())
-                embed.set_thumbnail(url="https://example.com/chao_image.png")
-                embed.add_field(name="Birth Date", value=str(chao['birth_date']), inline=False)  # Display the birth date
-                stats = ['Fly', 'Run', 'Swim', 'Power', 'Stamina']
-                for stat in stats:
-                    grade = chao[f'{stat.lower()}_grade']
-                    ticks = chao[f'{stat.lower()}_ticks']
-                    exp = chao[f'{stat.lower()}_exp']
-                    level = chao[f'{stat.lower()}_level']
-                    embed.add_field(name=stat, value=f"Grade: {grade}\nTicks: {ticks}\nExp: {exp}\nLevel: {level}", inline=True)
-                await ctx.send(embed=embed)
-                break
-            else:
-                await ctx.send(f"You don't have a Chao named {chao_name}.")
 
+        chao_to_view = next((chao for chao in chao_list if chao['name'] == chao_name), None)
+
+        if chao_to_view:
+            embed = discord.Embed(title=f"{chao_name}'s Stats", color=discord.Color.blue())
+            embed.set_thumbnail(url="https://example.com/chao_image.png")
+            embed.add_field(name="Birth Date", value=str(chao_to_view['birth_date']), inline=False)
+            stats = ['Fly', 'Run', 'Swim', 'Power', 'Stamina']
+            for stat in stats:
+                grade = chao_to_view[f'{stat.lower()}_grade']
+                ticks = chao_to_view[f'{stat.lower()}_ticks']
+                exp = chao_to_view[f'{stat.lower()}_exp']
+                level = chao_to_view[f'{stat.lower()}_level']
+                embed.add_field(name=stat, value=f"Grade: {grade}\nTicks: {ticks}\nExp: {exp}\nLevel: {level}", inline=True)
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send(f"You don't have a Chao named {chao_name}.")
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
