@@ -64,19 +64,19 @@ class Chao(commands.Cog):
             if chao['name'] == chao_name:
                 embed = discord.Embed(title=f"{chao_name}'s Stats", color=discord.Color.blue())
                 embed.set_thumbnail(url="https://example.com/chao_image.png")
+                embed.add_field(name="Birth Date", value=str(chao['birth_date']), inline=False)  # Display the birth date
                 stats = ['Fly', 'Run', 'Swim', 'Power', 'Stamina']
-
                 for stat in stats:
                     grade = chao[f'{stat.lower()}_grade']
                     ticks = chao[f'{stat.lower()}_ticks']
                     exp = chao[f'{stat.lower()}_exp']
                     level = chao[f'{stat.lower()}_level']
                     embed.add_field(name=stat, value=f"Grade: {grade}\nTicks: {ticks}\nExp: {exp}\nLevel: {level}", inline=True)
-
                 await ctx.send(embed=embed)
                 break
-        else:
-            await ctx.send(f"You don't have a Chao named {chao_name}.")
+            else:
+                await ctx.send(f"You don't have a Chao named {chao_name}.")
+
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
