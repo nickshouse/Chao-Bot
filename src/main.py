@@ -21,6 +21,15 @@ async def load_all_cogs():
     await bot.load_extension('cogs.chao_commands')
 
 @bot.event
+async def on_member_update(before, after):
+    if before.nick != after.nick:
+        # The member's nickname has changed, store the new one.
+        guild_id = after.guild.id
+        user_id = after.id
+        new_nickname = after.nick
+        await bot.get_cog("Database").store_nickname(guild_id, user_id, new_nickname)
+
+@bot.event
 async def on_ready():
     print(f'We have connected as {bot.user.name}')
     bot.loop.create_task(load_all_cogs())
