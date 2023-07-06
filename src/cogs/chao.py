@@ -45,11 +45,14 @@ class Chao(commands.Cog):
             if chao['name'] == old_name:
                 chao['name'] = new_name  # Change the name
 
-                # Move the file
+                # Rename the file
                 old_filename = f"../database/{ctx.guild.id}/{ctx.author.id}/chao_data/{old_name}.parquet"
                 new_filename = f"../database/{ctx.guild.id}/{ctx.author.id}/chao_data/{new_name}.parquet"
-                if os.path.exists(old_filename):
-                    shutil.move(old_filename, new_filename)
+
+                # Use the lock for the old filename to perform the rename operation
+                async with self.bot.cogs['Database'].locks[old_filename]:
+                    if os.path.exists(old_filename):
+                        shutil.move(old_filename, new_filename)
 
                 await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)  # Store the updated Chao
                 await ctx.send(f"{old_name} has been renamed to {new_name}!")
