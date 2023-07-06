@@ -67,6 +67,11 @@ class Chao(commands.Cog):
         # Find the Chao with the specified name
         for chao in chao_list:
             if chao['name'] == chao_name:
+                # Add a check here to make sure 'stats' is a dictionary
+                if not isinstance(chao['stats'], dict):
+                    print(f"Unexpected type for stats in Chao {chao_name}: {type(chao['stats'])}")
+                    return
+
                 embed = discord.Embed(title=f"{chao_name}'s Stats", color=discord.Color.blue())
                 embed.set_thumbnail(url="https://example.com/chao_image.png")  # You can replace this with an actual image URL
                 for stat, info in chao['stats'].items():
