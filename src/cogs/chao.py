@@ -65,15 +65,8 @@ class Chao(commands.Cog):
 
         if chao_to_view:
             embed = discord.Embed(title=f"{chao_name}'s Stats", color=discord.Color.blue())
-            embed.set_thumbnail(url="https://example.com/chao_image.png")
-            embed.add_field(name="Birth Date", value=str(chao_to_view['birth_date']), inline=False)
-            stats = ['Fly', 'Run', 'Swim', 'Power', 'Stamina']
-            for stat in stats:
-                grade = chao_to_view[f'{stat.lower()}_grade']
-                ticks = chao_to_view[f'{stat.lower()}_ticks']
-                exp = chao_to_view[f'{stat.lower()}_exp']
-                level = chao_to_view[f'{stat.lower()}_level']
-                embed.add_field(name=stat, value=f"Grade: {grade}\nTicks: {ticks}\nExp: {exp}\nLevel: {level}", inline=True)
+            embed.set_image(url="https://i.imgur.com/mrYeC6K.png")
+
             await ctx.send(embed=embed)
         else:
             await ctx.send(f"You don't have a Chao named {chao_name}.")
