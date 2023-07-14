@@ -71,6 +71,51 @@ class Chao(commands.Cog):
         else:
             await ctx.send(f"You don't have a Chao named {chao_name}.")
 
+    @commands.command()
+    async def feed(self, ctx, chao_name, item_name):
+        """Feed a Chao a specified item"""
+        db_cog = self.bot.get_cog('Database')
+        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
+
+        chao_to_feed = next((chao for chao in chao_list if chao['name'] == chao_name), None)
+
+        if chao_to_feed is None:
+            await ctx.send(f"You don't have a Chao named {chao_name}.")
+            return
+
+        inventory = await db_cog.get_inventory(ctx.guild.id, ctx.author.id)
+        if inventory is None or not any(row['item'] == item_name for _, row in inventory.iterrows()):
+            await ctx.send(f"You don't have a(n) {item_name} in your inventory.")
+            return
+
+        # Update Chao's stats based on the item
+        # Here, as an example, I'll just increment a single stat for each item
+        item_stat_effects = {
+            'smart fruit': 'smart_ticks',
+            'power fruit': 'power_ticks',
+            'run fruit': 'run_ticks',
+            'swim fruit': 'swim_ticks',
+            'fly fruit': 'fly_ticks'
+            # Add more items here
+        }
+
+        stat_to_update = item_stat_effects.get(item_name.lower(), None)
+        if stat_to_update is not None:
+            chao_to_feed[stat_to_update] += 1  # increment the stat
+
+        # Store the updated Chao stats
+        await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
+
+        # Remove the item from the user's inventory
+        inventory = inventory[~((inventory['item'] == item_name) & (inventory['quantity'] > 0))]
+
+        # Store the updated inventory
+        await db_cog.store_inventory(ctx.guild.id, ctx.author.id, inventory)
+
+        await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!")
+
+
+
 async def setup(bot):
     await bot.add_cog(Chao(bot))
     print("Chao cog loaded")
