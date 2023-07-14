@@ -74,22 +74,22 @@ class Database(commands.Cog):
     async def write_file(self, filename, data):
         start_time = time.time()
         if filename not in self.tasks or self.tasks[filename].done():
-            # Start a worker task if it's not already running.
             self.tasks[filename] = asyncio.create_task(self.worker(filename))
-        await self.queues[filename].put(data)  # Put data into the queue.
-        print(f"write_file operation took {(time.time() - start_time) * 1000} milliseconds")
+        await self.queues[filename].put(data)
+        print(f"Writing data to file {filename} took {(time.time() - start_time) * 1000} milliseconds")
 
     async def get_file(self, filename):
-        start_time = time.time()  # Start the timer
+        start_time = time.time()
         data = self.cache.get(filename)
         if data is None:
-            async with self.locks[filename]:  # Acquire the lock.
+            async with self.locks[filename]:
                 if os.path.exists(filename):
                     loop = asyncio.get_running_loop()
                     data = await loop.run_in_executor(self.executor, pd.read_parquet, filename)
                     self.cache.put(filename, data)
-        print(f"get_file operation took {(time.time() - start_time) * 1000} milliseconds")
+        print(f"Retrieving data from file {filename} took {(time.time() - start_time) * 1000} milliseconds")
         return data
+
     
     async def store_rings(self, guild_id, user_id, value):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
