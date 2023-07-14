@@ -55,12 +55,21 @@ class Database(commands.Cog):
     async def before_backup_data(self):
         await self.bot.wait_until_ready()  # Wait until the bot is ready
         await asyncio.sleep(3600)  # Wait for 1 hour before the first run
-        
+
     async def restore_backup(self):
         """Restore data from the backup."""
         backup_path = f"{self.data_path}_backup"
         if os.path.exists(backup_path):
-            shutil.rmtree(self.data_path, ignore_errors=True)  # Delete current database
+            for filename in os.listdir(self.data_path):  # Delete current database content
+                file_path = os.path.join(self.data_path, filename)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print(f'Failed to delete {file_path}. Reason: {e}')
+            
             shutil.copytree(backup_path, self.data_path)  # Replace with backup
             print("Backup restored")
 
