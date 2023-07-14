@@ -77,6 +77,7 @@ class Database(commands.Cog):
             self.tasks[filename] = asyncio.create_task(self.worker(filename))
         await self.queues[filename].put(data)
         print(f"Writing data to file {filename} took {(time.time() - start_time) * 1000} milliseconds")
+        print(f"Data: \n{data}")  # This line prints out the data being written.
 
     async def get_file(self, filename):
         start_time = time.time()
@@ -88,7 +89,9 @@ class Database(commands.Cog):
                     data = await loop.run_in_executor(self.executor, pd.read_parquet, filename)
                     self.cache.put(filename, data)
         print(f"Retrieving data from file {filename} took {(time.time() - start_time) * 1000} milliseconds")
+        print(f"Data: \n{data}")  # This line prints out the data that was retrieved.
         return data
+
 
     
     async def store_rings(self, guild_id, user_id, value):
