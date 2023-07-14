@@ -6,7 +6,9 @@ from discord.ext import commands, tasks
 from collections import OrderedDict, defaultdict
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-import time  # Import time for performance monitoring
+import time
+
+import pytz  # Import time for performance monitoring
 
 class TimeAwareLRUCache:
     def __init__(self, capacity: int, ttl: int = 3600):
@@ -46,7 +48,8 @@ class Database(commands.Cog):
         backup_path = f"{self.data_path}_backup"
         shutil.rmtree(backup_path, ignore_errors=True)  # Delete any existing backup
         shutil.copytree(self.data_path, backup_path)  # Create a new backup
-        print(f"Backup taken at {datetime.datetime.now()}")
+        now = datetime.datetime.now(pytz.timezone('US/Central'))
+        print(f"Backup taken at {now.strftime('%I:%M:%S %p')}")
 
     async def restore_backup(self):
         """Restore data from the backup."""
