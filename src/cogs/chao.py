@@ -72,19 +72,34 @@ class Chao(commands.Cog):
             await ctx.send(f"You don't have a Chao named {chao_name}.")
 
     @commands.command()
-    async def feed(self, ctx, chao_name, item_name):
+    async def feed(self, ctx, chao_name, *args):
         """Feed a Chao a specified item"""
         db_cog = self.bot.get_cog('Database')
-        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
 
-        chao_to_feed = next((chao for chao in chao_list if chao['name'] == chao_name), None)
+        item_name = ' '.join(args).rstrip('s').lower()
+
+        # Check if the user has a Chao with the specified name
+        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
+        chao_to_feed = next((chao for chao in chao_list if chao['name'].lower() == chao_name.lower()), None)
 
         if chao_to_feed is None:
             await ctx.send(f"You don't have a Chao named {chao_name}.")
             return
 
-        inventory = await db_cog.get_inventory(ctx.guild.id, ctx.author.id)
-        if inventory is None or not any(row['item'] == item_name for _, row in inventory.iterrows()):
+        # Check if the user has the specified item in their inventory
+        inventory_df = await db_cog.get_inventory(ctx.guild.id, ctx.author.id)
+        if inventory_df is None or not inventory_df[inventory_df['item'].str.lower() == item_name].empty:
+            inventory_item = inventory_df.loc[inventory_df['item'].str.lower() == item_name]
+
+            # Check if the user has enough quantity of the item
+            if inventory_item.empty or inventory_item.iloc[0]['quantity'] <= 0:
+                await ctx.send(f"You don't have a(n) {item_name} in your inventory.")
+                return
+
+            inventory_df.loc[inventory_df['item'].str.lower() == item_name, 'quantity'] -= 1
+            await db_cog.store_inventory(ctx.guild.id, ctx.author.id, inventory_df)
+            
+        else:
             await ctx.send(f"You don't have a(n) {item_name} in your inventory.")
             return
 
@@ -106,14 +121,7 @@ class Chao(commands.Cog):
         # Store the updated Chao stats
         await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
 
-        # Remove the item from the user's inventory
-        inventory = inventory[~((inventory['item'] == item_name) & (inventory['quantity'] > 0))]
-
-        # Store the updated inventory
-        await db_cog.store_inventory(ctx.guild.id, ctx.author.id, inventory)
-
         await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!")
-
 
 
 async def setup(bot):
