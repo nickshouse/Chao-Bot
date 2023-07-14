@@ -51,6 +51,9 @@ class Database(commands.Cog):
         now = datetime.datetime.now(pytz.timezone('US/Central'))
         print(f"Backup taken at {now.strftime('%m-%d-%Y %I:%M:%S %p')}")
 
+    @backup_data.before_loop
+    async def before_backup_data(self):
+        await self.bot.wait_until_ready()  # Wait until the bot is ready
 
     async def restore_backup(self):
         """Restore data from the backup."""
