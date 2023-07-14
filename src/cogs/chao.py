@@ -118,6 +118,12 @@ class Chao(commands.Cog):
         if stat_to_update is not None:
             chao_to_feed[stat_to_update] += 1  # increment the stat
 
+            # Check if the ticks have reached 10
+            if chao_to_feed[stat_to_update] >= 10:
+                chao_to_feed[stat_to_update] = 0  # reset ticks
+                stat_level = stat_to_update.rsplit('_', 1)[0] + '_level'  # corresponding level stat
+                chao_to_feed[stat_level] += 1  # level up
+
         # Store the updated Chao stats
         await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
 
