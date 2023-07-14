@@ -54,7 +54,8 @@ class Database(commands.Cog):
     @backup_data.before_loop
     async def before_backup_data(self):
         await self.bot.wait_until_ready()  # Wait until the bot is ready
-
+        await asyncio.sleep(3600)  # Wait for 1 hour before the first run
+        
     async def restore_backup(self):
         """Restore data from the backup."""
         backup_path = f"{self.data_path}_backup"
