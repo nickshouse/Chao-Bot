@@ -32,4 +32,9 @@ async def on_ready():
     print(f'We have connected as {bot.user.name}')
     bot.loop.create_task(load_all_cogs())
 
+@bot.command()
+async def restore_backup(ctx):
+    await bot.get_cog("Database").restore_backup()
+    await ctx.send("Backup restored!")
+
 bot.run(token)  # Using the bot token from .env file
