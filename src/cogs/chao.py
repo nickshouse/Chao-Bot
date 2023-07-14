@@ -88,7 +88,7 @@ class Chao(commands.Cog):
 
         # Check if the user has the specified item in their inventory
         inventory_df = await db_cog.get_inventory(ctx.guild.id, ctx.author.id)
-        if inventory_df is None or not inventory_df[inventory_df['item'].str.lower() == item_name].empty:
+        if inventory_df is not None and not inventory_df[inventory_df['item'].str.lower() == item_name].empty:
             inventory_item = inventory_df.loc[inventory_df['item'].str.lower() == item_name]
 
             # Check if the user has enough quantity of the item
