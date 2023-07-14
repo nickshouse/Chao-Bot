@@ -104,30 +104,30 @@ class Chao(commands.Cog):
             return
 
         # Update Chao's stats based on the item
-        # Here, as an example, I'll just increment a single stat for each item
         item_stat_effects = {
             'smart fruit': 'smart_ticks',
             'power fruit': 'power_ticks',
             'run fruit': 'run_ticks',
             'swim fruit': 'swim_ticks',
             'fly fruit': 'fly_ticks'
-            # Add more items here
         }
 
         stat_to_update = item_stat_effects.get(item_name.lower(), None)
         if stat_to_update is not None:
             chao_to_feed[stat_to_update] += 1  # increment the stat
+            level_up_message = ""
 
             # Check if the ticks have reached 10
             if chao_to_feed[stat_to_update] >= 10:
                 chao_to_feed[stat_to_update] = 0  # reset ticks
                 stat_level = stat_to_update.rsplit('_', 1)[0] + '_level'  # corresponding level stat
                 chao_to_feed[stat_level] += 1  # level up
+                level_up_message = f"\n{chao_name}'s {stat_level.replace('_', ' ')} has increased to level {chao_to_feed[stat_level]}!"
 
         # Store the updated Chao stats
         await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
 
-        await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!")
+        await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!{level_up_message}")
 
 
 async def setup(bot):
