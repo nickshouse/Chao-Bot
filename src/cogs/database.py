@@ -49,7 +49,8 @@ class Database(commands.Cog):
         shutil.rmtree(backup_path, ignore_errors=True)  # Delete any existing backup
         shutil.copytree(self.data_path, backup_path)  # Create a new backup
         now = datetime.datetime.now(pytz.timezone('US/Central'))
-        print(f"Backup taken at {now.strftime('%I:%M:%S %p')}")
+        print(f"Backup taken at {now.strftime('%m-%d-%Y %I:%M:%S %p')}")
+
 
     async def restore_backup(self):
         """Restore data from the backup."""
