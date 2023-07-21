@@ -2,6 +2,7 @@ import datetime
 import os
 import shutil
 import pandas as pd
+import errno
 from discord.ext import commands, tasks
 from collections import OrderedDict, defaultdict
 import asyncio
@@ -56,6 +57,11 @@ class Database(commands.Cog):
         await self.bot.wait_until_ready()  # Wait until the bot is ready
         await asyncio.sleep(3600)  # Wait for 1 hour before the first run
 
+
+    def handle_error(func, path, exc_info):
+        if not os.path.isdir(path):
+            raise
+
     async def restore_backup(self):
         """Restore data from the backup."""
         backup_path = f"{self.data_path}_backup"
@@ -69,9 +75,12 @@ class Database(commands.Cog):
                         shutil.rmtree(file_path)
                 except Exception as e:
                     print(f'Failed to delete {file_path}. Reason: {e}')
-            
-            shutil.copytree(backup_path, self.data_path)  # Replace with backup
-            print("Backup restored")
+            try:
+                shutil.copytree(backup_path, self.data_path, dirs_exist_ok=True)
+            except Exception as e:
+                print(f"Failed to copy {backup_path} to {self.data_path}. Reason: {e}")
+            else:
+                print("Backup restored")
 
     def cog_unload(self):
         """Clean up when the cog is unloaded."""

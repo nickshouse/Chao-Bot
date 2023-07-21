@@ -105,12 +105,13 @@ class Chao(commands.Cog):
 
         # Update Chao's stats based on the item
         item_stat_effects = {
-            'smart fruit': 'smart_ticks',
             'power fruit': 'power_ticks',
             'run fruit': 'run_ticks',
             'swim fruit': 'swim_ticks',
-            'fly fruit': 'fly_ticks'
+            'fly fruit': 'fly_ticks',
+            'stamina fruit': 'stamina_ticks'
         }
+
 
         stat_to_update = item_stat_effects.get(item_name.lower(), None)
         if stat_to_update is not None:
