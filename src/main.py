@@ -35,7 +35,7 @@ async def on_ready():
 
 @bot.command()
 async def restore_backup(ctx):
-    await bot.get_cog("Database").restore_backup() # type: ignore
+    await bot.get_cog("Database").restore_backup()
     await ctx.send("Backup restored!")
 
 bot.run(token)  # Using the bot token from .env file

@@ -159,9 +159,10 @@ class Database(commands.Cog):
         for file in os.listdir(dir_path):
             if file.endswith(".parquet"):
                 df = await self.get_file(f"{dir_path}/{file}")
-                chao_dict = df.to_dict(orient='records')[0]
-                if 'name' in chao_dict:
-                    chao.append(chao_dict)
+                if df is not None:
+                    chao_dict = df.to_dict(orient='records')[0]
+                    if 'name' in chao_dict:
+                        chao.append(chao_dict)
         return chao
 
     async def store_nickname(self, guild_id, user_id, nickname):
