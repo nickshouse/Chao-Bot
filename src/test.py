@@ -1,15 +1,16 @@
 from PIL import Image
 
 def paste_image(template_path, overlay_path, output_path, position):
-    # Open the template and overlay images
     template = Image.open(template_path)
     overlay = Image.open(overlay_path)
 
-    # Paste the overlay image onto the template at the specified position
-    # The third argument is a mask to handle transparency of the overlay image
+    # Ensure the overlay image has an alpha channel
+    if overlay.mode != 'RGBA':
+        overlay = overlay.convert('RGBA')
+
+    # Now the alpha channel can be used as the mask
     template.paste(overlay, position, overlay)
 
-    # Save the result
     template.save(output_path)
 
 # Paths to the images
