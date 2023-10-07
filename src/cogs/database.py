@@ -134,18 +134,6 @@ class Database(commands.Cog):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         os.makedirs(dir_path, exist_ok=True)
         filename = f"{dir_path}/inventory.parquet"
-        await self.write_file(filename, inventory_df)
-
-
-    async def get_inventory(self, guild_id, user_id):
-        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
-        filename = f"{dir_path}/inventory.parquet"
-        return await self.get_file(filename)
-
-    async def store_inventory(self, guild_id, user_id, inventory_df):
-        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
-        os.makedirs(dir_path, exist_ok=True)
-        filename = f"{dir_path}/inventory.parquet"
 
         # Read the existing inventory
         existing_inventory_df = await self.get_file(filename)
@@ -169,6 +157,21 @@ class Database(commands.Cog):
 
 
 
+    async def get_inventory(self, guild_id, user_id):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
+        filename = f"{dir_path}/inventory.parquet"
+        return await self.get_file(filename)
+
+    async def store_chao(self, guild_id, user_id, chao):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
+        os.makedirs(dir_path, exist_ok=True)
+        filename = f"{dir_path}/{chao['name']}.parquet"
+        df = await self.get_file(filename)
+        if df is not None:  # If the chao already exists, we need to update it
+            df.update(pd.DataFrame(chao, index=[0]))
+        else:  # If it's a new chao, we create it
+            df = pd.DataFrame(chao, index=[0])
+        await self.write_file(filename, df)
 
     async def get_chao(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
