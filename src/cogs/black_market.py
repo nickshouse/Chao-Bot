@@ -80,11 +80,15 @@ class BlackMarket(commands.Cog):
         await db_cog.store_rings(str(ctx.guild.id), str(ctx.author.id), new_balance)
 
         inventory = await db_cog.get_inventory(str(ctx.guild.id), str(ctx.author.id))
-        new_data = pd.DataFrame([(quantity, item)], columns=['quantity', 'item'])
-        if inventory is None:
-            inventory = new_data
+        if inventory is not None and not inventory[inventory['item'].str.lower() == item].empty:
+            item_row = inventory.loc[inventory['item'].str.lower() == item]
+            item_row['quantity'] += quantity  # Update the quantity of the item
         else:
-            inventory = pd.concat([inventory, new_data], ignore_index=True)
+            new_data = pd.DataFrame([(quantity, item)], columns=['quantity', 'item'])
+            if inventory is None:
+                inventory = new_data
+            else:
+                inventory = pd.concat([inventory, new_data], ignore_index=True)
         await db_cog.store_inventory(str(ctx.guild.id), str(ctx.author.id), inventory)
 
         # Adjust item name for quantity
