@@ -24,7 +24,17 @@ class Generator(commands.Cog):
         template.save(output_path)
 
     @commands.command()
-    async def generate_image(self, ctx, ticks: int):
+    async def generate_image(self, ctx, chao_name):
+        # Get the power ticks for the specified Chao from the database
+        chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
+        chao_to_view = next((chao for chao in chao_list if chao['name'] == chao_name), None)
+
+        if chao_to_view is None:
+            await ctx.send(f"You don't have a Chao named {chao_name}.")
+            return
+
+        power_ticks = chao_to_view['power_ticks']  # Get the power ticks from the database
+
         # Paths to the images
         template_path = './assets/stats_template.png'
         overlay_path = './assets/tick_filled.png'
@@ -34,7 +44,7 @@ class Generator(commands.Cog):
         start_position = (174, 351)
 
         # Call the function
-        self.paste_image(template_path, overlay_path, output_path, start_position, ticks)
+        self.paste_image(template_path, overlay_path, output_path, start_position, power_ticks)
 
         # Send the generated image to the channel
         with open(output_path, 'rb') as file:
