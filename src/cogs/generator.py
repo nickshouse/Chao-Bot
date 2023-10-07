@@ -35,8 +35,8 @@ class Generator(commands.Cog):
             power_ticks = chao_to_view['power_ticks']  # Get the power ticks from the database
         
         # Paths to the images
-        template_path = './assets/stats_template.png'
-        overlay_path = './assets/tick_filled.png'
+        template_path = '../assets/stats_template.png'
+        overlay_path = '../assets/tick_filled.png'
         output_path = './output_image.png'
 
         # Starting position where the first overlay image should be pasted onto the template
