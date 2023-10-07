@@ -151,14 +151,22 @@ class Database(commands.Cog):
         existing_inventory_df = await self.get_file(filename)
         
         if existing_inventory_df is not None:
-            # Merge the existing and new inventory data, summing the quantities of matching items
-            merged_df = pd.merge(existing_inventory_df, inventory_df, on='item', how='outer', suffixes=('_existing', '_new')).fillna(0)
-            merged_df['quantity'] = merged_df['quantity_existing'] + merged_df['quantity_new']
-            merged_df = merged_df[['item', 'quantity']]  # Keep only the necessary columns
+            for index, row in inventory_df.iterrows():
+                item_name = row['item']
+                # Check if the item already exists in the inventory
+                existing_item_index = existing_inventory_df.index[existing_inventory_df['item'] == item_name]
+                if not existing_item_index.empty:
+                    # Update the quantity if the item already exists
+                    existing_inventory_df.at[existing_item_index[0], 'quantity'] += row['quantity']
+                else:
+                    # Append a new row if the item doesn't exist
+                    existing_inventory_df = existing_inventory_df.append(row, ignore_index=True)
+            final_df = existing_inventory_df
         else:
-            merged_df = inventory_df  # If no existing inventory, use the new inventory data
+            final_df = inventory_df  # If no existing inventory, use the new inventory data
         
-        await self.write_file(filename, merged_df)
+        await self.write_file(filename, final_df)
+
 
 
     async def get_chao(self, guild_id, user_id):
