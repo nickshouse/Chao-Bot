@@ -130,12 +130,12 @@ class Database(commands.Cog):
         df = await self.get_file(filename)
         return df['value'].sum() if df is not None else 0
 
-    async def store_inventory(self, guild_id, user_id, inventory):
+    async def store_inventory(self, guild_id, user_id, inventory_df):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         os.makedirs(dir_path, exist_ok=True)
         filename = f"{dir_path}/inventory.parquet"
-        df = pd.DataFrame(inventory, columns=['quantity', 'item'])
-        await self.write_file(filename, df)
+        await self.write_file(filename, inventory_df)
+
 
     async def get_inventory(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
