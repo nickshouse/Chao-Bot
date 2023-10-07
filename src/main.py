@@ -15,6 +15,7 @@ token = os.getenv('DISCORD_TOKEN')
 async def load_all_cogs():
     await bot.load_extension('cogs.logger')
     await bot.load_extension('cogs.database')
+    await bot.load_extension('cogs.generator')
     await bot.load_extension('cogs.black_market')
     await bot.load_extension('cogs.fortune_teller')
     await bot.load_extension('cogs.chao')
