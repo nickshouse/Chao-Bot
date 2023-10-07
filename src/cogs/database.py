@@ -169,6 +169,7 @@ class Database(commands.Cog):
 
 
 
+
     async def get_chao(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         chao = []
