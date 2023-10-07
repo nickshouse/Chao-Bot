@@ -112,7 +112,6 @@ class Chao(commands.Cog):
             'stamina fruit': 'stamina_ticks'
         }
 
-
         stat_to_update = item_stat_effects.get(item_name.lower(), None)
         if stat_to_update is not None:
             chao_to_feed[stat_to_update] += 1  # increment the stat
@@ -127,6 +126,10 @@ class Chao(commands.Cog):
 
         # Store the updated Chao stats
         await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
+
+        # Update the image if a power fruit is fed
+        if item_name.lower() == 'power fruit':
+            await self.bot.cogs['Generator'].generate_image(ctx, chao_name, chao_to_feed['power_ticks'])
 
         await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!{level_up_message}")
 

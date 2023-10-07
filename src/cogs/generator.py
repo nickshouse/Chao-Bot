@@ -24,17 +24,16 @@ class Generator(commands.Cog):
         template.save(output_path)
 
     @commands.command()
-    async def generate_image(self, ctx, chao_name):
-        # Get the power ticks for the specified Chao from the database
-        chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
-        chao_to_view = next((chao for chao in chao_list if chao['name'] == chao_name), None)
-
-        if chao_to_view is None:
-            await ctx.send(f"You don't have a Chao named {chao_name}.")
-            return
-
-        power_ticks = chao_to_view['power_ticks']  # Get the power ticks from the database
-
+    async def generate_image(self, ctx, chao_name, power_ticks=None):
+        # If power_ticks is None, fetch it from the database as before.
+        if power_ticks is None:
+            chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
+            chao_to_view = next((chao for chao in chao_list if chao['name'] == chao_name), None)
+            if chao_to_view is None:
+                await ctx.send(f"You don't have a Chao named {chao_name}.")
+                return
+            power_ticks = chao_to_view['power_ticks']  # Get the power ticks from the database
+        
         # Paths to the images
         template_path = './assets/stats_template.png'
         overlay_path = './assets/tick_filled.png'
@@ -49,6 +48,7 @@ class Generator(commands.Cog):
         # Send the generated image to the channel
         with open(output_path, 'rb') as file:
             await ctx.send(file=discord.File(file, 'output_image.png'))
+
 
 async def setup(bot):
     await bot.add_cog(Generator(bot))
