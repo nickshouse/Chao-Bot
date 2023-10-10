@@ -24,7 +24,7 @@ class Chao(commands.Cog):
             chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
         
         grades = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
-        stats = ['Fly', 'Run', 'Swim', 'Power', 'Stamina']
+        stats = ['Fly', 'Run', 'Swim', 'Power', 'Stamina', 'HP']
         chao = {
             'name': chao_name,
             'color': color,
@@ -129,12 +129,11 @@ class Chao(commands.Cog):
                 chao_to_feed[stat_level] += 1  # level up
                 level_up_message = f"\n{chao_name}'s {stat_level.replace('_', ' ')} has increased to level {chao_to_feed[stat_level]}!"
 
-        # Store the updated Chao stats
-        await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
-
-        # Update the image if a power fruit is fed
-        if item_name.lower() == 'power fruit':
-            await self.bot.cogs['Generator'].generate_image(ctx, chao_name, chao_to_feed['power_ticks'])
+        # Update the image if a stat-affecting fruit is fed
+        if item_name.lower() in item_stat_effects:
+            # Getting the stat name from stat_to_update e.g. 'power' from 'power_ticks'
+            stat_name = stat_to_update.rsplit('_', 1)[0]
+            await self.bot.cogs['Generator'].generate_image(ctx, chao_name, stat_name, chao_to_feed[stat_to_update])
 
         await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!{level_up_message}")
 
