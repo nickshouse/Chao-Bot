@@ -24,7 +24,7 @@ class Chao(commands.Cog):
             chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
         
         grades = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
-        stats = ['Swim', 'Fly', 'Run', 'Power', 'Stamina', 'HP']
+        stats = ['Swim', 'Fly', 'Run', 'Power', 'Stamina', 'HP', 'Smart']
         chao = {
             'name': chao_name,
             'color': color,
@@ -50,6 +50,7 @@ class Chao(commands.Cog):
         
         chao['hatched'] = 1
         chao['birth_date'] = datetime.datetime.utcnow().date()  # Save the birth date in UTC
+        chao['hp_ticks'] = 10  # Set hp_ticks to 10 upon hatching
         
         await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao)
         
@@ -114,12 +115,14 @@ class Chao(commands.Cog):
             'run fruit': 'run_ticks',
             'swim fruit': 'swim_ticks',
             'fly fruit': 'fly_ticks',
-            'stamina fruit': 'stamina_ticks'
+            'stamina fruit': 'stamina_ticks',
+            'smart fruit': 'smart_ticks'  # smart fruit added
         }
 
         stat_to_update = item_stat_effects.get(item_name.lower(), None)
         if stat_to_update is not None:
             chao_to_feed[stat_to_update] += 1  # increment the stat
+            chao_to_feed['hp_ticks'] = min(chao_to_feed['hp_ticks'] + 1, 10)  # increment hp_ticks for any fruit, but cap at 10
             level_up_message = ""
 
             # Check if the ticks have reached 10
@@ -144,6 +147,7 @@ class Chao(commands.Cog):
         else:
             # If it's not a stat-affecting fruit, just store the updated chao data
             await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
+
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
