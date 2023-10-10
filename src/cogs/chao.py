@@ -24,7 +24,7 @@ class Chao(commands.Cog):
             chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
         
         grades = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
-        stats = ['Fly', 'Run', 'Swim', 'Power', 'Stamina', 'HP']
+        stats = ['Swim', 'Fly', 'Run', 'Power', 'Stamina', 'HP']
         chao = {
             'name': chao_name,
             'color': color,
