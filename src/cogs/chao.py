@@ -135,6 +135,9 @@ class Chao(commands.Cog):
             stat_name = stat_to_update.rsplit('_', 1)[0]
             await self.bot.cogs['Generator'].generate_image(ctx, chao_name, stat_name, chao_to_feed[stat_to_update])
 
+        # Save the updated chao data back to the database
+        await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
+
         await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!{level_up_message}")
 
 
