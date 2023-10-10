@@ -55,10 +55,19 @@ class Generator(commands.Cog):
         # Call the function
         self.paste_image(template_path, overlay_path, output_path, tick_positions, power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks)
 
-        # Send the generated image to the channel
-        with open(output_path, 'rb') as file:
-            await ctx.send(file=discord.File(file, 'output_image.png'))
+        # Create an embed
+        embed = discord.Embed(
+            title=f"Generated Image for {chao_name}",
+            color=discord.Color.blue()
+        )
 
+        # Attach the image to the embed
+        with open(output_path, 'rb') as file:
+            file = discord.File(file, 'output_image.png')
+            embed.set_image(url=f'attachment://{file.filename}')
+
+        # Send the embed with the attached image to the channel
+        await ctx.send(file=file, embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Generator(bot))
