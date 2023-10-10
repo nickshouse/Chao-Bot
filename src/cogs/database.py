@@ -174,7 +174,6 @@ class Database(commands.Cog):
                 df.at[0, key] = value  # Setting the value in the DataFrame
         else:  # If it's a new chao, we create it
             df = pd.DataFrame(chao, index=[0])
-        self.cache.put(filename, df)  # Update the cache immediately
         await self.write_file(filename, df)  # Writing the DataFrame to file
 
 
