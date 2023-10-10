@@ -133,13 +133,17 @@ class Chao(commands.Cog):
         if item_name.lower() in item_stat_effects:
             # Getting the stat name from stat_to_update e.g. 'power' from 'power_ticks'
             stat_name = stat_to_update.rsplit('_', 1)[0]
+            
+            # Save the updated chao data back to the database and await its completion
+            await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
+            
+            # Now call generate_image after store_chao has completed
             await self.bot.cogs['Generator'].generate_image(ctx, chao_name, stat_name, chao_to_feed[stat_to_update])
 
-        # Save the updated chao data back to the database
-        await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
-
-        await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!{level_up_message}")
-
+            await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!{level_up_message}")
+        else:
+            # If it's not a stat-affecting fruit, just store the updated chao data
+            await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
