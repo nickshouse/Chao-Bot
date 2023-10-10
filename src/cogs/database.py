@@ -170,10 +170,12 @@ class Database(commands.Cog):
         filename = f"{dir_path}/{chao['name']}.parquet"
         df = await self.get_file(filename)
         if df is not None:  # If the chao already exists, we need to update it
-            df.update(pd.DataFrame(chao, index=[0]))
+            for key, value in chao.items():  # Iterating through each item in the chao dict
+                df.at[0, key] = value  # Setting the value in the DataFrame
         else:  # If it's a new chao, we create it
             df = pd.DataFrame(chao, index=[0])
-        await self.write_file(filename, df)
+        await self.write_file(filename, df)  # Writing the DataFrame to file
+
 
     async def get_chao(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
