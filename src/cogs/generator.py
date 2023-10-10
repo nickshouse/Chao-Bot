@@ -40,7 +40,7 @@ class Generator(commands.Cog):
         output_path = './output_image.png'
 
         # Starting position where the first overlay image should be pasted onto the template
-        start_position = (174, 351)
+        start_position = (178, 1162)
 
         # Call the function
         self.paste_image(template_path, overlay_path, output_path, start_position, power_ticks)
