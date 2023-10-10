@@ -65,6 +65,11 @@ class Chao(commands.Cog):
 
         if chao_to_view:
             embed = discord.Embed(title=f"{chao_name}'s Stats", color=discord.Color.blue())
+            embed.add_field(name="Color", value=chao_to_view['color'], inline=True)
+            embed.add_field(name="Type", value=chao_to_view['type'], inline=True)
+            embed.add_field(name="Hatched", value="Yes" if chao_to_view['hatched'] else "No", inline=True)
+            # ... add more fields as desired
+
             embed.set_image(url="https://i.imgur.com/mrYeC6K.png")
 
             await ctx.send(embed=embed)
