@@ -129,7 +129,7 @@ class Database(commands.Cog):
         filename = f"{dir_path}/rings.parquet"
         df = await self.get_file(filename)
         return df['value'].sum() if df is not None else 0
-
+        
     async def store_inventory(self, guild_id, user_id, inventory_df):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         os.makedirs(dir_path, exist_ok=True)
@@ -144,8 +144,8 @@ class Database(commands.Cog):
                 # Check if the item already exists in the inventory
                 existing_item_index = existing_inventory_df.index[existing_inventory_df['item'] == item_name]
                 if not existing_item_index.empty:
-                    # Update the quantity if the item already exists
-                    existing_inventory_df.at[existing_item_index[0], 'quantity'] += row['quantity']
+                    # Set the quantity directly if the item already exists
+                    existing_inventory_df.at[existing_item_index[0], 'quantity'] = row['quantity']
                 else:
                     # Append a new row if the item doesn't exist
                     new_row_df = pd.DataFrame([row])
