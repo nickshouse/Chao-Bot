@@ -148,12 +148,14 @@ class Database(commands.Cog):
                     existing_inventory_df.at[existing_item_index[0], 'quantity'] += row['quantity']
                 else:
                     # Append a new row if the item doesn't exist
-                    existing_inventory_df = existing_inventory_df.append(row, ignore_index=True)
+                    new_row_df = pd.DataFrame([row])
+                    existing_inventory_df = pd.concat([existing_inventory_df, new_row_df], ignore_index=True)
             final_df = existing_inventory_df
         else:
             final_df = inventory_df  # If no existing inventory, use the new inventory data
         
         await self.write_file(filename, final_df)
+
 
 
 
