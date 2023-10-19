@@ -23,7 +23,7 @@ class Generator(commands.Cog):
                 template.paste(overlay, position, overlay)
 
         # Paste power, swim, stamina, fly, run, and hp ticks
-        for position, ticks, spacing in zip(tick_positions, [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks], [118, 104, 118, 118, 118, 118]):
+        for position, ticks, spacing in zip(tick_positions, [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks], [118, 105, 118, 118, 118, 118]):
             paste_ticks(position, ticks, spacing)
 
         template.save(output_path)
