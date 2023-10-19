@@ -16,15 +16,15 @@ class Generator(commands.Cog):
             overlay = overlay.convert('RGBA')
 
         # Function to paste ticks at a specified start position
-        def paste_ticks(start_position, ticks):
+        def paste_ticks(start_position, ticks, tick_spacing):
             for i in range(ticks):
-                x_position = start_position[0] + i * 118  # 118 pixels apart on the x-axis
+                x_position = start_position[0] + i * tick_spacing  # spacing between ticks
                 position = (x_position, start_position[1])  # Same y-axis
                 template.paste(overlay, position, overlay)
 
         # Paste power, swim, stamina, fly, run, and hp ticks
-        for position, ticks in zip(tick_positions, [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks]):
-            paste_ticks(position, ticks)
+        for position, ticks, spacing in zip(tick_positions, [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks], [118, 104, 118, 118, 118, 118]):
+            paste_ticks(position, ticks, spacing)
 
         template.save(output_path)
 
@@ -50,7 +50,7 @@ class Generator(commands.Cog):
         output_path = './output_image.png'
 
         # Starting positions for power, swim, stamina, fly, run, and hp ticks
-        tick_positions = [(178, 1162), (178, 351), (178, 1448), (178, 625), (178, 890), (178, 1729)]
+        tick_positions = [(178, 1162), (457, 315), (178, 1448), (178, 625), (178, 890), (178, 1729)]
 
         # Call the function
         self.paste_image(template_path, overlay_path, output_path, tick_positions, power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks)
