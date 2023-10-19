@@ -7,7 +7,7 @@ class Generator(commands.Cog):
         self.bot = bot
 
     @staticmethod
-    def paste_image(template_path, overlay_path, output_path, tick_positions, power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks):
+    def paste_image(template_path, overlay_path, output_path, tick_positions, power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, intel_ticks):
         template = Image.open(template_path)
         overlay = Image.open(overlay_path)
 
@@ -22,16 +22,16 @@ class Generator(commands.Cog):
                 position = (x_position, start_position[1])  # Same y-axis
                 template.paste(overlay, position, overlay)
 
-        # Paste power, swim, stamina, fly, run, and hp ticks
-        for position, ticks, spacing in zip(tick_positions, [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks], [118, 105, 118, 118, 118, 118]):
+        # Paste power, swim, stamina, fly, run, and intel ticks
+        for position, ticks, spacing in zip(tick_positions, [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, intel_ticks], [104, 104, 104, 104, 104, 104]):
             paste_ticks(position, ticks, spacing)
 
         template.save(output_path)
 
     @commands.command()
-    async def generate_image(self, ctx, chao_name, power_ticks=None, swim_ticks=None, stamina_ticks=None, fly_ticks=None, run_ticks=None, hp_ticks=None):
+    async def generate_image(self, ctx, chao_name, power_ticks=None, swim_ticks=None, stamina_ticks=None, fly_ticks=None, run_ticks=None, intel_ticks=None):
         # If ticks are None, fetch them from the database
-        if any(tick is None for tick in [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks]):
+        if any(tick is None for tick in [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, intel_ticks]):
             chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
             chao_to_view = next((chao for chao in chao_list if chao['name'] == chao_name), None)
             if chao_to_view is None:
@@ -42,18 +42,18 @@ class Generator(commands.Cog):
             stamina_ticks = chao_to_view['stamina_ticks']
             fly_ticks = chao_to_view['fly_ticks']
             run_ticks = chao_to_view['run_ticks']
-            hp_ticks = chao_to_view['hp_ticks']  # Get the hp ticks from the database
+            intel_ticks = chao_to_view['intel_ticks']  # Get the intel ticks from the database
 
         # Paths to the images
         template_path = '../assets/stats_template.png'
         overlay_path = '../assets/tick_filled.png'
         output_path = './output_image.png'
 
-        # Starting positions for power, swim, stamina, fly, run, and hp ticks
-        tick_positions = [(178, 1162), (457, 315), (178, 1448), (178, 625), (178, 890), (178, 1729)]
+        # Starting positions for power, swim, stamina, fly, run, and intel ticks
+        tick_positions = [(457, 1176), (457, 315), (457, 1747), (457, 591), (457, 883), (457, 1469)]
 
         # Call the function
-        self.paste_image(template_path, overlay_path, output_path, tick_positions, power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, hp_ticks)
+        self.paste_image(template_path, overlay_path, output_path, tick_positions, power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, intel_ticks)
 
         # Create an embed
         embed = discord.Embed(

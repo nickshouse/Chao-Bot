@@ -24,7 +24,7 @@ class Chao(commands.Cog):
             chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
         
         grades = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
-        stats = ['Swim', 'Fly', 'Run', 'Power', 'Stamina', 'HP', 'Smart']
+        stats = ['Swim', 'Fly', 'Run', 'Power', 'Intel', 'Stamina']
         chao = {
             'name': chao_name,
             'color': color,
@@ -115,8 +115,8 @@ class Chao(commands.Cog):
             'run fruit': 'run_ticks',
             'swim fruit': 'swim_ticks',
             'fly fruit': 'fly_ticks',
-            'stamina fruit': 'stamina_ticks',
-            'smart fruit': 'smart_ticks'  # smart fruit added
+            'garden fruit': 'stamina_ticks',
+            'smart fruit': 'intel_ticks'  # smart fruit added
         }
 
         stat_to_update = item_stat_effects.get(item_name.lower(), None)
