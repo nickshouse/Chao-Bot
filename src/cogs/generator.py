@@ -23,7 +23,7 @@ class Generator(commands.Cog):
                 template.paste(overlay, position, overlay)
 
         # Paste power, swim, stamina, fly, run, and intel ticks
-        for position, ticks, spacing in zip(tick_positions, [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, intel_ticks], [104, 104, 104, 104, 104, 104]):
+        for position, ticks, spacing in zip(tick_positions, [power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, intel_ticks], [105, 105, 105, 105, 105, 105]):
             paste_ticks(position, ticks, spacing)
 
         template.save(output_path)
@@ -50,7 +50,7 @@ class Generator(commands.Cog):
         output_path = './output_image.png'
 
         # Starting positions for power, swim, stamina, fly, run, and intel ticks
-        tick_positions = [(457, 1176), (457, 315), (457, 1747), (457, 591), (457, 883), (457, 1469)]
+        tick_positions = [(446, 1176), (446, 315), (446, 1747), (446, 591), (446, 883), (446, 1469)]
 
         # Call the function
         self.paste_image(template_path, overlay_path, output_path, tick_positions, power_ticks, swim_ticks, stamina_ticks, fly_ticks, run_ticks, intel_ticks)
