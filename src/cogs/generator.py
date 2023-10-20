@@ -45,6 +45,17 @@ class Generator(commands.Cog):
             intel_ticks = chao_to_view['intel_ticks']  # Get the intel ticks from the database
 
         # Paths to the images
+        num0 = '../assets/resized/0.png'
+        num1 = '../assets/resized/1.png'
+        num2 = '../assets/resized/2.png'
+        num3 = '../assets/resized/3.png'
+        num4 = '../assets/resized/4.png'
+        num5 = '../assets/resized/5.png'
+        num6 = '../assets/resized/6.png'
+        num7 = '../assets/resized/7.png'
+        num8 = '../assets/resized/8.png'
+        num9 = '../assets/resized/9.png'
+    
         template_path = '../assets/stats_template.png'
         overlay_path = '../assets/tick_filled.png'
         output_path = './output_image.png'
