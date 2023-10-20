@@ -1,14 +1,8 @@
 __pycache__
 database
-states
 .vscode
 bot_token.py
-src/discord.log
-spec.txt
 .env
-video.mp4.webm
 database_backup
 log.log
-output_image.png
-src/output_image.png
 /src/output_image.png
