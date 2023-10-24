@@ -8,9 +8,13 @@ from discord.ext import commands
 class Chao(commands.Cog):
     chao_colors = ['White', 'Blue', 'Red', 'Yellow', 'Orange', 'Sky Blue', 'Pink', 'Green', 'Mint', 'Brown', 'Purple', 'Grey', 'Lime Green', 'Black']
     chao_types = ['Monotone', 'Two-tone', 'Jewel Monotone', 'Shiny Monotone', 'Jewel Two-tone', 'Shiny Two-tone', 'Shiny Jewel']
+    grade_to_value = {'F': -1, 'E': 0, 'D': 1, 'C': 2, 'B': 3, 'A': 4, 'S': 5, 'X': 6}  # Mapping from grade to value
 
     def __init__(self, bot):
         self.bot = bot
+
+    def calculate_exp_gain(self, grade):
+        return (self.grade_to_value[grade] * 3) + 13
 
     @commands.command()
     async def give_egg(self, ctx):
@@ -58,26 +62,6 @@ class Chao(commands.Cog):
         await ctx.send(f"Your {chao_name} Egg has hatched into a {color} {chao_type} Chao named {chao_name}!")
 
     @commands.command()
-    async def view_chao(self, ctx, chao_name):
-        """View the stats of a specified Chao"""
-        chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
-
-        chao_to_view = next((chao for chao in chao_list if chao['name'] == chao_name), None)
-
-        if chao_to_view:
-            embed = discord.Embed(title=f"{chao_name}'s Stats", color=discord.Color.blue())
-            embed.add_field(name="Color", value=chao_to_view['color'], inline=True)
-            embed.add_field(name="Type", value=chao_to_view['type'], inline=True)
-            embed.add_field(name="Hatched", value="Yes" if chao_to_view['hatched'] else "No", inline=True)
-            # ... add more fields as desired
-
-            embed.set_image(url="https://i.imgur.com/mrYeC6K.png")
-
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send(f"You don't have a Chao named {chao_name}.")
-
-    @commands.command()
     async def feed(self, ctx, chao_name, *args):
         """Feed a Chao a specified item"""
         db_cog = self.bot.get_cog('Database')
@@ -104,7 +88,7 @@ class Chao(commands.Cog):
 
             inventory_df.loc[inventory_df['item'].str.lower() == item_name, 'quantity'] -= 1
             await db_cog.store_inventory(ctx.guild.id, ctx.author.id, inventory_df)
-            
+
         else:
             await ctx.send(f"You don't have a(n) {item_name} in your inventory.")
             return
@@ -116,34 +100,42 @@ class Chao(commands.Cog):
             'swim fruit': 'swim_ticks',
             'fly fruit': 'fly_ticks',
             'garden fruit': 'stamina_ticks',
-            'smart fruit': 'intel_ticks'  # smart fruit added
+            'smart fruit': 'intel_ticks'
         }
 
         stat_to_update = item_stat_effects.get(item_name.lower(), None)
         if stat_to_update is not None:
-            chao_to_feed[stat_to_update] += 1  # increment the stat
-            chao_to_feed['hp_ticks'] = min(chao_to_feed['hp_ticks'] + 1, 10)  # increment hp_ticks for any fruit, but cap at 10
+            random_tick_increase = random.randint(1, 3)  # Random tick increase between 1 and 3 inclusive
+            new_ticks = chao_to_feed[stat_to_update] + random_tick_increase
+            level_up = False
+
+            # Check for level up
+            if new_ticks >= 10:
+                level_up = True
+                new_ticks = new_ticks % 10  # roll over the ticks
+
+            chao_to_feed[stat_to_update] = new_ticks
+            chao_to_feed['hp_ticks'] = min((chao_to_feed['hp_ticks'] + random_tick_increase) % 10, 10)  # increment hp_ticks and roll over if >= 10, but cap at 10
             level_up_message = ""
 
-            # Check if the ticks have reached 10
-            if chao_to_feed[stat_to_update] >= 10:
-                chao_to_feed[stat_to_update] = 0  # reset ticks
-                stat_level = stat_to_update.rsplit('_', 1)[0] + '_level'  # corresponding level stat
+            if level_up:
+                stat_level = stat_to_update.rsplit('_', 1)[0] + '_level'
+                stat_exp = stat_to_update.rsplit('_', 1)[0] + '_exp'
+                stat_grade = stat_to_update.rsplit('_', 1)[0] + '_grade'
+
                 chao_to_feed[stat_level] += 1  # level up
-                level_up_message = f"\n{chao_name}'s {stat_level.replace('_', ' ')} has increased to level {chao_to_feed[stat_level]}!"
 
-        # Update the image if a stat-affecting fruit is fed
-        if item_name.lower() in item_stat_effects:
-            # Getting the stat name from stat_to_update e.g. 'power' from 'power_ticks'
-            stat_name = stat_to_update.rsplit('_', 1)[0]
-            
-            # Save the updated chao data back to the database and await its completion
+                exp_gain = self.calculate_exp_gain(chao_to_feed[stat_grade])
+                chao_to_feed[stat_exp] += exp_gain  # add calculated experience points to the stat
+
+                level_up_message = f"\n{chao_name}'s {stat_level.replace('_', ' ')} has increased to level {chao_to_feed[stat_level]} and gained {exp_gain} {stat_exp.replace('_', ' ')}!"
+
             await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
-            
-            # Now call generate_image after store_chao has completed
-            await self.bot.cogs['Generator'].generate_image(ctx, chao_name, stat_name, chao_to_feed[stat_to_update])
 
-            await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased!{level_up_message}")
+            # Now call generate_image after store_chao has completed
+            await self.bot.cogs['Generator'].generate_image(ctx, chao_name, stat_to_update.rsplit('_', 1)[0], chao_to_feed[stat_to_update])
+
+            await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased by {random_tick_increase}!{level_up_message}")
         else:
             # If it's not a stat-affecting fruit, just store the updated chao data
             await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
