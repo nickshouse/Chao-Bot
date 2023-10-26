@@ -7,9 +7,9 @@ from typing import Dict, Optional, List
 class Chao(commands.Cog):
     CHAO_COLORS = ['White', 'Blue', 'Red', 'Yellow', 'Orange', 'Sky Blue', 'Pink', 'Green', 'Mint', 'Brown', 'Purple', 'Grey', 'Lime Green', 'Black']
     CHAO_TYPES = ['Monotone', 'Two-tone', 'Jewel Monotone', 'Shiny Monotone', 'Jewel Two-tone', 'Shiny Two-tone', 'Shiny Jewel']
+    GRADES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'X']
     GRADE_TO_VALUE = {'F': -1, 'E': 0, 'D': 1, 'C': 2, 'B': 3, 'A': 4, 'S': 5, 'X': 6}
     STATS = ['Swim', 'Fly', 'Run', 'Power', 'Intel', 'Stamina']
-    GRADES = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
 
     def __init__(self, bot):
         self.bot = bot
