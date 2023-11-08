@@ -6,6 +6,7 @@ from PIL import Image
 TEMPLATE_PATH = '../assets/stats_template.png'
 OVERLAY_PATH = '../assets/tick_filled.png'
 OUTPUT_PATH = './output_image.png'
+ICON_PATH = './neutral_normal_normal_child.png'
 TICK_SPACING = 105
 LEVEL_POSITION_OFFSET = (826, -106)
 LEVEL_SPACING = 60
@@ -81,15 +82,23 @@ class Generator(commands.Cog):
                          swim_exp, fly_exp, run_exp, power_exp, intel_exp, stamina_exp)  # Added stamina_exp
 
         embed = discord.Embed(
-            title=f"Generated Image for {chao_name}",
+            title=f"{chao_name}\nPage 1 / 2",
             color=discord.Color.blue()
         )
+
+        embed.set_author(name="Chao Stats", icon_url=f'attachment://discord-chao.png')
+        
+        # Add the thumbnail to the embed
+        with open(ICON_PATH, 'rb') as icon_file:
+            icon = discord.File(icon_file, 'neutral_normal_normal_child.png')  # Updated file name
+            embed.set_thumbnail(url=f'attachment://{icon.filename}')
 
         with open(OUTPUT_PATH, 'rb') as file:
             file = discord.File(file, 'output_image.png')
             embed.set_image(url=f'attachment://{file.filename}')
 
-        await ctx.send(file=file, embed=embed)
+        await ctx.send(files=[file, icon], embed=embed)  # Send both the image and the icon as attachments
+
 
 async def setup(bot):
     await bot.add_cog(Generator(bot))
