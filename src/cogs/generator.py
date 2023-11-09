@@ -37,12 +37,14 @@ STAMINA_EXP_POSITIONS = [
 class Select(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Animator", description=""),
-            discord.SelectOption(label="Builder", description=""),
-            discord.SelectOption(label="Character Coder", description=""),
-            discord.SelectOption(label="Costumes", description=""),
-            discord.SelectOption(label="Playtester", description=""),
-            discord.SelectOption(label="Stage Artist", description=""),
+            discord.SelectOption(label="Appearance", description=""),
+            discord.SelectOption(label="Behaviours", description=""),
+            discord.SelectOption(label="DNA", description=""),
+            discord.SelectOption(label="Friendships", description=""),
+            discord.SelectOption(label="General", description=""),
+            discord.SelectOption(label="Personality", description=""),
+            discord.SelectOption(label="Stats", description=""),
+            discord.SelectOption(label="Toys", description=""),
         ]
 
         super().__init__(placeholder="Select a page", max_values=1, min_values=1, options=options)
