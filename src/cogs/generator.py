@@ -37,14 +37,15 @@ STAMINA_EXP_POSITIONS = [
 class Select(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Appearance", description=""),
-            discord.SelectOption(label="Behaviours", description=""),
-            discord.SelectOption(label="DNA", description=""),
-            discord.SelectOption(label="Friendships", description=""),
-            discord.SelectOption(label="General", description=""),
-            discord.SelectOption(label="Personality", description=""),
-            discord.SelectOption(label="Stats", description=""),
-            discord.SelectOption(label="Toys", description=""),
+            discord.SelectOption(label="Appearance", description="View chao's physical appearance", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662672597626950)),
+            discord.SelectOption(label="Behaviours", description="Current behaviours of chao", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662673386143744)),
+            discord.SelectOption(label="DNA", description="Genetic information about chao", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662674820599910)),
+            discord.SelectOption(label="Friendships", description="See which chao are friends with this chao", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662675521060875)),
+            discord.SelectOption(label="General", description="General information about chao", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662676691267645)),
+            discord.SelectOption(label="Lessons", description="Lessons that chao has learned in school", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662677647556689)),
+            discord.SelectOption(label="Personality", description="View chao's personality traits", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662678763257886)),
+            discord.SelectOption(label="Stats", description="Chao's main stats", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662715870269492)),
+            discord.SelectOption(label="Toys", description="Look at chao's favourite toys", emoji=discord.PartialEmoji(name="custom_emoji", id=1171662680625528934)),
         ]
 
         super().__init__(placeholder="Select a page", max_values=1, min_values=1, options=options)
@@ -194,10 +195,9 @@ class Generator(commands.Cog):
 
         embed.set_footer(text="Page 1 / ?")
 
-        await ctx.send(view=SelectView())
-
         # Sending the files along with the embed
         await ctx.send(files=[output_image, discord.File(ICON_PATH), discord.File(THUMBNAIL_PATH)], embed=embed)
+        await ctx.send(view=SelectView())
 
 async def setup(bot):
     await bot.add_cog(Generator(bot))
