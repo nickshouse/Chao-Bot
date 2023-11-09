@@ -50,12 +50,20 @@ class Chao(commands.Cog):
         await ctx.send(f"Your {chao_name} Egg has hatched into a {color} {chao_type} Chao named {chao_name}!")
 
     @commands.command()
-    async def feed(self, ctx, chao_name: str, *args: str):
+    async def feed(self, ctx, *, full_input: str):
         db_cog = self.bot.get_cog('Database')
-        item_name = ' '.join(args).rstrip('s').lower()
 
-        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
-        chao_to_feed = next((chao for chao in chao_list if chao['name'].lower() == chao_name.lower()), None)
+        # Splitting the full input into chao name and item name
+        split_input = full_input.split(' ')
+        for i in range(len(split_input), 0, -1):
+            chao_name = ' '.join(split_input[:i])
+            item_name = ' '.join(split_input[i:]).rstrip('s').lower()
+
+            chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
+            chao_to_feed = next((chao for chao in chao_list if chao['name'].lower() == chao_name.lower()), None)
+            
+            if chao_to_feed is not None:
+                break
 
         if chao_to_feed is None:
             await ctx.send(f"You don't have a Chao named {chao_name}.")

@@ -10,7 +10,7 @@ class FortuneTeller(commands.Cog):
     def generate_chao_name(self):
         """Generate a random name for a Chao"""
         # List of potential Chao names
-        chao_names = ["Sparkle", "Bubbles", "Twilight", "Star", "Rainbow", "Sunny", "Moonbeam", "Glimmer", "Whisper", "Misty"]
+        chao_names = ["Chaoko", "Chaolin", "Chao", "Chaoblin", "Count Chaocula"]
         return random.choice(chao_names)
     
     @commands.command()
