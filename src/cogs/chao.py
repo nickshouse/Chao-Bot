@@ -65,21 +65,31 @@ class Chao(commands.Cog):
     async def feed(self, ctx, *, full_input: str):
         db_cog = self.bot.get_cog('Database')
 
-        # Splitting the full input into chao name and item name
-        split_input = full_input.split(' ')
-        for i in range(len(split_input), 0, -1):
-            chao_name = ' '.join(split_input[:i])
-            item_name = ' '.join(split_input[i:]).rstrip('s').lower()
+        # Retrieve all Chao names for this user
+        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
+        chao_names = [chao['name'].lower() for chao in chao_list]
 
-            chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
-            chao_to_feed = next((chao for chao in chao_list if chao['name'].lower() == chao_name.lower()), None)
-            
-            if chao_to_feed is not None:
+        # Split the input and iterate over it to find the Chao name and item name
+        split_input = full_input.split()
+        chao_name = None
+        item_name = None
+        for i in range(1, len(split_input) + 1):
+            potential_chao_name = ' '.join(split_input[:i])
+            if potential_chao_name.lower() in chao_names:
+                chao_name = potential_chao_name
+                item_name = ' '.join(split_input[i:]).rstrip('s').lower()
                 break
 
-        if chao_to_feed is None:
-            await ctx.send(f"You don't have a Chao named {chao_name}.")
+        if not chao_name:
+            await ctx.send(f"You don't have a Chao named {' '.join(split_input[:i-2])}.")
             return
+
+        # Find the specific Chao to feed
+        chao_to_feed = next((chao for chao in chao_list if chao['name'].lower() == chao_name.lower()), None)
+        if not chao_to_feed:
+            await ctx.send(f"Could not find data for Chao named {chao_name}.")
+            return
+
 
         inventory_df = await db_cog.get_inventory(ctx.guild.id, ctx.author.id)
         if inventory_df is not None and not inventory_df[inventory_df['item'].str.lower() == item_name].empty:
