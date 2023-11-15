@@ -176,6 +176,10 @@ class Database(commands.Cog):
 
     async def get_chao(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
+        if not os.path.exists(dir_path):  # Check if the directory exists
+            os.makedirs(dir_path, exist_ok=True)  # Create the directory if it doesn't exist
+            return []  # Return an empty list as there are no chao files yet
+
         chao = []
         for file in os.listdir(dir_path):
             if file.endswith(".parquet"):
@@ -185,6 +189,7 @@ class Database(commands.Cog):
                     if 'name' in chao_dict:
                         chao.append(chao_dict)
         return chao
+
 
     async def store_nickname(self, guild_id, user_id, nickname):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
