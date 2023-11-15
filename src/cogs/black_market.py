@@ -39,8 +39,8 @@ class BlackMarket(commands.Cog):
         self.bot = bot
         self.embed_color = 0x1abc9c  # Replace this with the color you want to use for your embeds
 
-    @commands.command()
-    async def buy(self, ctx, *args):
+
+    async def buy_command(self, ctx, *args):
         db_cog = self.bot.get_cog('Database')
 
         item = None
@@ -88,8 +88,7 @@ class BlackMarket(commands.Cog):
         await ctx.send(f"You have bought {quantity} '{item_name}' for {price} rings.")
 
             
-    @commands.command()
-    async def market(self, ctx):
+    async def market_command(self, ctx):
         embed = Embed(title="Black Market", description="Here's what you can buy:", color=self.embed_color)
 
         fruits = [dict(fruit, price=15) for fruit in self.fruits]
@@ -104,8 +103,7 @@ class BlackMarket(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
-    async def inventory(self, ctx):
+    async def inventory_command(self, ctx):
         db_cog = self.bot.get_cog('Database')
         user_id = str(ctx.author.id)
         embed = Embed(title=f"{ctx.author.name}'s Inventory", description="Here's what you have:", color=self.embed_color)
@@ -125,9 +123,9 @@ class BlackMarket(commands.Cog):
                         embed.add_field(name='\u200b', value='\u200b', inline=True)
 
         await ctx.send(embed=embed)
+        
 
-    @commands.command()
-    async def give_rings(self, ctx):
+    async def give_rings_command(self, ctx):
         db_cog = self.bot.get_cog('Database')
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
@@ -144,8 +142,8 @@ class BlackMarket(commands.Cog):
 
         await ctx.send(f"You have been given 100,000 rings! You now have {new_rings} rings.")
 
-    @commands.command()
-    async def rings(self, ctx, member: discord.Member = None):
+
+    async def rings_command(self, ctx, member: discord.Member = None):
         """Check your or someone else's ring balance"""
         member = member or ctx.author
         rings = await self.bot.cogs['Database'].get_rings(ctx.guild.id, str(member.id))
