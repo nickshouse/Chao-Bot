@@ -18,83 +18,56 @@ class Chao(commands.Cog):
     def calculate_exp_gain(self, grade: str) -> int:
         return (self.GRADE_TO_VALUE[grade] * 3) + 13
     
-    
     async def chao_command(self, ctx):
-            db_cog = self.bot.get_cog('Database')
-            user_initialized = await db_cog.is_user_initialized(ctx.guild.id, ctx.author.id)
+        db_cog = self.bot.get_cog('Database')
+        user_initialized = await db_cog.is_user_initialized(ctx.guild.id, ctx.author.id)
 
-            if user_initialized:
-                await ctx.reply(f"You are already using Chao Bot!")
-            else:
-                # Create necessary directories and initialize data as needed
-                await db_cog.initialize_user_data(ctx.guild.id, ctx.author.id)
-                await ctx.reply("Welcome to Chao Bot!")
+        if user_initialized:
+            await ctx.reply(f"You are already using Chao Bot!")
+        else:
+            # Create necessary directories and initialize data as needed
+            await db_cog.initialize_user_data(ctx.guild.id, ctx.author.id)
 
-                # Create a Regular Two-tone Chao Egg
-                chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
-
-                chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
-                while any(chao['name'] == chao_name for chao in chao_list):
-                    chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
-
-                chao_data = {
-                    'name': chao_name,
-                    'color': 'Regular',
-                    'type': 'Two-tone',
-                    'hatched': 0,
-                    'birth_date': None,
-                }
-
-                for stat in self.STATS:
-                    grade = random.choice(self.GRADES)
-                    chao_data.update({f'{stat.lower()}_grade': grade, f'{stat.lower()}_ticks': 0, f'{stat.lower()}_exp': 0, f'{stat.lower()}_level': 0})
-
-                await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
-                
-                # Send embed with egg image
-                embed = discord.Embed(title="Chao Egg", description=f"You received a Regular Two-tone Chao Egg named {chao_name}! It will hatch in 5 seconds.", color=0x00ff00)
-                embed.set_image(url="attachment://regular.png")
-                file = discord.File("assets/eggs/regular.png", filename="regular.png")
-                await ctx.reply(file=file, embed=embed)
-
-                await asyncio.sleep(5)
-
-                chao_data['hatched'] = 1
-                chao_data['birth_date'] = datetime.datetime.utcnow().date()
-                chao_data['hp_ticks'] = 10
-
-                await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
-                await ctx.reply(f"Your {chao_name} Egg has hatched into a Regular Two-tone Chao named {chao_name}!")
-    async def give_egg_command(self, ctx):
-        color, chao_type = random.choice(self.CHAO_COLORS), random.choice(self.CHAO_TYPES)
-        chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
-
-        chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
-        while any(chao['name'] == chao_name for chao in chao_list):
+            # Create a Regular Two-tone Chao Egg
             chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
 
-        chao_data = {
-            'name': chao_name,
-            'color': color,
-            'type': chao_type,
-            'hatched': 0,
-            'birth_date': None,
-        }
+            chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
+            while any(chao['name'] == chao_name for chao in chao_list):
+                chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
 
-        for stat in self.STATS:
-            grade = random.choice(self.GRADES)
-            chao_data.update({f'{stat.lower()}_grade': grade, f'{stat.lower()}_ticks': 0, f'{stat.lower()}_exp': 0, f'{stat.lower()}_level': 0})
+            chao_data = {
+                'name': chao_name,
+                'color': 'Regular',
+                'type': 'Two-tone',
+                'hatched': 0,
+                'birth_date': None,
+            }
 
-        await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
-        await ctx.send(f"You received a {color} {chao_type} Chao Egg named {chao_name}! It will hatch in 5 seconds.")
-        await asyncio.sleep(5)
+            for stat in self.STATS:
+                grade = random.choice(self.GRADES)
+                chao_data.update({f'{stat.lower()}_grade': grade, f'{stat.lower()}_ticks': 0, f'{stat.lower()}_exp': 0, f'{stat.lower()}_level': 0})
 
-        chao_data['hatched'] = 1
-        chao_data['birth_date'] = datetime.datetime.utcnow().date()
-        chao_data['hp_ticks'] = 10
+            await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
+            
+            # Send embed with egg image
+            embed = discord.Embed(title="Welcome!", description=f"Here is a chao egg to start you off with named {chao_name}! It will hatch in 5 minutes.", color=discord.Color.blue())
+            embed.set_image(url="attachment://regular.png")
+            file = discord.File("../assets/eggs/regular.png", filename="regular.png")
+            await ctx.reply(file=file, embed=embed)
 
-        await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
-        await ctx.send(f"Your {chao_name} Egg has hatched into a {color} {chao_type} Chao named {chao_name}!")
+            await asyncio.sleep(3)  # Wait for 5 minutes
+
+            chao_data['hatched'] = 1
+            chao_data['birth_date'] = datetime.datetime.utcnow().date()
+            chao_data['hp_ticks'] = 10
+
+            await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
+
+            # Send embed with hatched chao image
+            hatched_embed = discord.Embed(title="Your Chao Has Hatched!", description=f"Your {chao_name} Egg has hatched into a Regular Two-tone Chao named {chao_name}!", color=discord.Color.blue())
+            hatched_embed.set_image(url="attachment://neutral_normal_child.png")
+            hatched_file = discord.File("../assets/chao/neutral_normal_child.png", filename="neutral_normal_child.png")
+            await ctx.reply(file=hatched_file, embed=hatched_embed)
 
 
     async def feed_command(self, ctx, full_input: str):

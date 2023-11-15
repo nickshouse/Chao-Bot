@@ -24,12 +24,6 @@ class Commands(commands.Cog):
             await chao_cog.chao_command(ctx)
 
     @commands.command()
-    async def give_egg(self, ctx):
-        chao_cog = self.bot.get_cog('Chao')
-        if chao_cog:
-            await self.check_and_execute(ctx, chao_cog.give_egg_command)
-
-    @commands.command()
     async def feed(self, ctx, *, full_input: str):
         chao_cog = self.bot.get_cog('Chao')
         if chao_cog:
