@@ -9,7 +9,7 @@ class Chao(commands.Cog):
     CHAO_TYPES = ['Monotone', 'Two-tone', 'Jewel Monotone', 'Shiny Monotone', 'Jewel Two-tone', 'Shiny Two-tone', 'Shiny Jewel']
     GRADES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'X']
     GRADE_TO_VALUE = {'F': -1, 'E': 0, 'D': 1, 'C': 2, 'B': 3, 'A': 4, 'S': 5, 'X': 6}
-    STATS = ['Swim', 'Fly', 'Run', 'Power', 'Intel', 'Stamina']
+    STATS = ['Swim', 'Fly', 'Run', 'Power', 'Mind', 'Stamina']
 
     def __init__(self, bot):
         self.bot = bot
@@ -111,7 +111,7 @@ class Chao(commands.Cog):
             'swim fruit': 'swim_ticks',
             'fly fruit': 'fly_ticks',
             'garden fruit': 'stamina_ticks',
-            'smart fruit': 'intel_ticks'
+            'smart fruit': 'Mind_ticks'
         }
 
         stat_to_update = item_stat_effects.get(item_name.lower(), None)

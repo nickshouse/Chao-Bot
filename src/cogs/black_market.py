@@ -26,7 +26,6 @@ class BlackMarket(commands.Cog):
         {"emoji": "🪛", "name": "Hero Drive"},
         {"emoji": "🪛", "name": "Dark Drive"},
         {"emoji": "🪛", "name": "Smart Drive"},
-        {"emoji": "🪛", "name": "Luck Drive"},
         {"emoji": "🪛", "name": "Power Drive"},
         {"emoji": "🪛", "name": "Swim Drive"},
         {"emoji": "🪛", "name": "Run Drive"},
