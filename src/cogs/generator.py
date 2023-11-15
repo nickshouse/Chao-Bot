@@ -131,10 +131,7 @@ class Generator(commands.Cog):
 
             template.save(output_path)
 
-    @commands.command()
-    async def generate_image(
-        self, ctx, chao_name, stat_to_update=None, stat_value=None
-    ):
+    async def generate_image_command(self, ctx, chao_name, stat_to_update=None, stat_value=None):
         chao_list = await self.bot.cogs["Database"].get_chao(
             ctx.guild.id, ctx.author.id
         )
