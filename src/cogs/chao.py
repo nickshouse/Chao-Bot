@@ -138,7 +138,7 @@ class Chao(commands.Cog):
                 level_up_message = f"\n{chao_name}'s {stat_level.replace('_', ' ')} has increased to level {chao_to_feed[stat_level]} and gained {exp_gain} {stat_exp.replace('_', ' ')}!"
 
             await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
-            await self.bot.cogs['Generator'].generate_image(ctx, chao_name, stat_to_update.rsplit('_', 1)[0], chao_to_feed[stat_to_update])
+            await self.bot.cogs['Generator'].generate_image_command(ctx, chao_name, stat_to_update.rsplit('_', 1)[0], chao_to_feed[stat_to_update])
             await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased by {random_tick_increase}!{level_up_message}")
 
         else:
