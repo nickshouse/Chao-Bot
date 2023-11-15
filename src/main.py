@@ -1,7 +1,4 @@
-import asyncio
 import os
-import subprocess
-
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -13,6 +10,7 @@ load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
 async def load_all_cogs():
+    await bot.load_extension('cogs.commands')
     await bot.load_extension('cogs.logger')
     await bot.load_extension('cogs.database')
     await bot.load_extension('cogs.generator')

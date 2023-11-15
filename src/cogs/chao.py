@@ -17,8 +17,8 @@ class Chao(commands.Cog):
     def calculate_exp_gain(self, grade: str) -> int:
         return (self.GRADE_TO_VALUE[grade] * 3) + 13
     
-    @commands.command()
-    async def chao(self, ctx):
+    
+    async def chao_command(self, ctx):
         db_cog = self.bot.get_cog('Database')
         user_initialized = await db_cog.is_user_initialized(ctx.guild.id, ctx.author.id)
 
@@ -29,8 +29,8 @@ class Chao(commands.Cog):
             await db_cog.initialize_user_data(ctx.guild.id, ctx.author.id)
             await ctx.send(f"{ctx.author.mention}\nWelcome to Chao Bot!")
 
-    @commands.command()
-    async def give_egg(self, ctx):
+
+    async def give_egg_command(self, ctx):
         color, chao_type = random.choice(self.CHAO_COLORS), random.choice(self.CHAO_TYPES)
         chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
 
@@ -61,8 +61,8 @@ class Chao(commands.Cog):
         await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
         await ctx.send(f"Your {chao_name} Egg has hatched into a {color} {chao_type} Chao named {chao_name}!")
 
-    @commands.command()
-    async def feed(self, ctx, *, full_input: str):
+
+    async def feed_command(self, ctx, full_input: str):
         db_cog = self.bot.get_cog('Database')
 
         # Retrieve all Chao names for this user
@@ -146,3 +146,4 @@ class Chao(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
+    print("Chao cog loaded")
