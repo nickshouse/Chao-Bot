@@ -15,7 +15,7 @@ class Commands(commands.Cog):
         if await self.user_initialized(ctx):
             await command(ctx, *args)
         else:
-            await ctx.send(f"{ctx.author.mention}, you need to use the `chao` command to start using Chao Bot!")
+            await ctx.send(f"{ctx.author.mention}\nYou need to use the `chao` command to start using Chao Bot.")
 
     @commands.command()
     async def chao(self, ctx):
