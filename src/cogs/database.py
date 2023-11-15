@@ -156,9 +156,6 @@ class Database(commands.Cog):
         
         await self.write_file(filename, final_df)
 
-
-
-
     async def get_inventory(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         filename = f"{dir_path}/inventory.parquet"
@@ -205,6 +202,35 @@ class Database(commands.Cog):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
         filename = f"{dir_path}/nicknames.parquet"
         return await self.get_file(filename)
+    
+    async def store_username(self, guild_id, user_id, username):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
+        os.makedirs(dir_path, exist_ok=True)
+        filename = f"{dir_path}/usernames.parquet"
+        df = await self.get_file(filename)
+        new_data = pd.DataFrame([{'time': datetime.datetime.now(), 'username': username}])
+        if df is not None:
+            df = pd.concat([df, new_data], ignore_index=True)
+        else:
+            df = new_data
+        await self.write_file(filename, df)
+
+    async def get_username(self, guild_id, user_id):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}/user_data"
+        filename = f"{dir_path}/usernames.parquet"
+        return await self.get_file(filename)
+    
+    async def initialize_user_data(self, guild_id, user_id):
+        user_dir_path = f"{self.data_path}/{guild_id}/{user_id}"
+        os.makedirs(user_dir_path, exist_ok=True)
+        # Here you can create and initialize directories and files as needed
+        # For example, create empty parquet files for chao, inventory, etc.
+
+    
+    async def is_user_initialized(self, guild_id, user_id):
+        dir_path = f"{self.data_path}/{guild_id}/{user_id}"
+        return os.path.exists(dir_path)
+
 
 async def setup(bot):
     db = Database(bot)

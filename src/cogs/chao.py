@@ -16,6 +16,18 @@ class Chao(commands.Cog):
 
     def calculate_exp_gain(self, grade: str) -> int:
         return (self.GRADE_TO_VALUE[grade] * 3) + 13
+    
+    @commands.command()
+    async def chao(self, ctx):
+        db_cog = self.bot.get_cog('Database')
+        user_initialized = await db_cog.is_user_initialized(ctx.guild.id, ctx.author.id)
+
+        if user_initialized:
+            await ctx.send(f"{ctx.author.mention}\nYou are already using Chao Bot!")
+        else:
+            # Create necessary directories and initialize data as needed
+            await db_cog.initialize_user_data(ctx.guild.id, ctx.author.id)
+            await ctx.send(f"{ctx.author.mention}\nWelcome to Chao Bot!")
 
     @commands.command()
     async def give_egg(self, ctx):
