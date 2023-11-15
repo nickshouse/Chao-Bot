@@ -28,6 +28,7 @@ class Commands(commands.Cog):
         if generator_cog:
             await generator_cog.generate_image_command(ctx, chao_name, stat_to_update, stat_value)
 
+
 async def setup(bot):
     await bot.add_cog(Commands(bot))
     print("Commands cog loaded")
