@@ -29,6 +29,36 @@ class Chao(commands.Cog):
             await db_cog.initialize_user_data(ctx.guild.id, ctx.author.id)
             await ctx.send(f"{ctx.author.mention}\nWelcome to Chao Bot!")
 
+            # Create a Regular Two-tone Chao Egg
+            chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
+
+            chao_list = await self.bot.cogs['Database'].get_chao(ctx.guild.id, ctx.author.id)
+            while any(chao['name'] == chao_name for chao in chao_list):
+                chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
+
+            chao_data = {
+                'name': chao_name,
+                'color': 'Regular',
+                'type': 'Two-tone',
+                'hatched': 0,
+                'birth_date': None,
+            }
+
+            for stat in self.STATS:
+                grade = random.choice(self.GRADES)
+                chao_data.update({f'{stat.lower()}_grade': grade, f'{stat.lower()}_ticks': 0, f'{stat.lower()}_exp': 0, f'{stat.lower()}_level': 0})
+
+            await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
+            await ctx.send(f"You received a Regular Two-tone Chao Egg named {chao_name}! It will hatch in 5 seconds.")
+            await asyncio.sleep(5)
+
+            chao_data['hatched'] = 1
+            chao_data['birth_date'] = datetime.datetime.utcnow().date()
+            chao_data['hp_ticks'] = 10
+
+            await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
+            await ctx.send(f"Your {chao_name} Egg has hatched into a Regular Two-tone Chao named {chao_name}!")
+
 
     async def give_egg_command(self, ctx):
         color, chao_type = random.choice(self.CHAO_COLORS), random.choice(self.CHAO_TYPES)
