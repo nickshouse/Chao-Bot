@@ -26,7 +26,7 @@ SWIM_EXP_POSITIONS = [(183, 302), (243, 302), (303, 302), (363, 302)]
 FLY_EXP_POSITIONS = [(183, 576), (243, 576), (303, 576), (363, 576)]
 RUN_EXP_POSITIONS = [(183, 868), (243, 868), (303, 868), (363, 868)]
 POWER_EXP_POSITIONS = [(183, 1161), (243, 1161), (303, 1161), (363, 1161)]
-INTEL_EXP_POSITIONS = [(183, 1454), (243, 1454), (303, 1454), (363, 1454)]
+MIND_EXP_POSITIONS = [(183, 1454), (243, 1454), (303, 1454), (363, 1454)]
 STAMINA_EXP_POSITIONS = [
     (183, 1732),
     (243, 1732),
@@ -85,7 +85,7 @@ class Generator(commands.Cog):
         fly_exp_positions,
         run_exp_positions,
         power_exp_positions,
-        intel_exp_positions,
+        mind_exp_positions,
         stamina_exp_positions,
         *stats,
     ):
@@ -126,7 +126,7 @@ class Generator(commands.Cog):
             paste_exp(template, stats[-5], fly_exp_positions)
             paste_exp(template, stats[-4], run_exp_positions)
             paste_exp(template, stats[-3], power_exp_positions)
-            paste_exp(template, stats[-2], intel_exp_positions)
+            paste_exp(template, stats[-2], mind_exp_positions)
             paste_exp(template, stats[-1], stamina_exp_positions)
 
             template.save(output_path)
@@ -146,7 +146,7 @@ class Generator(commands.Cog):
         fly_exp = chao_to_view.get("fly_exp", 0)
         run_exp = chao_to_view.get("run_exp", 0)
         power_exp = chao_to_view.get("power_exp", 0)
-        intel_exp = chao_to_view.get("intel_exp", 0)
+        mind_exp = chao_to_view.get("mind_exp", 0)
         stamina_exp = chao_to_view.get("stamina_exp", 0)
 
         self.paste_image(
@@ -158,25 +158,25 @@ class Generator(commands.Cog):
             FLY_EXP_POSITIONS,
             RUN_EXP_POSITIONS,
             POWER_EXP_POSITIONS,
-            INTEL_EXP_POSITIONS,
+            MIND_EXP_POSITIONS,
             STAMINA_EXP_POSITIONS,
             chao_to_view["power_ticks"],
             chao_to_view["swim_ticks"],
             chao_to_view["stamina_ticks"],
             chao_to_view["fly_ticks"],
             chao_to_view["run_ticks"],
-            chao_to_view["intel_ticks"],
+            chao_to_view["mind_ticks"],
             chao_to_view["power_level"],
             chao_to_view["swim_level"],
             chao_to_view["stamina_level"],
             chao_to_view["fly_level"],
             chao_to_view["run_level"],
-            chao_to_view["intel_level"],
+            chao_to_view["mind_level"],
             swim_exp,
             fly_exp,
             run_exp,
             power_exp,
-            intel_exp,
+            mind_exp,
             stamina_exp,
         )
 

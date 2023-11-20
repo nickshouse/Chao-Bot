@@ -2,6 +2,7 @@ import asyncio
 import random
 import datetime
 import discord
+import pandas as pd
 from discord.ext import commands
 from typing import Dict, Optional, List
 
@@ -23,10 +24,19 @@ class Chao(commands.Cog):
         user_initialized = await db_cog.is_user_initialized(ctx.guild.id, ctx.author.id)
 
         if user_initialized:
-            await ctx.reply(f"You are already using Chao Bot!")
+            await ctx.reply("You are already using Chao Bot!")
         else:
             # Create necessary directories and initialize data as needed
             await db_cog.initialize_user_data(ctx.guild.id, ctx.author.id)
+
+            # Update user's rings by adding 500
+            current_rings = await db_cog.get_rings(ctx.guild.id, ctx.author.id)
+            new_rings = current_rings + 500
+            await db_cog.store_rings(ctx.guild.id, ctx.author.id, new_rings)
+
+            # Update user's inventory by adding 5 garden fruits
+            garden_fruit_data = pd.DataFrame([{'item': 'Garden Fruit', 'quantity': 5}])
+            await db_cog.store_inventory(ctx.guild.id, ctx.author.id, garden_fruit_data)
 
             # Create a Regular Two-tone Chao Egg
             chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
@@ -49,13 +59,17 @@ class Chao(commands.Cog):
 
             await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
             
-            # Send embed with egg image
-            embed = discord.Embed(title="Welcome!", description=f"Here is a chao egg to start you off with named {chao_name}! It will hatch in 5 minutes.", color=discord.Color.blue())
+            # Send embed with egg image and example commands
+            embed = discord.Embed(
+                title="Welcome to Chao Bot!",
+                description=f"Here's a chao egg named {chao_name} to start you off! It will hatch in 5 minutes.\n\n**Example Commands:**\n- `!feed [Chao name] [item]` to feed your Chao.\n- `!race [Chao name]` to enter your Chao in a race.\n- `!train [Chao name] [stat]` to train a specific stat.\n- `!stats [Chao name]` to view your Chao's stats.",
+                color=discord.Color.blue()
+            )
             embed.set_image(url="attachment://regular.png")
             file = discord.File("../assets/eggs/regular.png", filename="regular.png")
             await ctx.reply(file=file, embed=embed)
 
-            await asyncio.sleep(3)  # Wait for 5 minutes
+            await asyncio.sleep(300)  # Wait for 5 minutes
 
             chao_data['hatched'] = 1
             chao_data['birth_date'] = datetime.datetime.utcnow().date()
@@ -64,12 +78,15 @@ class Chao(commands.Cog):
             await self.bot.cogs['Database'].store_chao(ctx.guild.id, ctx.author.id, chao_data)
 
             # Send embed with hatched chao image
-            hatched_embed = discord.Embed(title="Your Chao Has Hatched!", description=f"Your {chao_name} Egg has hatched into a Regular Two-tone Chao named {chao_name}!", color=discord.Color.blue())
+            hatched_embed = discord.Embed(
+                title="Your Chao Has Hatched!",
+                description=f"Your {chao_name} Egg has hatched into a Regular Two-tone Chao named {chao_name}!",
+                color=discord.Color.blue()
+            )
             hatched_embed.set_image(url="attachment://neutral_normal_child.png")
             hatched_file = discord.File("../assets/chao/neutral_normal_child.png", filename="neutral_normal_child.png")
             await ctx.reply(file=hatched_file, embed=hatched_embed)
-
-
+            
     async def feed_command(self, ctx, full_input: str):
         db_cog = self.bot.get_cog('Database')
 
