@@ -62,7 +62,7 @@ class Chao(commands.Cog):
             # Send embed with egg image and example commands
             embed = discord.Embed(
                 title="Welcome to Chao Bot!",
-                description=f"Here's a chao egg named {chao_name} to start you off! It will hatch in 5 minutes.\n\n**Example Commands:**\n- `!feed [Chao name] [item]` to feed your Chao.\n- `!race [Chao name]` to enter your Chao in a race.\n- `!train [Chao name] [stat]` to train a specific stat.\n- `!stats [Chao name]` to view your Chao's stats.",
+                description=f"**You Receive:**\n- `1x Chao Egg`\n- `500x Rings`\n- `5x Garden Fruit`\n\n**Example Commands:**\n- `!feed [Chao name] [item]` to feed your Chao.\n- `!race [Chao name]` to enter your Chao in a race.\n- `!train [Chao name] [stat]` to train a specific stat.\n- `!stats [Chao name]` to view your Chao's stats.",
                 color=discord.Color.blue()
             )
             embed.set_image(url="attachment://regular.png")
@@ -79,8 +79,8 @@ class Chao(commands.Cog):
 
             # Send embed with hatched chao image
             hatched_embed = discord.Embed(
-                title="Your Chao Has Hatched!",
-                description=f"Your {chao_name} Egg has hatched into a Regular Two-tone Chao named {chao_name}!",
+                title="Your Chao Egg has hatched!",
+                description=f"Your Chao Egg has hatched into a Regular Two-tone Chao named {chao_name}!",
                 color=discord.Color.blue()
             )
             hatched_embed.set_image(url="attachment://neutral_normal_child.png")
@@ -167,6 +167,29 @@ class Chao(commands.Cog):
             await ctx.send(f"You fed a(n) {item_name} to {chao_name}! {chao_name}'s {stat_to_update.replace('_', ' ')} increased by {random_tick_increase}!{level_up_message}")
         else:
             await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
+
+    async def hatch_command(self, ctx):
+        db_cog = self.bot.get_cog('Database')
+
+        # Retrieve all Chao for this user
+        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
+        unhatched_chao = [chao for chao in chao_list if chao['hatched'] == 0]
+
+        if not unhatched_chao:
+            await ctx.send("You don't have any unhatched Chao eggs.")
+            return
+
+        # Hatch the first unhatched Chao
+        chao_to_hatch = unhatched_chao[0]
+        chao_to_hatch['hatched'] = 1
+        chao_to_hatch['birth_date'] = datetime.datetime.utcnow().date()
+        chao_to_hatch['hp_ticks'] = 10  # Initialize health points or other attributes as needed
+
+        await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_hatch)
+
+        # Send confirmation message
+        await ctx.send(f"Your Chao Egg has hatched into a {chao_to_hatch['color']} {chao_to_hatch['type']} Chao named {chao_to_hatch['name']}!")
+
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
