@@ -79,7 +79,7 @@ class Chao(commands.Cog):
         await asyncio.sleep(300)  # Wait for 5 minutes
 
         chao_data['hatched'] = 1
-        chao_data['birth_date'] = datetime.datetime.utcnow().date()  # Store only the date part
+        chao_data['birth_date'] = datetime.date.today().strftime("%B %d, %Y")  # Format as 'Month Day, Year'
         chao_data['hp_ticks'] = 10
 
         await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_data)
@@ -138,7 +138,7 @@ class Chao(commands.Cog):
 
         # Hatch the Chao
         chao_data['hatched'] = 1
-        chao_data['birth_date'] = datetime.datetime.utcnow().date()  # Store only the date part
+        chao_data['birth_date'] = datetime.date.today().strftime("%B %d, %Y")  # Format as 'Month Day, Year'
         chao_data['hp_ticks'] = 10
 
         await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_data)
@@ -195,7 +195,7 @@ class Chao(commands.Cog):
             'swim fruit': 'swim_ticks',
             'fly fruit': 'fly_ticks',
             'garden fruit': 'stamina_ticks',
-            'smart fruit': 'Mind_ticks'
+            'smart fruit': 'mind_ticks'
         }
 
         stat_to_update = item_stat_effects.get(item_name.lower(), None)
@@ -209,8 +209,7 @@ class Chao(commands.Cog):
                 new_ticks = new_ticks % 10
 
             chao_to_feed[stat_to_update] = new_ticks
-            chao_to_feed['hp_ticks'] = min((chao_to_feed['hp_ticks'] + random_tick_increase) % 10, 10)
-            level_up_message = ""
+            chao_to_feed['hp_ticks'] = min(chao_to_feed['hp_ticks'] + random_tick_increase, 10)
 
             if level_up:
                 stat_level = f"{stat_to_update.rsplit('_', 1)[0]}_level"
@@ -219,7 +218,9 @@ class Chao(commands.Cog):
                 chao_to_feed[stat_level] += 1
                 exp_gain = self.calculate_exp_gain(chao_to_feed[stat_grade])
                 chao_to_feed[stat_exp] += exp_gain
-                level_up_message = f"{chao_name}'s {stat_level.replace('_', ' ')} increased to level {chao_to_feed[stat_level]}, gaining {exp_gain} {stat_exp.replace('_', ' ')}!"
+
+            # Store the updated Chao data back to the database
+            await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
 
             # Create and send the embed
             embed = discord.Embed(
@@ -231,13 +232,12 @@ class Chao(commands.Cog):
             embed.add_field(name="Stat Increased", value=f"{stat_to_update.replace('_', ' ').capitalize()}", inline=True)
             embed.add_field(name="Increase Amount", value=f"{random_tick_increase} tick(s)", inline=True)
 
-            if level_up_message:
-                embed.add_field(name="Level Up!", value=level_up_message, inline=False)
+            if level_up:
+                embed.add_field(name="Level Up!", value=f"{chao_name.capitalize()}'s {stat_level.replace('_', ' ')} increased to level {chao_to_feed[stat_level]}, gaining {exp_gain} {stat_exp.replace('_', ' ')}!", inline=False)
 
             await ctx.send(embed=embed)
         else:
             await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
-
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))

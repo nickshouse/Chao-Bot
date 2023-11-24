@@ -173,6 +173,7 @@ class Database(commands.Cog):
             # Check if the Chao already exists and update it
             chao_index = existing_chao_df.index[existing_chao_df['name'] == chao['name']]
             if not chao_index.empty:
+                print(f"Updating Chao: {chao}")  # Debug print
                 for key, value in chao.items():
                     existing_chao_df.at[chao_index[0], key] = value
                 final_df = existing_chao_df
@@ -185,6 +186,7 @@ class Database(commands.Cog):
             final_df = pd.DataFrame([chao])
 
         await self.write_file(filename, final_df)
+
 
 
 
