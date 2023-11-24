@@ -164,31 +164,39 @@ class Database(commands.Cog):
     async def store_chao(self, guild_id, user_id, chao):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
         os.makedirs(dir_path, exist_ok=True)
-        filename = f"{dir_path}/{chao['name']}.parquet"
-        df = await self.get_file(filename)
-        if df is not None:  # If the chao already exists, we need to update it
-            for key, value in chao.items():  # Iterating through each item in the chao dict
-                df.at[0, key] = value  # Setting the value in the DataFrame
-        else:  # If it's a new chao, we create it
-            df = pd.DataFrame(chao, index=[0])
-        await self.write_file(filename, df)  # Writing the DataFrame to file
+        filename = f"{dir_path}/chao_data.parquet"
+
+        # Retrieve the existing Chao data
+        existing_chao_df = await self.get_file(filename)
+
+        if existing_chao_df is not None:
+            # Check if the Chao already exists and update it
+            chao_index = existing_chao_df.index[existing_chao_df['name'] == chao['name']]
+            if not chao_index.empty:
+                for key, value in chao.items():
+                    existing_chao_df.at[chao_index[0], key] = value
+                final_df = existing_chao_df
+            else:
+                # Append the new Chao data
+                new_row_df = pd.DataFrame([chao])
+                final_df = pd.concat([existing_chao_df, new_row_df], ignore_index=True)
+        else:
+            # Create a new DataFrame for the Chao data
+            final_df = pd.DataFrame([chao])
+
+        await self.write_file(filename, final_df)
+
 
 
     async def get_chao(self, guild_id, user_id):
         dir_path = f"{self.data_path}/{guild_id}/{user_id}/chao_data"
-        if not os.path.exists(dir_path):  # Check if the directory exists
-            os.makedirs(dir_path, exist_ok=True)  # Create the directory if it doesn't exist
-            return []  # Return an empty list as there are no chao files yet
+        filename = f"{dir_path}/chao_data.parquet"
 
-        chao = []
-        for file in os.listdir(dir_path):
-            if file.endswith(".parquet"):
-                df = await self.get_file(f"{dir_path}/{file}")
-                if df is not None:
-                    chao_dict = df.to_dict(orient='records')[0]
-                    if 'name' in chao_dict:
-                        chao.append(chao_dict)
-        return chao
+        if not os.path.exists(filename):
+            return []
+
+        df = await self.get_file(filename)
+        return df.to_dict(orient='records')
 
 
     async def store_nickname(self, guild_id, user_id, nickname):
