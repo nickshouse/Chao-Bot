@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 intents = discord.Intents.all()  # Set all intents if needed
 bot = commands.Bot(command_prefix='$', intents=intents)  # Initialize bot
 
+
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
