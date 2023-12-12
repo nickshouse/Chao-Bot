@@ -36,10 +36,10 @@ class Commands(commands.Cog):
             await self.check_and_execute(ctx, chao_cog.feed_command, full_input)
 
     @commands.command()
-    async def generate_image(self, ctx, chao_name, stat_to_update=None, stat_value=None):
+    async def view_stats(self, ctx, chao_name, stat_to_update=None, stat_value=None):
         generator_cog = self.bot.get_cog('Generator')
         if generator_cog:
-            await self.check_and_execute(ctx, generator_cog.generate_image_command, chao_name, stat_to_update, stat_value)
+            await self.check_and_execute(ctx, generator_cog.view_stats_command, chao_name, stat_to_update, stat_value)
 
     @commands.command()
     async def buy(self, ctx, *args):
