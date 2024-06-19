@@ -3,39 +3,29 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-intents = discord.Intents.all()  # Set all intents if needed
-bot = commands.Bot(command_prefix='$', intents=intents)  # Initialize bot
-
-
+# Load environment variables from .env file
 load_dotenv()
-token = os.getenv('DISCORD_TOKEN')
+
+# Initialize the bot with a command prefix and intents
+bot = commands.Bot(command_prefix='$', intents=discord.Intents.all())
 
 async def load_all_cogs():
-    await bot.load_extension('cogs.commands')
-    await bot.load_extension('cogs.logger')
-    await bot.load_extension('cogs.database')
-    await bot.load_extension('cogs.generator')
-    await bot.load_extension('cogs.black_market')
-    await bot.load_extension('cogs.fortune_teller')
-    await bot.load_extension('cogs.chao')
-
-@bot.event
-async def on_member_update(before, after):
-    if before.nick != after.nick:
-        # The member's nickname has changed, store the new one.
-        guild_id = after.guild.id
-        user_id = after.id
-        new_nickname = after.nick
-        await bot.get_cog("Database").store_nickname(guild_id, user_id, new_nickname)
+    cogs = [
+        'cogs.chao',     # Load the Chao cog first as Commands cog depends on it
+        'cogs.commands', # Load the Commands cog
+        
+    ]
+    for cog in cogs:
+        try:
+            await bot.load_extension(cog)
+            print(f'Successfully loaded {cog}')
+        except Exception as e:
+            print(f'Failed to load {cog}.', e)
 
 @bot.event
 async def on_ready():
+    await load_all_cogs()
     print(f'We have connected as {bot.user.name}')
-    bot.loop.create_task(load_all_cogs())
 
-@bot.command()
-async def restore_backup(ctx):
-    await bot.get_cog("Database").restore_backup()
-    await ctx.send("Backup restored!")
-
-bot.run(token)  # Using the bot token from .env file
+if __name__ == "__main__":
+    bot.run(os.getenv('DISCORD_TOKEN'))

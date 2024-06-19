@@ -1,244 +1,166 @@
-import asyncio
-import random
-import datetime
-import discord
-import pandas as pd
+import discord, os, pandas as pd, numpy as np, random
 from discord.ext import commands
-from typing import Dict, Optional, List
+from datetime import datetime
+from PIL import Image, ImageEnhance
+
+# Configuration Constants
+EVOLVE_LEVEL_1 = 20
+EVOLVE_LEVEL_2 = 60
+
+HERO_ALIGNMENT = 5
+DARK_ALIGNMENT = -5
+NEUTRAL_ALIGNMENT = 0
+
+FRUIT_TICKS_MIN = 6
+FRUIT_TICKS_MAX = 8
+
+FRUIT_STATS = {
+    "Garden Nut": 'stamina',
+    "Hero Fruit": 'stamina',
+    "Dark Fruit": 'stamina',
+    "Round Fruit": 'stamina',
+    "Triangle Fruit": 'stamina',
+    "Heart Fruit": 'stamina',
+    "Square Fruit": 'stamina',
+    "Chao Fruit": 'all',
+    "Smart Fruit": 'mind',
+    "Power Fruit": 'power',
+    "Run Fruit": 'run',
+    "Swim Fruit": 'swim',
+    "Fly Fruit": 'fly',
+    "Tasty Fruit": 'stamina',
+    "Strange Mushroom": 'stamina'
+}
 
 class Chao(commands.Cog):
-    CHAO_COLORS = ['Regular', 'White', 'Blue', 'Red', 'Yellow', 'Orange', 'Pink', 'Green', 'Mint', 'Brown', 'Purple', 'Grey', 'Lime Green', 'Black']
-    CHAO_TYPES = ['Monotone', 'Two-tone', 'Jewel Monotone', 'Shiny Monotone', 'Jewel Two-tone', 'Shiny Two-tone', 'Shiny Jewel']
+    TEMPLATE_PATH = "../assets/graphics/stats_template.png"
+    OVERLAY_PATH = "../assets/graphics/tick_filled.png"
+    OUTPUT_PATH = "./output_image.png"
+    ICON_PATH = "../assets/graphics/Stats.png"
+    NEUTRAL_PATH = "../assets/chao/neutral_normal_child.png"
+    DARK_PATH = "../assets/chao/dark_normal_child.png"
+    HERO_PATH = "../assets/chao/hero_normal_child.png"
+    BACKGROUND_PATH = "../assets/chao/neutral_background.png"
+    TICK_SPACING = 105
+    LEVEL_POSITION_OFFSET = (826, -106)
+    LEVEL_SPACING = 60
+    TICK_POSITIONS = [(446, 1176), (446, 315), (446, 1747), (446, 591), (446, 883), (446, 1469)]
+    EXP_POSITIONS = {stat: [(183 + i * 60, y) for i in range(4)] for stat, y in zip(['swim', 'fly', 'run', 'power', 'mind', 'stamina'], [302, 576, 868, 1161, 1454, 1732])}
     GRADES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'X']
     GRADE_TO_VALUE = {'F': -1, 'E': 0, 'D': 1, 'C': 2, 'B': 3, 'A': 4, 'S': 5, 'X': 6}
-    STATS = ['Swim', 'Fly', 'Run', 'Power', 'Mind', 'Stamina']
+    CUSTOM_EMOJI_ID = 1176313914464681984
 
     def __init__(self, bot):
-        self.bot = bot
+        self.bot, self.embed_color = bot, discord.Color.blue()
+        self.fruits = [{"emoji": emoji, "name": name} for emoji, name in zip(
+            "🍎🍏🍊🍋🍌🍉🍆🍇🍓🍒🍑🍐🍍🥝🍄",
+            ["Garden Nut", "Hero Fruit", "Dark Fruit", "Round Fruit", "Triangle Fruit", "Heart Fruit", "Square Fruit", "Chao Fruit", "Smart Fruit", "Power Fruit", "Run Fruit", "Swim Fruit", "Fly Fruit", "Tasty Fruit", "Strange Mushroom"]
+        )]
+        self.fruit_prices, self.chao_names = 15, ["Chaoko", "Chaolin", "Chow", "Chaoblin", "Count Chaocula", "Chaozil", "Chaos", "Chaoz"]
+        self.current_date, self.num_images = datetime.now().date(), {str(i): Image.open(f"../assets/resized/{i}.png") for i in range(10)}
 
-    def calculate_exp_gain(self, grade: str) -> int:
-        return (self.GRADE_TO_VALUE[grade] * 3) + 13
-    
-    async def chao_command(self, ctx):
-        db_cog = self.bot.get_cog('Database')
-        user_initialized = await db_cog.is_user_initialized(ctx.guild.id, ctx.author.id)
+    def get_path(self, guild_id, user_id, folder, filename):
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../database', guild_id, user_id, folder)
+        os.makedirs(base, exist_ok=True)
+        return os.path.join(base, filename)
 
-        if user_initialized:
-            await ctx.reply("You are already using Chao Bot!")
-            return
+    def save_inventory(self, path, inventory_df, current_inventory):
+        current_inventory.setdefault('Chao Egg', 0)
+        pd.concat([inventory_df[inventory_df['date'] != self.current_date.strftime("%Y-%m-%d")], pd.DataFrame([{**{'date': self.current_date.strftime("%Y-%m-%d")}, **{key: value or 0 for key, value in current_inventory.items()}}])], ignore_index=True).fillna(0).to_parquet(path, index=False)
 
-        # Create necessary directories and initialize data as needed
-        await db_cog.initialize_user_data(ctx.guild.id, ctx.author.id)
+    def load_inventory(self, path): 
+        return pd.read_parquet(path).fillna(0).assign(**{'Chao Egg': lambda df: df['Chao Egg'].fillna(0)}) if os.path.exists(path) else pd.DataFrame({'date': [self.current_date.strftime("%Y-%m-%d")], 'rings': [0], 'Chao Egg': [0], 'Garden Fruit': [0]})
 
-        # Update user's rings by adding 500
-        current_rings = await db_cog.get_rings(ctx.guild.id, ctx.author.id)
-        new_rings = current_rings + 500
-        await db_cog.store_rings(ctx.guild.id, ctx.author.id, new_rings)
+    def is_user_initialized(self, guild_id, user_id): 
+        return os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../database', guild_id, user_id))
 
-        # Update user's inventory by adding 5 garden fruits
-        garden_fruit_data = pd.DataFrame([{'item': 'Garden Fruit', 'quantity': 5}])
-        await db_cog.store_inventory(ctx.guild.id, ctx.author.id, garden_fruit_data)
+    def calculate_exp_gain(self, grade): return (self.GRADE_TO_VALUE[grade] * 3) + 13
 
-        # Generate a unique Chao name
-        chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
-        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
-        while any(chao['name'] == chao_name for chao in chao_list):
-            chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
+    def combine_images(self, background_path, overlay_path, output_path):
+        with Image.open(background_path).convert("RGBA") as background:
+            with Image.open(overlay_path).convert("RGBA") as overlay:
+                combined = Image.alpha_composite(background, overlay)
+                combined.save(output_path)
 
-        # Create a Regular Two-tone Chao Egg
-        chao_data = {
-            'name': chao_name,
-            'color': 'Regular',
-            'type': 'Two-tone',
-            'hatched': 0,
-            'birth_date': None,
-        }
+    def paste_image(self, template_path, overlay_path, output_path, tick_positions, *stats):
+        with Image.open(template_path) as template, Image.open(overlay_path) as overlay:
+            overlay = overlay.convert("RGBA")
+            [template.paste(self.num_images[digit], pos, self.num_images[digit]) for stat, exp in zip(["swim", "fly", "run", "power", "mind", "stamina"], stats[-6:]) for pos, digit in zip(self.EXP_POSITIONS[stat], f"{exp:04d}")]
+            [template.paste(overlay, (pos[0] + i * self.TICK_SPACING, pos[1]), overlay) for pos, ticks in zip(tick_positions, stats[:6]) for i in range(ticks)]
+            [template.paste(self.num_images[str(level // 10)], (pos[0] + self.LEVEL_POSITION_OFFSET[0], pos[1] + self.LEVEL_POSITION_OFFSET[1]), self.num_images[str(level // 10)]) or template.paste(self.num_images[str(level % 10)], (pos[0] + self.LEVEL_POSITION_OFFSET[0] + self.LEVEL_SPACING, pos[1] + self.LEVEL_POSITION_OFFSET[1]), self.num_images[str(level % 10)]) for pos, level in zip(tick_positions, stats[6:12])]
+            template.save(output_path)
 
-        for stat in self.STATS:
-            grade = random.choice(self.GRADES)
-            chao_data.update({
-                f'{stat.lower()}_grade': grade, 
-                f'{stat.lower()}_ticks': 0, 
-                f'{stat.lower()}_exp': 0, 
-                f'{stat.lower()}_level': 0
-            })
+    def change_image_hue(self, image_path, output_path, hue, saturation):
+        img = ImageEnhance.Color(Image.fromarray(np.stack([(hue * np.ones_like(h)).astype(np.uint8), s, v], axis=-1), 'HSV').convert('RGBA').enhance(saturation))
+        img.save(output_path)
 
-        await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_data)
+    def update_chao_type_and_thumbnail(self, guild_id, user_id, chao_name, chao_df):
+        chao_dir = self.get_path(guild_id, user_id, 'chao_data', chao_name)
+        thumbnail_path = os.path.join(chao_dir, f'{chao_name}_thumbnail.png')
+        stat_levels = {stat: chao_df.iloc[0][f'{stat}_level'] for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']}
+        max_stat = max(stat_levels, key=stat_levels.get)
+        max_level = stat_levels[max_stat]
+        current_type = chao_df.iloc[0]['Type']
+        evolved = chao_df.iloc[0]['evolved']
 
-        # Send embed with egg image and example commands
-        embed = discord.Embed(
-            title="Welcome to Chao Bot!",
-            description=f"**You Receive:**\n- `1x Chao Egg`\n- `500x Rings`\n- `5x Garden Fruit`\n\n**Example Commands:**\n- `!feed [Chao name] [item]` to feed your Chao.\n- `!race [Chao name]` to enter your Chao in a race.\n- `!train [Chao name] [stat]` to train a specific stat.\n- `!stats [Chao name]` to view your Chao's stats.",
-            color=discord.Color.blue()
-        )
-        embed.set_image(url="attachment://regular.png")
-        file = discord.File("../assets/eggs/regular.png", filename="regular.png")
-        await ctx.reply(file=file, embed=embed)
-
-        # Wait for the egg to hatch
-        await asyncio.sleep(300)  # Wait for 5 minutes
-
-        chao_data['hatched'] = 1
-        chao_data['birth_date'] = datetime.date.today().strftime("%B %d, %Y")  # Format as 'Month Day, Year'
-        chao_data['hp_ticks'] = 10
-
-        await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_data)
-
-        # Send embed with hatched chao image
-        hatched_embed = discord.Embed(
-            title="Your Chao Egg has hatched!",
-            description=f"Your Chao Egg has hatched into a Regular Two-tone Chao named {chao_name}!",
-            color=discord.Color.blue()
-        )
-        hatched_embed.set_image(url="attachment://neutral_normal_child.png")
-        hatched_file = discord.File("../assets/chao/neutral_normal_child.png", filename="neutral_normal_child.png")
-        await ctx.reply(file=hatched_file, embed=hatched_embed)
-
-
-    @commands.command()
-    async def give_egg(self, ctx):
-        db_cog = self.bot.get_cog('Database')
-        user_initialized = await db_cog.is_user_initialized(ctx.guild.id, ctx.author.id)
-
-        if not user_initialized:
-            await ctx.reply("You need to initialize your data with the Chao Bot first!")
-            return
-
-        # Generate a unique Chao name
-        chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
-        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
-        while any(chao['name'] == chao_name for chao in chao_list):
-            chao_name = self.bot.cogs['FortuneTeller'].generate_chao_name()
-
-        # Create a Regular Two-tone Chao Egg
-        chao_data = {
-            'name': chao_name,
-            'color': 'Regular',
-            'type': 'Two-tone',
-            'hatched': 0,
-            'birth_date': None,
-        }
-
-        for stat in self.STATS:
-            grade = random.choice(self.GRADES)
-            chao_data.update({
-                f'{stat.lower()}_grade': grade, 
-                f'{stat.lower()}_ticks': 0, 
-                f'{stat.lower()}_exp': 0, 
-                f'{stat.lower()}_level': 0
-            })
-
-        await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_data)
-
-        # Inform the user
-        await ctx.send(f"{ctx.author.mention}, you have received a Chao Egg! It will hatch in 3 seconds.")
-
-        # Wait for 3 seconds
-        await asyncio.sleep(3)
-
-        # Hatch the Chao
-        chao_data['hatched'] = 1
-        chao_data['birth_date'] = datetime.date.today().strftime("%B %d, %Y")  # Format as 'Month Day, Year'
-        chao_data['hp_ticks'] = 10
-
-        await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_data)
-
-        # Inform the user of the hatched Chao
-        await ctx.send(f"{ctx.author.mention}, your Chao Egg has hatched into a {chao_data['color']} {chao_data['type']} Chao named {chao_data['name']}!")
-
-
-    async def feed_command(self, ctx, full_input: str):
-        db_cog = self.bot.get_cog('Database')
-
-        # Retrieve all Chao names for this user
-        chao_list = await db_cog.get_chao(ctx.guild.id, ctx.author.id)
-        chao_names = [chao['name'].lower() for chao in chao_list]
-
-        # Split the input and iterate over it to find the Chao name and item name
-        split_input = full_input.split()
-        chao_name = None
-        item_name = None
-        for i in range(1, len(split_input) + 1):
-            potential_chao_name = ' '.join(split_input[:i])
-            if potential_chao_name.lower() in chao_names:
-                chao_name = potential_chao_name
-                item_name = ' '.join(split_input[i:]).rstrip('s').lower()
-                break
-
-        if not chao_name:
-            await ctx.send(f"You don't have a Chao named {' '.join(split_input[:i-2])}.")
-            return
-
-        # Find the specific Chao to feed
-        chao_to_feed = next((chao for chao in chao_list if chao['name'].lower() == chao_name.lower()), None)
-        if not chao_to_feed:
-            await ctx.send(f"Could not find data for Chao named {chao_name}.")
-            return
-
-        inventory_df = await db_cog.get_inventory(ctx.guild.id, ctx.author.id)
-        if inventory_df is not None and not inventory_df[inventory_df['item'].str.lower() == item_name].empty:
-            inventory_item = inventory_df.loc[inventory_df['item'].str.lower() == item_name]
-
-            if inventory_item.empty or inventory_item.iloc[0]['quantity'] <= 0:
-                await ctx.send(f"You don't have a(n) {item_name} in your inventory.")
-                return
-
-            inventory_df.loc[inventory_df['item'].str.lower() == item_name, 'quantity'] -= 1
-            await db_cog.store_inventory(ctx.guild.id, ctx.author.id, inventory_df)
+        if chao_df.iloc[0]['alignment'] >= HERO_ALIGNMENT:
+            alignment = "hero"
+        elif chao_df.iloc[0]['alignment'] <= DARK_ALIGNMENT:
+            alignment = "dark"
         else:
-            await ctx.send(f"You don't have a(n) {item_name} in your inventory.")
-            return
+            alignment = "neutral"
 
-        item_stat_effects = {
-            'power fruit': 'power_ticks',
-            'run fruit': 'run_ticks',
-            'swim fruit': 'swim_ticks',
-            'fly fruit': 'fly_ticks',
-            'garden fruit': 'stamina_ticks',
-            'smart fruit': 'mind_ticks'
-        }
+        # Freeze the alignment when the Chao evolves
+        if max_level >= EVOLVE_LEVEL_1 and not evolved:
+            if alignment == "hero":
+                chao_df.at[0, 'alignment'] = HERO_ALIGNMENT
+            elif alignment == "dark":
+                chao_df.at[0, 'alignment'] = DARK_ALIGNMENT
+            else:
+                chao_df.at[0, 'alignment'] = NEUTRAL_ALIGNMENT
+            chao_df.at[0, 'evolved'] = True
 
-        stat_to_update = item_stat_effects.get(item_name.lower(), None)
-        if stat_to_update is not None:
-            random_tick_increase = random.randint(1, 3)
-            new_ticks = chao_to_feed[stat_to_update] + random_tick_increase
-            level_up = False
+        primary_stat = current_type.split('/')[0] if '/' in current_type else "normal"
+        secondary_stat = current_type.split('/')[1] if '/' in current_type else "normal"
 
-            if new_ticks >= 10:
-                level_up = True
-                new_ticks = new_ticks % 10
-
-            chao_to_feed[stat_to_update] = new_ticks
-            chao_to_feed['hp_ticks'] = min(chao_to_feed['hp_ticks'] + random_tick_increase, 10)
-
-            if level_up:
-                stat_level = f"{stat_to_update.rsplit('_', 1)[0]}_level"
-                stat_exp = f"{stat_to_update.rsplit('_', 1)[0]}_exp"
-                stat_grade = f"{stat_to_update.rsplit('_', 1)[0]}_grade"
-                chao_to_feed[stat_level] += 1
-                exp_gain = self.calculate_exp_gain(chao_to_feed[stat_grade])
-                chao_to_feed[stat_exp] += exp_gain
-
-            # Store the updated Chao data back to the database
-            await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
-
-            # Create and send the embed
-            embed = discord.Embed(
-                title=f"Feeding {chao_name.capitalize()}",
-                description=f"You fed a(n) {item_name} to {chao_name.capitalize()}!",
-                color=discord.Color.green()
-            )
-
-            embed.add_field(name="Stat Increased", value=f"{stat_to_update.replace('_', ' ').capitalize()}", inline=True)
-            embed.add_field(name="Increase Amount", value=f"{random_tick_increase} tick(s)", inline=True)
-
-            if level_up:
-                embed.add_field(name="Level Up!", value=f"{chao_name.capitalize()}'s {stat_level.replace('_', ' ')} increased to level {chao_to_feed[stat_level]}, gaining {exp_gain} {stat_exp.replace('_', ' ')}!", inline=False)
-
-            await ctx.send(embed=embed)
+        # Determine the new type based on the level and stats
+        if max_level >= EVOLVE_LEVEL_1:
+            chao_df.at[0, 'Type'] = max_stat.capitalize()
+            thumbnail_image = f"../assets/chao/{alignment}_{max_stat}_normal_adult.png"
+            if not os.path.exists(thumbnail_image):
+                thumbnail_image = f"../assets/chao/{alignment}_normal_normal_adult.png"
+        elif max_level >= EVOLVE_LEVEL_2:
+            primary_stat = max_stat.capitalize() if primary_stat == "normal" else primary_stat
+            chao_df.at[0, 'Type'] = f"{primary_stat}/{max_stat.capitalize()}"
+            thumbnail_image = f"../assets/chao/{alignment}_{primary_stat.lower()}_{primary_stat.lower() if primary_stat == max_stat.capitalize() else max_stat.lower()}_adult.png"
+            if not os.path.exists(thumbnail_image):
+                thumbnail_image = f"../assets/chao/{alignment}_normal_normal_adult.png"
         else:
-            await db_cog.store_chao(ctx.guild.id, ctx.author.id, chao_to_feed)
+            thumbnail_image = f"../assets/chao/{alignment}_normal_normal_adult.png"
 
-async def setup(bot):
-    await bot.add_cog(Chao(bot))
-    print("Chao cog loaded")
+        # Check for level 50
+        if max_level >= 50:
+            chao_df.at[0, 'Type'] = f"{max_stat.capitalize()}/{max_stat.capitalize()}"
+            thumbnail_image = f"../assets/chao/{alignment}_{max_stat.lower()}_{max_stat.lower()}_adult.png"
+            if not os.path.exists(thumbnail_image):
+                thumbnail_image = f"../assets/chao/{alignment}_normal_normal_adult.png"
+
+        # Use neutral_normal_normal_adult.png if specific image does not exist
+        if not os.path.exists(thumbnail_image):
+            thumbnail_image = f"../assets/chao/neutral_normal_normal_adult.png"
+
+        self.combine_images(self.BACKGROUND_PATH, thumbnail_image, thumbnail_path)
+        chao_df.to_parquet(os.path.join(chao_dir, f'{chao_name}_stats.parquet'), index=False)
+        return chao_df.iloc[0]['Type'] if chao_df.iloc[0]['Type'] != "Stamina" else "Normal"
+
+    async def initialize_inventory(self, ctx, guild_id, user_id, embed_title, embed_desc):
+        if self.is_user_initialized(guild_id, user_id):
+            return await ctx.send(f"{ctx.author.mention}, you have already started using the Chao Bot.")
+        self.save_inventory(self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet'), self.load_inventory(self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')), {'rings': 500, 'Chao Egg': 1, 'Garden Fruit': 5})
+        await ctx.reply(file=discord.File(self.NEUTRAL_PATH, filename="neutral_normal_child.png"), embed=discord.Embed(title=embed_title, description=embed_desc, color=self.embed_color).set_image(url="attachment://neutral_normal_child.png"))
+
+    def send_embed(self, ctx, description, title="Chao Bot"):
+        embed = discord.Embed(title=title, description=description, color=self.embed_color)
+        return ctx.send(embed=embed)
+
+async def setup(bot): await bot.add_cog(Chao(bot))
