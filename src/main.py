@@ -15,4 +15,4 @@ async def on_ready():
             print(f'Failed to load {cog}: {e}')
     print(f'Connected as {bot.user.name}')
 
-bot.run(os.getenv('DISCORD_TOKEN')
+bot.run(os.getenv('DISCORD_TOKEN'))
