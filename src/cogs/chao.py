@@ -394,6 +394,7 @@ class Chao(commands.Cog):
                 thumbnail_path
             )
 
+
             # Update Chao's Type and Form in DataFrame
             chao_df.at[chao_df.index[-1], 'Type'] = chao_type
             chao_df.at[chao_df.index[-1], 'Form'] = form
@@ -408,7 +409,7 @@ class Chao(commands.Cog):
         except Exception as e:
             print(f"[update_chao_type_and_thumbnail] An error occurred: {e}")
             return None
-            
+
 
     async def initialize_inventory(self, ctx, guild_id, user_id, embed_title, embed_desc):
         print(f"[initialize_inventory] Initializing inventory for User: {user_id}, Guild: {guild_id}")
