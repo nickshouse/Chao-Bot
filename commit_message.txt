@@ -1,1 +1,1 @@
-It looks like your message got cut off after "Recent changes: -". Can you please provide the specific changes you made? That way, I can help you craft a concise Git commit message.
+It seems your message got cut off. Could you please provide the recent changes you'd like to include in the commit message?

@@ -408,6 +408,7 @@ class Chao(commands.Cog):
         except Exception as e:
             print(f"[update_chao_type_and_thumbnail] An error occurred: {e}")
             return None
+            
 
     async def initialize_inventory(self, ctx, guild_id, user_id, embed_title, embed_desc):
         print(f"[initialize_inventory] Initializing inventory for User: {user_id}, Guild: {guild_id}")
