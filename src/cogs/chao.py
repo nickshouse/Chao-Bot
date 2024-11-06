@@ -48,112 +48,224 @@ class Chao(commands.Cog):
         self.assets_dir = os.path.join(self.base_dir, '../../assets')
 
         # Paths for images
-        self.TEMPLATE_PATH = os.path.join(self.assets_dir, 'graphics/cards/stats_page_1.png')
-        self.TEMPLATE_PAGE_2_PATH = os.path.join(self.assets_dir, 'graphics/cards/stats_page_2.png')
-        self.OVERLAY_PATH = os.path.join(self.assets_dir, 'graphics/ticks/tick_filled.png')
-        self.OUTPUT_PATH = os.path.join(self.base_dir, 'output_image.png')
+        self.TEMPLATE_PATH = os.path.join(
+            self.assets_dir, 'graphics/cards/stats_page_1.png')
+        self.TEMPLATE_PAGE_2_PATH = os.path.join(
+            self.assets_dir, 'graphics/cards/stats_page_2.png')
+        self.OVERLAY_PATH = os.path.join(
+            self.assets_dir, 'graphics/ticks/tick_filled.png')
         self.ICON_PATH = os.path.join(self.assets_dir, 'graphics/icons/Stats.png')
-        self.NEUTRAL_PATH = os.path.join(self.assets_dir, 'chao/normal/neutral/neutral_normal_1.png')
-        self.DARK_PATH = os.path.join(self.assets_dir, 'chao/normal/dark/dark_normal_1.png')
-        self.HERO_PATH = os.path.join(self.assets_dir, 'chao/normal/hero/hero_normal_1.png')
-        self.BACKGROUND_PATH = os.path.join(self.assets_dir, 'graphics/thumbnails/neutral_background.png')
+        self.NEUTRAL_PATH = os.path.join(
+            self.assets_dir, 'chao/normal/neutral/neutral_normal_1.png')
+        self.DARK_PATH = os.path.join(
+            self.assets_dir, 'chao/normal/dark/dark_normal_1.png')
+        self.HERO_PATH = os.path.join(
+            self.assets_dir, 'chao/normal/hero/hero_normal_1.png')
+        self.BACKGROUND_PATH = os.path.join(
+            self.assets_dir, 'graphics/thumbnails/neutral_background.png')
 
         self.TICK_SPACING = 105
         self.LEVEL_POSITION_OFFSET = (826, -106)
         self.LEVEL_SPACING = 60
-        self.TICK_POSITIONS = [(446, 1176), (446, 315), (446, 1747), (446, 591), (446, 883), (446, 1469)]
-        self.EXP_POSITIONS = {stat: [(183 + i * 60, y) for i in range(4)] for stat, y in zip(['swim', 'fly', 'run', 'power', 'mind', 'stamina'], [302, 576, 868, 1161, 1454, 1732])}
+        self.TICK_POSITIONS = [
+            (446, 1176), (446, 315), (446, 1747),
+            (446, 591), (446, 883), (446, 1469)
+        ]
+        self.EXP_POSITIONS = {
+            stat: [(183 + i * 60, y) for i in range(4)]
+            for stat, y in zip(
+                ['swim', 'fly', 'run', 'power', 'mind', 'stamina'],
+                [302, 576, 868, 1161, 1454, 1732]
+            )
+        }
         self.GRADES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'X']
-        self.GRADE_TO_VALUE = {'F': -1, 'E': 0, 'D': 1, 'C': 2, 'B': 3, 'A': 4, 'S': 5, 'X': 6}
+        self.GRADE_TO_VALUE = {
+            'F': -1, 'E': 0, 'D': 1, 'C': 2,
+            'B': 3, 'A': 4, 'S': 5, 'X': 6
+        }
         self.CUSTOM_EMOJI_ID = 1176313914464681984
 
         # Eye and mouth types
-        self.eye_types = ['normal', 'happy', 'angry', 'sad', 'sleep', 'tired', 'pain']
-        self.mouth_types = ['happy', 'unhappy', 'mean', 'grumble', 'evil']
+        self.eye_types = [
+            'normal', 'happy', 'angry', 'sad',
+            'sleep', 'tired', 'pain'
+        ]
+        self.mouth_types = [
+            'happy', 'unhappy', 'mean', 'grumble', 'evil'
+        ]
 
         self.EYES_DIR = os.path.join(self.assets_dir, 'face', 'eyes')
         self.MOUTH_DIR = os.path.join(self.assets_dir, 'face', 'mouth')
 
-        self.fruits = [{"emoji": emoji, "name": name} for emoji, name in zip("🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍", ["Garden Nut", "Hero Fruit", "Dark Fruit", "Round Fruit", "Triangle Fruit", "Heart Fruit", "Square Fruit", "Chao Fruit", "Smart Fruit", "Power Fruit", "Run Fruit", "Swim Fruit", "Fly Fruit", "Tasty Fruit", "Strange Mushroom"])]
+        self.fruits = [
+            {"emoji": emoji, "name": name}
+            for emoji, name in zip(
+                "🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍",
+                [
+                    "Garden Nut", "Hero Fruit", "Dark Fruit",
+                    "Round Fruit", "Triangle Fruit", "Heart Fruit",
+                    "Square Fruit", "Chao Fruit", "Smart Fruit",
+                    "Power Fruit", "Run Fruit", "Swim Fruit",
+                    "Fly Fruit", "Tasty Fruit", "Strange Mushroom"
+                ]
+            )
+        ]
         self.fruit_prices = 15
-        self.chao_names = ["Chaoko", "Chaowser", "Chaorunner", "Chaozart", "Chaobacca", "Chaowder", "Chaocolate", "Chaolesterol", "Chao Mein", "Chaoster", "Chaomanji", "Chaosmic", "Chaozilla", "Chaoseidon", "Chaosferatu", "Chaolin", "Chow", "Chaotzhu", "Chaoblin", "Count Chaocula", "Chaozil", "Chaoz"]
+        self.chao_names = [
+            "Chaoko", "Chaowser", "Chaorunner", "Chaozart",
+            "Chaobacca", "Chaowder", "Chaocolate", "Chaolesterol",
+            "Chao Mein", "Chaoster", "Chaomanji", "Chaosmic",
+            "Chaozilla", "Chaoseidon", "Chaosferatu", "Chaolin",
+            "Chow", "Chaotzhu", "Chaoblin", "Count Chaocula",
+            "Chaozil", "Chaoz"
+        ]
         self.current_date = datetime.now().date()
-        self.num_images = {str(i): Image.open(os.path.join(self.assets_dir, f"resized/{i}.png")) for i in range(10)}
+        self.num_images = {
+            str(i): Image.open(
+                os.path.join(self.assets_dir, f"resized/{i}.png")
+            )
+            for i in range(10)
+        }
 
     def get_path(self, guild_id, user_id, folder, filename):
-        base = os.path.join(self.base_dir, '../../database', guild_id, user_id, folder)
+        base = os.path.join(
+            self.base_dir, '../../database', guild_id, user_id, folder)
         os.makedirs(base, exist_ok=True)
         return os.path.join(base, filename)
 
     def save_inventory(self, path, inventory_df, current_inventory):
         current_inventory.setdefault('Chao Egg', 0)
-        pd.concat([inventory_df[inventory_df['date'] != self.current_date.strftime("%Y-%m-%d")], pd.DataFrame([{**{'date': self.current_date.strftime("%Y-%m-%d")}, **{key: value or 0 for key, value in current_inventory.items()}}])], ignore_index=True).fillna(0).to_parquet(path, index=False)
+        current_date_str = self.current_date.strftime("%Y-%m-%d")
+        new_entry = {**{'date': current_date_str}, **current_inventory}
+        inventory_df = pd.concat(
+            [
+                inventory_df[inventory_df['date'] != current_date_str],
+                pd.DataFrame([new_entry])
+            ],
+            ignore_index=True
+        ).fillna(0)
+        inventory_df.to_parquet(path, index=False)
 
     def load_inventory(self, path):
-        return pd.read_parquet(path).fillna(0).assign(**{'Chao Egg': lambda df: df['Chao Egg'].fillna(0)}) if os.path.exists(path) else pd.DataFrame({'date': [self.current_date.strftime("%Y-%m-%d")], 'rings': [0], 'Chao Egg': [0], 'Garden Fruit': [0]})
+        if os.path.exists(path):
+            return pd.read_parquet(path).fillna(0)
+        else:
+            return pd.DataFrame({
+                'date': [self.current_date.strftime("%Y-%m-%d")],
+                'rings': [0], 'Chao Egg': [0], 'Garden Fruit': [0]
+            })
 
     def is_user_initialized(self, guild_id, user_id):
-        return os.path.exists(os.path.join(self.base_dir, '../../database', guild_id, user_id))
+        return os.path.exists(
+            os.path.join(
+                self.base_dir, '../../database', guild_id, user_id))
 
     def calculate_exp_gain(self, grade):
         return (self.GRADE_TO_VALUE[grade] * 3) + 13
 
-    def combine_images_with_face(self, background_path, chao_image_path, eyes_image_path, mouth_image_path, output_path):
+    def combine_images_with_face(
+            self, background_path, chao_image_path, eyes_image_path,
+            mouth_image_path, output_path):
         with Image.open(background_path).convert("RGBA") as background, \
-            Image.open(chao_image_path).convert("RGBA") as chao_img, \
-            Image.open(eyes_image_path).convert("RGBA") as eyes_img, \
-            Image.open(mouth_image_path).convert("RGBA") as mouth_img:
+                Image.open(chao_image_path).convert("RGBA") as chao_img, \
+                Image.open(eyes_image_path).convert("RGBA") as eyes_img, \
+                Image.open(mouth_image_path).convert("RGBA") as mouth_img:
 
-            # Ensure all images are 70x70 pixels (resize if necessary)
+            # Resize images
             chao_img = chao_img.resize((70, 70), Image.LANCZOS)
             background = background.resize((70, 70), Image.LANCZOS)
             eyes_img = eyes_img.resize((70, 70), Image.LANCZOS)
             mouth_img = mouth_img.resize((70, 70), Image.LANCZOS)
 
             # Composite the images
-            # First, overlay the eyes onto the Chao image
             chao_with_eyes = Image.alpha_composite(chao_img, eyes_img)
-
-            # Then, overlay the mouth onto the Chao image with eyes
             chao_with_face = Image.alpha_composite(chao_with_eyes, mouth_img)
-
-            # Finally, overlay the chao with face onto the background
             final_image = Image.alpha_composite(background, chao_with_face)
-
-            # Save the final image
             final_image.save(output_path)
 
-
-    def paste_image(self, template_path, overlay_path, output_path, tick_positions, *stats):
-        with Image.open(template_path) as template, Image.open(overlay_path) as overlay:
+    def paste_image(
+            self, template_path, overlay_path, output_path,
+            tick_positions, *stats):
+        with Image.open(template_path) as template, \
+                Image.open(overlay_path) as overlay:
             overlay = overlay.convert("RGBA")
-            [template.paste(self.num_images[digit], pos, self.num_images[digit]) for stat, exp in zip(["swim", "fly", "run", "power", "mind", "stamina"], stats[-6:]) for pos, digit in zip(self.EXP_POSITIONS[stat], f"{exp:04d}")]
-            [template.paste(overlay, (pos[0] + i * self.TICK_SPACING, pos[1]), overlay) for pos, ticks in zip(tick_positions, stats[:6]) for i in range(ticks)]
-            [template.paste(self.num_images[str(level // 10)], (pos[0] + self.LEVEL_POSITION_OFFSET[0], pos[1] + self.LEVEL_POSITION_OFFSET[1]), self.num_images[str(level // 10)]) or template.paste(self.num_images[str(level % 10)], (pos[0] + self.LEVEL_POSITION_OFFSET[0] + self.LEVEL_SPACING, pos[1] + self.LEVEL_POSITION_OFFSET[1]), self.num_images[str(level % 10)]) for pos, level in zip(tick_positions, stats[6:12])]
+            # Paste EXP numbers
+            for stat, exp in zip(
+                    ["swim", "fly", "run", "power", "mind", "stamina"],
+                    stats[-6:]):
+                exp_str = f"{int(exp):04d}"
+                for pos, digit in zip(
+                        self.EXP_POSITIONS[stat], exp_str):
+                    template.paste(
+                        self.num_images[digit], pos, self.num_images[digit])
+            # Paste ticks
+            for pos, ticks in zip(tick_positions, stats[:6]):
+                for i in range(int(ticks)):
+                    tick_pos = (pos[0] + i * self.TICK_SPACING, pos[1])
+                    template.paste(overlay, tick_pos, overlay)
+            # Paste levels
+            for pos, level in zip(tick_positions, stats[6:12]):
+                tens = int(level) // 10
+                ones = int(level) % 10
+                x_offset, y_offset = self.LEVEL_POSITION_OFFSET
+                template.paste(
+                    self.num_images[str(tens)],
+                    (pos[0] + x_offset, pos[1] + y_offset),
+                    self.num_images[str(tens)])
+                template.paste(
+                    self.num_images[str(ones)],
+                    (pos[0] + x_offset + self.LEVEL_SPACING,
+                     pos[1] + y_offset),
+                    self.num_images[str(ones)])
             template.save(output_path)
 
-    def change_image_hue(self, image_path, output_path, hue, saturation):
-        img = ImageEnhance.Color(Image.fromarray(np.stack([(hue * np.ones_like(h)).astype(np.uint8), s, v], axis=-1), 'HSV').convert('RGBA').enhance(saturation))
-        img.save(output_path)
+    def change_image_hue(
+            self, image_path, output_path, hue, saturation):
+        img = Image.open(image_path).convert('RGB')
+        hsv_img = img.convert('HSV')
+        h, s, v = hsv_img.split()
+        h = h.point(lambda p: hue)
+        s = s.point(lambda p: int(p * saturation))
+        hsv_img = Image.merge('HSV', (h, s, v))
+        rgb_img = hsv_img.convert('RGB')
+        rgb_img.save(output_path)
 
-    def update_chao_type_and_thumbnail(self, guild_id, user_id, chao_name, chao_df):
+    def save_chao_stats(
+            self, chao_stats_path, chao_df, chao_stats):
+        current_date_str = self.current_date.strftime("%Y-%m-%d")
+        chao_stats['date'] = [current_date_str]
+        chao_df = chao_df.append(
+            pd.DataFrame(chao_stats), ignore_index=True)
+        chao_df.to_parquet(chao_stats_path, index=False)
+
+    def load_chao_stats(self, chao_stats_path):
+        if os.path.exists(chao_stats_path):
+            return pd.read_parquet(chao_stats_path).fillna(0)
+        else:
+            return pd.DataFrame()
+
+    def update_chao_type_and_thumbnail(
+            self, guild_id, user_id, chao_name, chao_df):
         try:
             print(f"[update_chao_type_and_thumbnail] Updating Chao: {chao_name}")
-            chao_dir = self.get_path(guild_id, user_id, 'chao_data', chao_name)
-            thumbnail_path = os.path.join(chao_dir, f'{chao_name}_thumbnail.png')
+            chao_dir = self.get_path(
+                guild_id, user_id, 'chao_data', chao_name)
+            thumbnail_path = os.path.join(
+                chao_dir, f'{chao_name}_thumbnail.png')
 
             # Extract stat levels
             stat_levels = {
-                stat: chao_df.iloc[0][f'{stat}_level']
+                stat: chao_df.iloc[-1][f'{stat}_level']
                 for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']
             }
             max_stat = max(stat_levels, key=stat_levels.get)
             max_level = stat_levels[max_stat]
-            dark_hero = chao_df.iloc[0]['dark_hero']
-            current_form = chao_df.iloc[0].get('Form', "1")
-            current_type = chao_df.iloc[0].get('Type', 'normal').lower()
+            dark_hero = chao_df.iloc[-1]['dark_hero']
+            current_form = chao_df.iloc[-1].get('Form', "1")
+            current_type = chao_df.iloc[-1].get('Type', 'normal').lower()
 
-            print(f"[update_chao_type_and_thumbnail] Current Form: {current_form}, Max Level: {max_level}, Max Stat: {max_stat}")
+            print(f"[update_chao_type_and_thumbnail] Current Form: {current_form}, "
+                  f"Max Level: {max_level}, Max Stat: {max_stat}")
 
             # Determine alignment
             if dark_hero >= HERO_ALIGNMENT:
@@ -164,8 +276,8 @@ class Chao(commands.Cog):
                 alignment = "neutral"
 
             # Get evolution parameters
-            run_power = chao_df.iloc[0]['run_power']
-            swim_fly = chao_df.iloc[0]['swim_fly']
+            run_power = chao_df.iloc[-1]['run_power']
+            swim_fly = chao_df.iloc[-1]['swim_fly']
 
             # Initialize variables
             chao_type = current_type
@@ -223,7 +335,8 @@ class Chao(commands.Cog):
             if form == "4" and "_" not in chao_type:
                 chao_type = f"{chao_type}_normal"
 
-            print(f"[update_chao_type_and_thumbnail] Determined Form: {form}, Type: {chao_type}, Alignment: {alignment}")
+            print(f"[update_chao_type_and_thumbnail] Determined Form: {form}, "
+                  f"Type: {chao_type}, Alignment: {alignment}")
 
             # Determine eyes alignment based on form
             if form in ["1", "2"]:
@@ -232,35 +345,45 @@ class Chao(commands.Cog):
                 eyes_alignment = alignment
 
             # Get eyes and mouth attributes
-            eyes = chao_df.at[0, 'eyes']
-            mouth = chao_df.at[0, 'mouth']
+            eyes = chao_df.iloc[-1]['eyes']
+            mouth = chao_df.iloc[-1]['mouth']
 
             # Paths to facial features
             eyes_image_filename = f"{eyes_alignment}_{eyes}.png"
-            eyes_image_path = os.path.join(self.EYES_DIR, eyes_image_filename)
+            eyes_image_path = os.path.join(
+                self.EYES_DIR, eyes_image_filename)
             if not os.path.exists(eyes_image_path):
-                eyes_image_path = os.path.join(self.EYES_DIR, f"neutral_{eyes}.png")
+                eyes_image_path = os.path.join(
+                    self.EYES_DIR, f"neutral_{eyes}.png")
             if not os.path.exists(eyes_image_path):
-                eyes_image_path = os.path.join(self.EYES_DIR, f"{eyes_alignment}.png")
+                eyes_image_path = os.path.join(
+                    self.EYES_DIR, f"{eyes_alignment}.png")
 
             mouth_image_filename = f"{mouth}.png"
-            mouth_image_path = os.path.join(self.MOUTH_DIR, mouth_image_filename)
+            mouth_image_path = os.path.join(
+                self.MOUTH_DIR, mouth_image_filename)
             if not os.path.exists(mouth_image_path):
-                mouth_image_path = os.path.join(self.MOUTH_DIR, "happy.png")
+                mouth_image_path = os.path.join(
+                    self.MOUTH_DIR, "happy.png")
 
             # Build the sprite image filename
             chao_image_filename = f"{alignment}_{chao_type}_{form}.png"
 
             # Construct the sprite image path
             base_type = chao_type.split('_')[0]
-            chao_image_path = os.path.join(self.assets_dir, 'chao', base_type, alignment, chao_image_filename)
+            chao_image_path = os.path.join(
+                self.assets_dir, 'chao', base_type,
+                alignment, chao_image_filename)
 
             # Check if the sprite image exists
             if not os.path.exists(chao_image_path):
-                print(f"[update_chao_type_and_thumbnail] Sprite not found: {chao_image_path}")
-                chao_image_path = os.path.join(self.assets_dir, 'chao', 'chao_missing.png')
+                print(f"[update_chao_type_and_thumbnail] Sprite not found: "
+                      f"{chao_image_path}")
+                chao_image_path = os.path.join(
+                    self.assets_dir, 'chao', 'chao_missing.png')
 
-            print(f"[update_chao_type_and_thumbnail] Using sprite: {chao_image_path}")
+            print(f"[update_chao_type_and_thumbnail] Using sprite: "
+                  f"{chao_image_path}")
 
             # Combine images with facial features
             self.combine_images_with_face(
@@ -272,19 +395,19 @@ class Chao(commands.Cog):
             )
 
             # Update Chao's Type and Form in DataFrame
-            chao_df.at[0, 'Type'] = chao_type
-            chao_df.at[0, 'Form'] = form
+            chao_df.at[chao_df.index[-1], 'Type'] = chao_type
+            chao_df.at[chao_df.index[-1], 'Form'] = form
 
             # Save updated Chao data
-            chao_df.to_parquet(os.path.join(chao_dir, f'{chao_name}_stats.parquet'), index=False)
+            chao_df.to_parquet(
+                os.path.join(chao_dir, f'{chao_name}_stats.parquet'),
+                index=False)
             print(f"[update_chao_type_and_thumbnail] Updated Chao stats saved.")
 
             return chao_type, form
         except Exception as e:
             print(f"[update_chao_type_and_thumbnail] An error occurred: {e}")
             return None
-
-
 
     async def initialize_inventory(self, ctx, guild_id, user_id, embed_title, embed_desc):
         print(f"[initialize_inventory] Initializing inventory for User: {user_id}, Guild: {guild_id}")
