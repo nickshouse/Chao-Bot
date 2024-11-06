@@ -68,7 +68,8 @@ class Commands(commands.Cog):
     @commands.command(name='feed')
     @ensure_user_initialized
     async def feed(self, ctx, *, chao_name_and_fruit: str):
-        await self.chao_cog.feed(ctx, chao_name_and_fruit)
+        await self.chao_cog.feed(ctx, chao_name_and_fruit=chao_name_and_fruit)
+
 
 
 async def setup(bot): 

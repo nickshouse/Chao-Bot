@@ -137,10 +137,12 @@ class Chao(commands.Cog):
         current_inventory.setdefault('Chao Egg', 0)
         current_date_str = self.current_date.strftime("%Y-%m-%d")
         new_entry = {**{'date': current_date_str}, **current_inventory}
+        columns = ['date'] + [col for col in new_entry if col != 'date']
+        new_entry_df = pd.DataFrame([new_entry])[columns]
         inventory_df = pd.concat(
             [
                 inventory_df[inventory_df['date'] != current_date_str],
-                pd.DataFrame([new_entry])
+                new_entry_df
             ],
             ignore_index=True
         ).fillna(0)
@@ -148,7 +150,10 @@ class Chao(commands.Cog):
 
     def load_inventory(self, path):
         if os.path.exists(path):
-            return pd.read_parquet(path).fillna(0)
+            inventory_df = pd.read_parquet(path).fillna(0)
+            columns = ['date'] + [col for col in inventory_df.columns if col != 'date']
+            inventory_df = inventory_df[columns]
+            return inventory_df
         else:
             return pd.DataFrame({
                 'date': [self.current_date.strftime("%Y-%m-%d")],
@@ -233,16 +238,20 @@ class Chao(commands.Cog):
     def save_chao_stats(
             self, chao_stats_path, chao_df, chao_stats):
         current_date_str = self.current_date.strftime("%Y-%m-%d")
-        chao_stats['date'] = [current_date_str]
-        chao_df = chao_df.append(
-            pd.DataFrame(chao_stats), ignore_index=True)
+        chao_stats['date'] = current_date_str
+        columns = ['date'] + [col for col in chao_stats if col != 'date']
+        new_entry_df = pd.DataFrame([chao_stats])[columns]
+        chao_df = pd.concat([chao_df, new_entry_df], ignore_index=True)
         chao_df.to_parquet(chao_stats_path, index=False)
 
     def load_chao_stats(self, chao_stats_path):
         if os.path.exists(chao_stats_path):
-            return pd.read_parquet(chao_stats_path).fillna(0)
+            chao_df = pd.read_parquet(chao_stats_path).fillna(0)
+            columns = ['date'] + [col for col in chao_df.columns if col != 'date']
+            chao_df = chao_df[columns]
+            return chao_df
         else:
-            return pd.DataFrame()
+            return pd.DataFrame(columns=['date'])
 
     def update_chao_type_and_thumbnail(
             self, guild_id, user_id, chao_name, chao_df):
@@ -253,16 +262,19 @@ class Chao(commands.Cog):
             thumbnail_path = os.path.join(
                 chao_dir, f'{chao_name}_thumbnail.png')
 
+            # Use the latest stats
+            latest_stats = chao_df.iloc[-1]
+
             # Extract stat levels
             stat_levels = {
-                stat: chao_df.iloc[-1][f'{stat}_level']
+                stat: latest_stats[f'{stat}_level']
                 for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']
             }
             max_stat = max(stat_levels, key=stat_levels.get)
             max_level = stat_levels[max_stat]
-            dark_hero = chao_df.iloc[-1]['dark_hero']
-            current_form = chao_df.iloc[-1].get('Form', "1")
-            current_type = chao_df.iloc[-1].get('Type', 'normal').lower()
+            dark_hero = latest_stats['dark_hero']
+            current_form = latest_stats.get('Form', "1")
+            current_type = latest_stats.get('Type', 'normal').lower()
 
             print(f"[update_chao_type_and_thumbnail] Current Form: {current_form}, "
                   f"Max Level: {max_level}, Max Stat: {max_stat}")
@@ -276,8 +288,8 @@ class Chao(commands.Cog):
                 alignment = "neutral"
 
             # Get evolution parameters
-            run_power = chao_df.iloc[-1]['run_power']
-            swim_fly = chao_df.iloc[-1]['swim_fly']
+            run_power = latest_stats['run_power']
+            swim_fly = latest_stats['swim_fly']
 
             # Initialize variables
             chao_type = current_type
@@ -345,8 +357,8 @@ class Chao(commands.Cog):
                 eyes_alignment = alignment
 
             # Get eyes and mouth attributes
-            eyes = chao_df.iloc[-1]['eyes']
-            mouth = chao_df.iloc[-1]['mouth']
+            eyes = latest_stats['eyes']
+            mouth = latest_stats['mouth']
 
             # Paths to facial features
             eyes_image_filename = f"{eyes_alignment}_{eyes}.png"
@@ -408,7 +420,6 @@ class Chao(commands.Cog):
         except Exception as e:
             print(f"[update_chao_type_and_thumbnail] An error occurred: {e}")
             return None
-            
 
     async def initialize_inventory(self, ctx, guild_id, user_id, embed_title, embed_desc):
         print(f"[initialize_inventory] Initializing inventory for User: {user_id}, Guild: {guild_id}")
@@ -423,12 +434,14 @@ class Chao(commands.Cog):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
         return ctx.send(embed=embed)
 
+    
     async def chao(self, ctx):
         print(f"[chao] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
-        if await self.initialize_inventory(ctx, str(ctx.guild.id), str(ctx.author.id), "Welcome to Chao Bot!",
-                                           "**You Receive:**\n- `1x Chao Egg`\n- `500x Rings`\n- `5x Garden Nut`\n\n"
-                                           "**Example Commands:**\n- `$feed [Chao name] [item]` to feed your Chao.\n- `$race [Chao name]` to enter your Chao in a race.\n- `$train [Chao name] [stat]` to train a specific stat.\n- `$stats [Chao name]` to view your Chao's stats."): return
+        await self.initialize_inventory(ctx, str(ctx.guild.id), str(ctx.author.id), "Welcome to Chao Bot!",
+                                        "**You Receive:**\n- `1x Chao Egg`\n- `500x Rings`\n- `5x Garden Nut`\n\n"
+                                        "**Example Commands:**\n- `$feed [Chao name] [item]` to feed your Chao.\n- `$race [Chao name]` to enter your Chao in a race.\n- `$train [Chao name] [stat]` to train a specific stat.\n- `$stats [Chao name]` to view your Chao's stats.")
 
+    
     async def hatch(self, ctx):
         print(f"[hatch] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
         guild_id, user_id, file_path = str(ctx.guild.id), str(ctx.author.id), self.get_path(str(ctx.guild.id), str(ctx.author.id), 'user_data', 'inventory.parquet')
@@ -448,24 +461,25 @@ class Chao(commands.Cog):
 
         # Ensure 'Form' is initialized as "1" during Chao creation
         chao_stats = {
-            'hatched': [1],
-            'birth_date': [self.current_date.strftime("%Y-%m-%d")],
-            'hp_ticks': [0],
-            'Form': ['1'],  # Initialize Form as "1"
-            **{f"{stat}_ticks": [0] for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
-            **{f"{stat}_level": [0] for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
-            **{f"{stat}_exp": [0] for stat in ['swim', 'fly', 'run', 'power', 'mind', 'stamina']},
-            **{f"{stat}_grade": ['D'] for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
-            'evolved': [False],
-            'Type': ['Normal'],
-            'swim_fly': [0],
-            'run_power': [0],
-            'dark_hero': [0],  # Initialize dark_hero as 0
-            'eyes': [random.choice(self.eye_types)],  # New field for eyes
-            'mouth': [random.choice(self.mouth_types)],  # New field for mouth
+            'hatched': 1,
+            'birth_date': self.current_date.strftime("%Y-%m-%d"),
+            'hp_ticks': 0,
+            'Form': '1',
+            **{f"{stat}_ticks": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
+            **{f"{stat}_level": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
+            **{f"{stat}_exp": 0 for stat in ['swim', 'fly', 'run', 'power', 'mind', 'stamina']},
+            **{f"{stat}_grade": 'D' for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
+            'evolved': False,
+            'Type': 'Normal',
+            'swim_fly': 0,
+            'run_power': 0,
+            'dark_hero': 0,
+            'eyes': random.choice(self.eye_types),
+            'mouth': random.choice(self.mouth_types),
         }
 
-        pd.DataFrame(chao_stats).to_parquet(chao_path, index=False)
+        chao_df = self.load_chao_stats(chao_path)
+        self.save_chao_stats(chao_path, chao_df, chao_stats)
 
         # Generate the Chao's image with face
         chao_image_path = self.NEUTRAL_PATH  # Assuming initial Chao is neutral
@@ -473,8 +487,8 @@ class Chao(commands.Cog):
         thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
 
         # Get the Chao's eyes and mouth attributes
-        eyes = chao_stats['eyes'][0]
-        mouth = chao_stats['mouth'][0]
+        eyes = chao_stats['eyes']
+        mouth = chao_stats['mouth']
         alignment_str = 'neutral'  # Initial alignment
 
         # Paths to facial features
@@ -497,24 +511,29 @@ class Chao(commands.Cog):
                                             color=discord.Color.blue()).set_image(url=f"attachment://{chao_name}_thumbnail.png"))
         print(f"[hatch] Chao Egg hatched into {chao_name} for User: {user_id}. Chao data saved to {chao_path}")
 
+    
     async def market(self, ctx):
         print(f"[market] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
         embed = discord.Embed(title="**Black Market**", description="**Here's what you can buy:**", color=self.embed_color)
         custom_emoji = f'<:custom_emoji:{self.CUSTOM_EMOJI_ID}>'
-        for i in range(len(self.fruits)):
-            embed.add_field(name=f'**{self.fruits[i]["emoji"]} {self.fruits[i]["name"]}**', value=f'**{custom_emoji} x {self.fruit_prices}**', inline=True)
+        for fruit in self.fruits:
+            embed.add_field(name=f'**{fruit["emoji"]} {fruit["name"]}**', value=f'**{custom_emoji} x {self.fruit_prices}**', inline=True)
         await ctx.send(embed=embed)
         print(f"[market] Market items displayed to User: {ctx.author.id}")
 
+    
     async def give_rings(self, ctx):
         print(f"[give_rings] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
         guild_id, user_id, file_path = str(ctx.guild.id), str(ctx.author.id), self.get_path(str(ctx.guild.id), str(ctx.author.id), 'user_data', 'inventory.parquet')
         inventory_df = self.load_inventory(file_path)
         rings = inventory_df.iloc[-1]['rings'] + 1000
-        self.save_inventory(file_path, inventory_df, {'rings': rings, **{fruit['name']: int(inventory_df.iloc[-1].get(fruit['name'], 0)) for fruit in self.fruits}})
+        current_inventory = inventory_df.iloc[-1].to_dict()
+        current_inventory['rings'] = rings
+        self.save_inventory(file_path, inventory_df, current_inventory)
         await self.send_embed(ctx, f"{ctx.author.mention} has been given 1000 rings! Your current rings: {rings}")
         print(f"[give_rings] 1000 Rings added to User: {user_id}. New balance: {rings}")
 
+    
     async def buy(self, ctx, *, item_quantity: str):
         print(f"[buy] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
         try:
@@ -533,56 +552,122 @@ class Chao(commands.Cog):
         if rings < total_cost:
             print(f"[buy] Insufficient rings. Required: {total_cost}, Available: {rings} for User: {ctx.author.id}")
             return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have enough rings to buy {quantity} '{fruit['name']}'. You need {total_cost} rings.")
-        current_inventory = {'rings': rings - total_cost, **{fruit_item['name']: int(inventory_df.iloc[-1].get(fruit_item['name'], 0)) + (quantity if fruit_item == fruit else 0) for fruit_item in self.fruits}, 'Chao Egg': int(inventory_df.iloc[-1].get('Chao Egg', 0))}
+        current_inventory = inventory_df.iloc[-1].to_dict()
+        current_inventory['rings'] -= total_cost
+        current_inventory[fruit['name']] = current_inventory.get(fruit['name'], 0) + quantity
         self.save_inventory(file_path, inventory_df, current_inventory)
         await self.send_embed(ctx, f"{ctx.author.mention} has purchased {quantity} '{fruit['name']}(s)' for {total_cost} rings! You now have {current_inventory['rings']} rings.")
         print(f"[buy] User: {ctx.author.id} bought {quantity}x {fruit['name']} for {total_cost} rings. Remaining rings: {current_inventory['rings']}")
 
+    
     async def inventory(self, ctx):
         print(f"[inventory] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
         inventory_df = self.load_inventory(self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')).fillna(0)
-        embed = discord.Embed(title="Your Inventory", description="Here's what you have:", color=self.embed_color).add_field(name='Rings', value=f'{int(inventory_df.iloc[-1]["rings"])}', inline=False).add_field(name='Last Updated', value=f'{inventory_df.iloc[-1]["date"]}', inline=False)
-        [embed.add_field(name=f'{fruit["emoji"]} {fruit["name"]}', value=f'Quantity: {int(inventory_df.iloc[-1].get(fruit["name"], 0))}', inline=True) for fruit in self.fruits if fruit["name"] in inventory_df.columns and int(inventory_df.iloc[-1].get(fruit["name"], 0)) > 0]
+        embed = discord.Embed(title="Your Inventory", description="Here's what you have:", color=self.embed_color)
+        embed.add_field(name='Rings', value=f'{int(inventory_df.iloc[-1]["rings"])}', inline=False)
+        embed.add_field(name='Last Updated', value=f'{inventory_df.iloc[-1]["date"]}', inline=False)
+        for fruit in self.fruits:
+            quantity = int(inventory_df.iloc[-1].get(fruit['name'], 0))
+            if quantity > 0:
+                embed.add_field(name=f'{fruit["emoji"]} {fruit["name"]}', value=f'Quantity: {quantity}', inline=True)
         chao_egg_quantity = int(inventory_df.iloc[-1].get('Chao Egg', 0))
         if chao_egg_quantity > 0:
             embed.add_field(name='<:ChaoEgg:1176372485986455562> Chao Egg', value=f'Quantity: {chao_egg_quantity}', inline=True)
         await ctx.send(embed=embed)
         print(f"[inventory] Inventory displayed for User: {ctx.author.id}")
 
+    
     async def restore(self, ctx, *, args: str):
         print(f"[restore] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
         parts = args.split()
-        if len(parts) != 2 or parts[0].lower() != 'inventory':
+        if len(parts) < 2:
             print(f"[restore] Invalid input: {args} by User: {ctx.author.id}")
-            return await self.send_embed(ctx, f"{ctx.author.mention}, please use the command in the format: $restore inventory YYYY-MM-DD")
-        guild_id, user_id, file_path = str(ctx.guild.id), str(ctx.author.id), self.get_path(str(ctx.guild.id), str(ctx.author.id), 'user_data', 'inventory.parquet')
-        try:
-            restore_date = datetime.strptime(parts[1], "%Y-%m-%d").date()
-        except ValueError:
-            print(f"[restore] Invalid date format: {parts[1]} by User: {ctx.author.id}")
-            return await self.send_embed(ctx, f"{ctx.author.mention}, please provide the date in YYYY-MM-DD format.")
-        inventory_df = self.load_inventory(file_path)
-        if parts[1] not in inventory_df['date'].values:
-            print(f"[restore] No data found for date: {parts[1]} by User: {ctx.author.id}")
-            return await self.send_embed(ctx, f"{ctx.author.mention}, no inventory data found for {parts[1]}.")
-        restored_inventory, current_date_str = inventory_df[inventory_df['date'] == parts[1]].iloc[0].to_dict(), self.current_date.strftime("%Y-%m-%d")
-        restored_inventory['date'] = current_date_str
-        pd.concat([inventory_df[inventory_df['date'] != current_date_str], pd.DataFrame([restored_inventory])], ignore_index=True).to_parquet(file_path, index=False)
-        await self.send_embed(ctx, f"{ctx.author.mention}, your inventory has been restored to the state from {parts[1]}.")
-        print(f"[restore] Inventory restored to {parts[1]} for User: {ctx.author.id}")
+            return await self.send_embed(ctx, f"{ctx.author.mention}, please use the command in the correct format.")
 
+        if parts[0].lower() == 'inventory':
+            if len(parts) != 2:
+                return await self.send_embed(ctx, f"{ctx.author.mention}, please use the command in the format: $restore inventory YYYY-MM-DD")
+            date_str = parts[1]
+            guild_id, user_id, file_path = str(ctx.guild.id), str(ctx.author.id), self.get_path(str(ctx.guild.id), str(ctx.author.id), 'user_data', 'inventory.parquet')
+            try:
+                restore_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                print(f"[restore] Invalid date format: {date_str} by User: {ctx.author.id}")
+                return await self.send_embed(ctx, f"{ctx.author.mention}, please provide the date in YYYY-MM-DD format.")
+            inventory_df = self.load_inventory(file_path)
+            if date_str not in inventory_df['date'].values:
+                print(f"[restore] No data found for date: {date_str} by User: {ctx.author.id}")
+                return await self.send_embed(ctx, f"{ctx.author.mention}, no inventory data found for {date_str}.")
+            restored_inventory = inventory_df[inventory_df['date'] == date_str].iloc[0].to_dict()
+            restored_inventory['date'] = self.current_date.strftime("%Y-%m-%d")
+            columns = ['date'] + [col for col in restored_inventory if col != 'date']
+            new_entry_df = pd.DataFrame([restored_inventory])[columns]
+            inventory_df = pd.concat(
+                [
+                    inventory_df[inventory_df['date'] != restored_inventory['date']],
+                    new_entry_df
+                ],
+                ignore_index=True
+            ).fillna(0)
+            inventory_df.to_parquet(file_path, index=False)
+            await self.send_embed(ctx, f"{ctx.author.mention}, your inventory has been restored to the state from {date_str}.")
+            print(f"[restore] Inventory restored to {date_str} for User: {ctx.author.id}")
+        elif parts[0].lower() == 'chao':
+            if len(parts) != 3:
+                return await self.send_embed(ctx, f"{ctx.author.mention}, please use the command in the format: $restore chao [Chao name] YYYY-MM-DD")
+            chao_name = parts[1]
+            date_str = parts[2]
+            guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
+            chao_stats_path = os.path.join(self.get_path(guild_id, user_id, 'chao_data', chao_name), f'{chao_name}_stats.parquet')
+
+            if not os.path.exists(chao_stats_path):
+                print(f"[restore] Chao {chao_name} not found for User: {ctx.author.id}")
+                return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have a Chao named {chao_name}.")
+
+            try:
+                restore_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                print(f"[restore] Invalid date format: {date_str} by User: {ctx.author.id}")
+                return await self.send_embed(ctx, f"{ctx.author.mention}, please provide the date in YYYY-MM-DD format.")
+
+            chao_df = self.load_chao_stats(chao_stats_path)
+
+            if date_str not in chao_df['date'].values:
+                print(f"[restore] No data found for date: {date_str} for Chao: {chao_name}")
+                return await self.send_embed(ctx, f"{ctx.author.mention}, no data found for {chao_name} on {date_str}.")
+
+            # Get the stats from the specified date
+            restored_stats = chao_df[chao_df['date'] == date_str].iloc[0].to_dict()
+
+            # Update date to current date
+            restored_stats['date'] = self.current_date.strftime("%Y-%m-%d")
+            columns = ['date'] + [col for col in restored_stats if col != 'date']
+            new_entry_df = pd.DataFrame([restored_stats])[columns]
+
+            # Append restored stats
+            chao_df = pd.concat([chao_df, new_entry_df], ignore_index=True)
+            chao_df.to_parquet(chao_stats_path, index=False)
+
+            await self.send_embed(ctx, f"{ctx.author.mention}, {chao_name}'s stats have been restored to the state from {date_str}.")
+            print(f"[restore] {chao_name}'s stats restored to {date_str} for User: {ctx.author.id}")
+
+    
     async def give_egg(self, ctx):
         print(f"[give_egg] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
         guild_id, user_id, file_path = str(ctx.guild.id), str(ctx.author.id), self.get_path(str(ctx.guild.id), str(ctx.author.id), 'user_data', 'inventory.parquet')
-        inventory_df, chao_egg_quantity = self.load_inventory(file_path), int(self.load_inventory(file_path).iloc[-1].get('Chao Egg', 0))
+        inventory_df = self.load_inventory(file_path)
+        chao_egg_quantity = int(inventory_df.iloc[-1].get('Chao Egg', 0))
         if chao_egg_quantity >= 1:
             print(f"[give_egg] User: {ctx.author.id} already has a Chao Egg.")
             return await self.send_embed(ctx, f"{ctx.author.mention}, you already have a Chao Egg! Hatch it first before receiving another one.")
-        self.save_inventory(file_path, inventory_df, {'Chao Egg': chao_egg_quantity + 1, 'rings': int(inventory_df.iloc[-1]['rings']), **{fruit['name']: int(inventory_df.iloc[-1].get(fruit['name'], 0)) for fruit in self.fruits}})
+        current_inventory = inventory_df.iloc[-1].to_dict()
+        current_inventory['Chao Egg'] = chao_egg_quantity + 1
+        self.save_inventory(file_path, inventory_df, current_inventory)
         await self.send_embed(ctx, f"{ctx.author.mention} has received a Chao Egg! You now have {chao_egg_quantity + 1} Chao Egg(s).")
         print(f"[give_egg] Chao Egg given to User: {ctx.author.id}. New count: {chao_egg_quantity + 1}")
 
+    
     async def stats(self, ctx, *, chao_name: str):
         print(f"[stats] Command called by User: {ctx.author.id} for Chao: {chao_name} in Guild: {ctx.guild.id}")
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
@@ -592,12 +677,12 @@ class Chao(commands.Cog):
             print(f"[stats] Chao {chao_name} not found for User: {ctx.author.id}")
             return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have a Chao named {chao_name}.")
 
-        chao_df = pd.read_parquet(chao_stats_path).fillna(0)
+        chao_df = self.load_chao_stats(chao_stats_path)
         # Update Chao's thumbnail and type
         chao_type, form = self.update_chao_type_and_thumbnail(guild_id, user_id, chao_name, chao_df)
         # Reload chao_df to get updated data
-        chao_df = pd.read_parquet(chao_stats_path).fillna(0)
-        chao_to_view = chao_df.iloc[0].to_dict()
+        chao_df = self.load_chao_stats(chao_stats_path)
+        chao_to_view = chao_df.iloc[-1].to_dict()
 
         if form in ["1", "2"]:
             chao_type_display = "Normal"
@@ -615,7 +700,7 @@ class Chao(commands.Cog):
         self.paste_image(self.TEMPLATE_PATH, self.OVERLAY_PATH, os.path.join(chao_dir, f'{chao_name}_stats.png'), self.TICK_POSITIONS, chao_to_view["power_ticks"], chao_to_view["swim_ticks"], chao_to_view["stamina_ticks"], chao_to_view["fly_ticks"], chao_to_view["run_ticks"], chao_to_view["mind_ticks"], chao_to_view["power_level"], chao_to_view["swim_level"], chao_to_view["stamina_level"], chao_to_view["fly_level"], chao_to_view["run_level"], chao_to_view["mind_level"], chao_to_view.get("swim_exp", 0), chao_to_view.get("fly_exp", 0), chao_to_view.get("run_exp", 0), chao_to_view.get("power_exp", 0), chao_to_view.get("mind_exp", 0), chao_to_view.get("stamina_exp", 0))
         embed.add_field(name="Type", value=chao_type_display, inline=True).add_field(name="Alignment", value=alignment_label, inline=True).set_thumbnail(url="attachment://chao_thumbnail.png").set_image(url=f"attachment://output_image.png")
 
-        view = StatsView(chao_name, guild_id, user_id, self.TICK_POSITIONS, self.EXP_POSITIONS, self.num_images, self.LEVEL_POSITION_OFFSET, self.LEVEL_SPACING, self.TICK_SPACING, chao_type_display, alignment_label)
+        view = StatsView(chao_name, guild_id, user_id, self.TICK_POSITIONS, self.EXP_POSITIONS, self.num_images, self.LEVEL_POSITION_OFFSET, self.LEVEL_SPACING, self.TICK_SPACING, chao_type_display, alignment_label, self.TEMPLATE_PATH, self.TEMPLATE_PAGE_2_PATH, self.OVERLAY_PATH, self.ICON_PATH)
 
         print(f"[stats] Displaying stats for Chao: {chao_name}, Type: {chao_type}, Form: {form}, Alignment: {alignment_label}")
 
@@ -625,19 +710,19 @@ class Chao(commands.Cog):
             discord.File(os.path.join(chao_dir, f'{chao_name}_thumbnail.png'), "chao_thumbnail.png")
         ], embed=embed, view=view)
 
-
-    async def feed(self, ctx, chao_name_and_fruit: str):
+    
+    async def feed(self, ctx, *, chao_name_and_fruit: str):
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
 
         # Split the chao_name_and_fruit based on spaces
         parts = chao_name_and_fruit.split()
-        
-        # Attempt to match the last word with a fruit name
+
+        # Attempt to match the last word(s) with a fruit name
         fruit_name = None
         chao_name = None
 
-        # Check if the last part is a fruit name
+        # Check for fruit name
         for i in range(1, len(parts) + 1):
             potential_fruit_name = ' '.join(parts[-i:])
             fruit_name_match = next((fruit_item['name'] for fruit_item in self.fruits if fruit_item['name'].lower() == potential_fruit_name.lower()), None)
@@ -645,82 +730,86 @@ class Chao(commands.Cog):
                 fruit_name = fruit_name_match
                 chao_name = ' '.join(parts[:-i])
                 break
-        
+
         if not chao_name or not fruit_name:
             return await self.send_embed(ctx, f"{ctx.author.mention}, please provide both a valid Chao name and a fruit.")
 
         chao_dir_path, chao_stats_path = self.get_path(guild_id, user_id, 'chao_data', chao_name), os.path.join(self.get_path(guild_id, user_id, 'chao_data', chao_name), f'{chao_name}_stats.parquet')
 
-        if not os.path.exists(chao_stats_path): 
+        if not os.path.exists(chao_stats_path):
             return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have a Chao named {chao_name}.")
 
-        chao_df, inventory_df, fruit = pd.read_parquet(chao_stats_path).fillna(0), self.load_inventory(self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')).fillna(0), next((fruit_item for fruit_item in self.fruits if fruit_item['name'].lower() == fruit_name.lower()), None)
+        chao_df = self.load_chao_stats(chao_stats_path)
+        inventory_df = self.load_inventory(self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')).fillna(0)
+        fruit = next((fruit_item for fruit_item in self.fruits if fruit_item['name'].lower() == fruit_name.lower()), None)
 
-        if not fruit or fruit['name'] not in inventory_df.columns or int(inventory_df.iloc[-1].get(fruit['name'], 0)) <= 0: 
+        if not fruit or fruit['name'] not in inventory_df.columns or int(inventory_df.iloc[-1].get(fruit['name'], 0)) <= 0:
             return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have any {fruit_name} to feed your Chao.")
 
         # Log before feeding
+        latest_stats = chao_df.iloc[-1].copy()
         print(f"[feed] Command called by User: {user_id} for Chao: {chao_name} with Fruit: {fruit_name} in Guild: {guild_id}")
-        print(f"[feed] Before feeding {fruit_name.capitalize()} | Chao: {chao_name} | {FRUIT_STATS[fruit_name]}_ticks: {chao_df.at[0, f'{FRUIT_STATS[fruit_name]}_ticks']} | Level: {chao_df.at[0, f'{FRUIT_STATS[fruit_name]}_level']} | swim_fly: {chao_df.at[0, 'swim_fly']} | run_power: {chao_df.at[0, 'run_power']}")
+        print(f"[feed] Before feeding {fruit_name.capitalize()} | Chao: {chao_name} | {FRUIT_STATS[fruit_name]}_ticks: {latest_stats[f'{FRUIT_STATS[fruit_name]}_ticks']} | Level: {latest_stats[f'{FRUIT_STATS[fruit_name]}_level']} | swim_fly: {latest_stats['swim_fly']} | run_power: {latest_stats['run_power']}")
 
         # Adjust swim_fly and run_power according to the logic
         if fruit_name.lower() == 'swim fruit':
-            chao_df.at[0, 'swim_fly'] = max(-5, chao_df.at[0, 'swim_fly'] - 1)
-            if chao_df.at[0, 'run_power'] > 0:
-                chao_df.at[0, 'run_power'] -= 1
-            elif chao_df.at[0, 'run_power'] < 0:
-                chao_df.at[0, 'run_power'] += 1
+            latest_stats['swim_fly'] = max(-5, latest_stats['swim_fly'] - 1)
+            if latest_stats['run_power'] > 0:
+                latest_stats['run_power'] -= 1
+            elif latest_stats['run_power'] < 0:
+                latest_stats['run_power'] += 1
         elif fruit_name.lower() == 'fly fruit':
-            chao_df.at[0, 'swim_fly'] = min(5, chao_df.at[0, 'swim_fly'] + 1)
-            if chao_df.at[0, 'run_power'] > 0:
-                chao_df.at[0, 'run_power'] -= 1
-            elif chao_df.at[0, 'run_power'] < 0:
-                chao_df.at[0, 'run_power'] += 1
+            latest_stats['swim_fly'] = min(5, latest_stats['swim_fly'] + 1)
+            if latest_stats['run_power'] > 0:
+                latest_stats['run_power'] -= 1
+            elif latest_stats['run_power'] < 0:
+                latest_stats['run_power'] += 1
         elif fruit_name.lower() == 'run fruit':
-            chao_df.at[0, 'run_power'] = max(-5, chao_df.at[0, 'run_power'] - 1)
-            if chao_df.at[0, 'swim_fly'] > 0:
-                chao_df.at[0, 'swim_fly'] -= 1
-            elif chao_df.at[0, 'swim_fly'] < 0:
-                chao_df.at[0, 'swim_fly'] += 1
+            latest_stats['run_power'] = max(-5, latest_stats['run_power'] - 1)
+            if latest_stats['swim_fly'] > 0:
+                latest_stats['swim_fly'] -= 1
+            elif latest_stats['swim_fly'] < 0:
+                latest_stats['swim_fly'] += 1
         elif fruit_name.lower() == 'power fruit':
-            chao_df.at[0, 'run_power'] = min(5, chao_df.at[0, 'run_power'] + 1)
-            if chao_df.at[0, 'swim_fly'] > 0:
-                chao_df.at[0, 'swim_fly'] -= 1
-            elif chao_df.at[0, 'swim_fly'] < 0:
-                chao_df.at[0, 'swim_fly'] += 1
+            latest_stats['run_power'] = min(5, latest_stats['run_power'] + 1)
+            if latest_stats['swim_fly'] > 0:
+                latest_stats['swim_fly'] -= 1
+            elif latest_stats['swim_fly'] < 0:
+                latest_stats['swim_fly'] += 1
 
         # Adjust dark_hero based on Hero or Dark Fruit
         if fruit_name.lower() == 'hero fruit':
-            chao_df.at[0, 'dark_hero'] = min(5, chao_df.at[0, 'dark_hero'] + 1)  # Increase dark_hero value
+            latest_stats['dark_hero'] = min(5, latest_stats['dark_hero'] + 1)  # Increase dark_hero value
         elif fruit_name.lower() == 'dark fruit':
-            chao_df.at[0, 'dark_hero'] = max(-5, chao_df.at[0, 'dark_hero'] - 1)  # Decrease dark_hero value
+            latest_stats['dark_hero'] = max(-5, latest_stats['dark_hero'] - 1)  # Decrease dark_hero value
 
         # Update stat ticks and level
         stat_key = f"{FRUIT_STATS[fruit['name']]}_ticks"
-        chao_df.at[0, stat_key] += random.randint(FRUIT_TICKS_MIN, FRUIT_TICKS_MAX)
-        if chao_df.at[0, stat_key] >= 10:
-            chao_df.at[0, stat_key] %= 10
-            chao_df.at[0, f"{FRUIT_STATS[fruit_name]}_level"] += 1
-            chao_df.at[0, f"{FRUIT_STATS[fruit_name]}_exp"] += self.calculate_exp_gain(chao_df.at[0, f"{FRUIT_STATS[fruit_name]}_grade"])
+        latest_stats[stat_key] += random.randint(FRUIT_TICKS_MIN, FRUIT_TICKS_MAX)
+        if latest_stats[stat_key] >= 10:
+            latest_stats[stat_key] %= 10
+            latest_stats[f"{FRUIT_STATS[fruit_name]}_level"] += 1
+            latest_stats[f"{FRUIT_STATS[fruit_name]}_exp"] += self.calculate_exp_gain(latest_stats[f"{FRUIT_STATS[fruit_name]}_grade"])
             chao_type, form = self.update_chao_type_and_thumbnail(guild_id, user_id, chao_name, chao_df)
         else:
-            chao_type, form = chao_df.at[0, 'Type'], chao_df.at[0, 'Form']
+            chao_type, form = latest_stats['Type'], latest_stats['Form']
 
-        # Construct the sprite path
-        sprite_path = f"../assets/chao/{chao_type}/neutral/neutral_{chao_type}_{form}.png"
-        print(f"[feed] Using sprite image: {sprite_path}")
+        # Update inventory
+        current_inventory = inventory_df.iloc[-1].to_dict()
+        current_inventory[fruit_name] = int(current_inventory.get(fruit_name, 0)) - 1
+        self.save_inventory(self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet'), inventory_df, current_inventory)
 
         # Save and update Chao data
-        self.save_inventory(self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet'), inventory_df, inventory_df.iloc[-1].to_dict())
-        chao_df.to_parquet(chao_stats_path, index=False)
+        chao_stats = latest_stats.to_dict()
+        self.save_chao_stats(chao_stats_path, chao_df, chao_stats)
 
         # Log after feeding
-        print(f"[feed] After feeding {fruit_name.capitalize()} | Chao: {chao_name} | {FRUIT_STATS[fruit_name]}_ticks: {chao_df.at[0, stat_key]} | Level: {chao_df.at[0, f'{FRUIT_STATS[fruit_name]}_level']} | swim_fly: {chao_df.at[0, 'swim_fly']} | run_power: {chao_df.at[0, 'run_power']} | dark_hero: {chao_df.at[0, 'dark_hero']}")
+        print(f"[feed] After feeding {fruit_name.capitalize()} | Chao: {chao_name} | {FRUIT_STATS[fruit_name]}_ticks: {latest_stats[stat_key]} | Level: {latest_stats[f'{FRUIT_STATS[fruit_name]}_level']} | swim_fly: {latest_stats['swim_fly']} | run_power: {latest_stats['run_power']} | dark_hero: {latest_stats['dark_hero']}")
 
-        await self.send_embed(ctx, f"{chao_name} ate {fruit_name}!\n{chao_name}'s {stat_key.split('_')[0].capitalize()} stat has increased!\nTicks: {chao_df.at[0, stat_key]}/10\nLevel: {chao_df.at[0, f'{FRUIT_STATS[fruit_name]}_level']} (Type: {chao_df.at[0, 'Type']})\n**Current Values:** swim_fly: {chao_df.at[0, 'swim_fly']}, run_power: {chao_df.at[0, 'run_power']}, dark_hero: {chao_df.at[0, 'dark_hero']}")
+        await self.send_embed(ctx, f"{chao_name} ate {fruit_name}!\n{chao_name}'s {stat_key.split('_')[0].capitalize()} stat has increased!\nTicks: {latest_stats[stat_key]}/10\nLevel: {latest_stats[f'{FRUIT_STATS[fruit_name]}_level']} (Type: {latest_stats['Type']})\n**Current Values:** swim_fly: {latest_stats['swim_fly']}, run_power: {latest_stats['run_power']}, dark_hero: {latest_stats['dark_hero']}")
 
 class StatsView(View):
-    def __init__(self, chao_name, guild_id, user_id, tick_positions, exp_positions, num_images, level_position_offset, level_spacing, tick_spacing, chao_type_display, alignment_label):
+    def __init__(self, chao_name, guild_id, user_id, tick_positions, exp_positions, num_images, level_position_offset, level_spacing, tick_spacing, chao_type_display, alignment_label, template_path, template_page_2_path, overlay_path, icon_path):
         super().__init__(timeout=None)
         self.chao_name = chao_name
         self.guild_id = guild_id
@@ -733,6 +822,10 @@ class StatsView(View):
         self.tick_spacing = tick_spacing
         self.chao_type_display = chao_type_display
         self.alignment_label = alignment_label
+        self.TEMPLATE_PATH = template_path
+        self.TEMPLATE_PAGE_2_PATH = template_page_2_path
+        self.OVERLAY_PATH = overlay_path
+        self.ICON_PATH = icon_path
 
     @discord.ui.button(label="Page 1", style=discord.ButtonStyle.primary)
     async def page_1_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -746,7 +839,7 @@ class StatsView(View):
         chao_dir = self.get_path(self.guild_id, self.user_id, 'chao_data', self.chao_name)
         chao_stats_path = os.path.join(chao_dir, f'{self.chao_name}_stats.parquet')
         chao_df = pd.read_parquet(chao_stats_path).fillna(0)
-        chao_to_view = chao_df.iloc[0].to_dict()
+        chao_to_view = chao_df.iloc[-1].to_dict()
 
         print(f"[update_stats] Displaying {page} for Chao: {self.chao_name}, User: {self.user_id}")
 
@@ -778,9 +871,34 @@ class StatsView(View):
     def paste_image(self, template_path, overlay_path, output_path, tick_positions, *stats):
         with Image.open(template_path) as template, Image.open(overlay_path) as overlay:
             overlay = overlay.convert("RGBA")
-            [template.paste(self.num_images[digit], pos, self.num_images[digit]) for stat, exp in zip(["swim", "fly", "run", "power", "mind", "stamina"], stats[-6:]) for pos, digit in zip(self.exp_positions[stat], f"{exp:04d}")]
-            [template.paste(overlay, (pos[0] + i * self.tick_spacing, pos[1]), overlay) for pos, ticks in zip(tick_positions, stats[:6]) for i in range(ticks)]
-            [template.paste(self.num_images[str(level // 10)], (pos[0] + self.level_position_offset[0], pos[1] + self.level_position_offset[1]), self.num_images[str(level // 10)]) or template.paste(self.num_images[str(level % 10)], (pos[0] + self.level_position_offset[0] + self.level_spacing, pos[1] + self.level_position_offset[1]), self.num_images[str(level % 10)]) for pos, level in zip(tick_positions, stats[6:12])]
+            # Paste EXP numbers
+            for stat, exp in zip(
+                    ["swim", "fly", "run", "power", "mind", "stamina"],
+                    stats[-6:]):
+                exp_str = f"{int(exp):04d}"
+                for pos, digit in zip(
+                        self.exp_positions[stat], exp_str):
+                    template.paste(
+                        self.num_images[digit], pos, self.num_images[digit])
+            # Paste ticks
+            for pos, ticks in zip(tick_positions, stats[:6]):
+                for i in range(int(ticks)):
+                    tick_pos = (pos[0] + i * self.tick_spacing, pos[1])
+                    template.paste(overlay, tick_pos, overlay)
+            # Paste levels
+            for pos, level in zip(tick_positions, stats[6:12]):
+                tens = int(level) // 10
+                ones = int(level) % 10
+                x_offset, y_offset = self.level_position_offset
+                template.paste(
+                    self.num_images[str(tens)],
+                    (pos[0] + x_offset, pos[1] + y_offset),
+                    self.num_images[str(tens)])
+                template.paste(
+                    self.num_images[str(ones)],
+                    (pos[0] + x_offset + self.level_spacing,
+                     pos[1] + y_offset),
+                    self.num_images[str(ones)])
             template.save(output_path)
 
     def get_path(self, guild_id, user_id, folder, filename):
