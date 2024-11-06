@@ -1,0 +1,34 @@
+If a chao is a neutral_run_3 type and is transforming into a form 4, it is only allowed to transform into 
+neutral_run_run_4, 
+neutral_run_power_4, 
+neutral_run_swim_4, 
+neutral_run_fly_4, 
+and neutral_run_normal_4.
+
+If a chao is a neutral_power_3 type and is transforming into a form 4, it is only allowed to transform into 
+neutral_power_run_4, 
+neutral_power_power_4, 
+neutral_power_swim_4, 
+neutral_power_fly_4, 
+and neutral_power_normal_4.
+
+If a chao is a neutral_swim_3 type and is transforming into a form 4, it is only allowed to transform into 
+neutral_swim_run_4, 
+neutral_swim_power_4, 
+neutral_swim_swim_4, 
+neutral_swim_fly_4, 
+and neutral_swim_normal_4.
+
+If a chao is a neutral_fly_3 type and is transforming into a form 4, it is only allowed to transform into 
+neutral_fly_run_4, 
+neutral_fly_power_4, 
+neutral_fly_swim_4, 
+neutral_fly_fly_4, 
+and neutral_fly_normal_4.
+
+If a chao is a neutral_normal_3 type and is transforming into a form 4, it is only allowed to transform into 
+neutral_normal_run_4, 
+neutral_normal_power_4, 
+neutral_normal_swim_4, 
+neutral_normal_fly_4, 
+and neutral_normal_normal_4.

@@ -1,3 +1,1 @@
-Refactored code to improve readability and performance
-- Fixed bug causing incorrect data to be displayed
-- Updated dependencies to latest versions
+Resolved bug causing app to crash on startup. Fixed issue with database connection error. Updated error handling to prevent future crashes.

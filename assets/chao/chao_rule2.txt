@@ -1,0 +1,56 @@
+Possible form paths...
+
+neutral_normal_1.png, which is the starting chao form, also known as form 1, can go into the following types.
+If run_power is +5 and the chao is at level 5 in any stat and the current form as at 1, the form will go into
+neutral_normal_power_2.png
+If run_power is -5 and the chao is at level 5 in any stat and the current form as at 1, the form will go into
+neutral_normal_run_2.png
+If swim_fly is +5 and the chao is at level 5 in any stat and the current form as at 1, the form will go into
+neutral_normal_fly_2.png
+If swim_fly is -5 and the chao is at level 5 in any stat and the current form as at 1, the form will go into
+neutral_normal_swim_2.png
+If run_power and swim_fly is neither +5 or -5 and the chao is at level 5 in any stat and the current form as at 1, the form will go into
+neutral_normal_normal_2.png
+
+
+If run_power is +5 and the chao is at level 8 in any stat and the current form is at 2, the form will go into
+neutral_power_3.png
+If run_power is -5 and the chao is at level 8 in any stat and the current form is at 2, the form will go into
+neutral_run_3.png
+If swim_fly is +5 and the chao is at level 8 in any stat and the current form is at 2, the form will go into
+neutral_fly_3.png
+If swim_fly is -5 and the chao is at level 8 in any stat and the current form is at 2, the form will go into
+neutral_swim_3.png
+If run_power and swim_fly is neither +5 or -5 and the chao is at level 8 in any stat and the current form is at 2, the form will go into
+neutral_normal_3.png
+
+
+If run_power is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_power_3.png, the form will go into neutral_power_power_4.png
+If run_power is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_run_3.png, the form will go into neutral_run_power_4.png
+If run_power is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_fly_3.png, the form will go into neutral_fly_power_4.png
+If run_power is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_swim_3.png, the form will go into neutral_swim_power_4.png
+If run_power is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_normal_3.png, the form will go into neutral_normal_power_4.png
+
+If run_power is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_power_3.png, the form will go into neutral_power_run_4.png
+If run_power is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_run_3.png, the form will go into neutral_run_run_4.png
+If run_power is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_fly_3.png, the form will go into neutral_fly_run_4.png
+If run_power is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_swim_3.png, the form will go into neutral_swim_run_4.png
+If run_power is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_normal_3.png, the form will go into neutral_normal_run_4.png
+
+If swim_fly is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_fly_3.png, the form will go into neutral_fly_fly_4.png
+If swim_fly is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_swim_3.png, the form will go into neutral_swim_fly_4.png
+If swim_fly is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_run_3.png, the form will go into neutral_run_fly_4.png
+If swim_fly is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_power_3.png, the form will go into neutral_power_fly_4.png
+If swim_fly is +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_normal_3.png, the form will go into neutral_normal_fly_4.png
+
+If swim_fly is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_swim_3.png, the form will go into neutral_swim_swim_4.png
+If swim_fly is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_fly_3.png, the form will go into neutral_fly_swim_4.png
+If swim_fly is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_run_3.png, the form will go into neutral_run_swim_4.png
+If swim_fly is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_power_3.png, the form will go into neutral_power_swim_4.png
+If swim_fly is -5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_normal_3.png, the form will go into neutral_normal_swim_4.png
+
+If run_power is neither -5 or +5 and swim_fly is neither -5 or +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_normal_3.png, the form will go into neutral_normal_normal_4.png
+If run_power is neither -5 or +5 and swim_fly is neither -5 or +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_run_3.png, the form will go into neutral_normal_normal_4.png
+If run_power is neither -5 or +5 and swim_fly is neither -5 or +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_run_3.png, the form will go into neutral_power_normal_4.png
+If run_power is neither -5 or +5 and swim_fly is neither -5 or +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_run_3.png, the form will go into neutral_fly_normal_4.png
+If run_power is neither -5 or +5 and swim_fly is neither -5 or +5 and the chao is at level 10 in any stat and the current form is at 3 and the current form is neutral_run_3.png, the form will go into neutral_swim_normal_4.png
