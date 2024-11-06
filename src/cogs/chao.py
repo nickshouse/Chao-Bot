@@ -406,6 +406,7 @@ class Chao(commands.Cog):
                 thumbnail_path
             )
 
+
             # Update Chao's Type and Form in DataFrame
             chao_df.at[chao_df.index[-1], 'Type'] = chao_type
             chao_df.at[chao_df.index[-1], 'Form'] = form
