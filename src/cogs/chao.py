@@ -119,7 +119,8 @@ class Chao(commands.Cog):
             "Chow", "Chaotzhu", "Chaoblin", "Count Chaocula",
             "Chaozil", "Chaoz"
         ]
-        self.current_date = datetime.now().date()
+        # Remove self.current_date
+
         self.num_images = {
             str(i): Image.open(
                 os.path.join(self.assets_dir, f"resized/{i}.png")
@@ -135,7 +136,7 @@ class Chao(commands.Cog):
 
     def save_inventory(self, path, inventory_df, current_inventory):
         current_inventory.setdefault('Chao Egg', 0)
-        current_date_str = self.current_date.strftime("%Y-%m-%d")
+        current_date_str = datetime.now().date().strftime("%Y-%m-%d")
         new_entry = {**{'date': current_date_str}, **current_inventory}
         columns = ['date'] + [col for col in new_entry if col != 'date']
         new_entry_df = pd.DataFrame([new_entry])[columns]
@@ -155,8 +156,9 @@ class Chao(commands.Cog):
             inventory_df = inventory_df[columns]
             return inventory_df
         else:
+            current_date_str = datetime.now().date().strftime("%Y-%m-%d")
             return pd.DataFrame({
-                'date': [self.current_date.strftime("%Y-%m-%d")],
+                'date': [current_date_str],
                 'rings': [0], 'Chao Egg': [0], 'Garden Fruit': [0]
             })
 
@@ -235,14 +237,23 @@ class Chao(commands.Cog):
         rgb_img = hsv_img.convert('RGB')
         rgb_img.save(output_path)
 
-    def save_chao_stats(
-            self, chao_stats_path, chao_df, chao_stats):
-        current_date_str = self.current_date.strftime("%Y-%m-%d")
+    def save_chao_stats(self, chao_stats_path, chao_df, chao_stats):
+        current_date_str = datetime.now().date().strftime("%Y-%m-%d")
         chao_stats['date'] = current_date_str
         columns = ['date'] + [col for col in chao_stats if col != 'date']
         new_entry_df = pd.DataFrame([chao_stats])[columns]
+
+        # Remove any existing entries for the current date
+        chao_df = chao_df[chao_df['date'] != current_date_str]
+
+        # Append the new entry
         chao_df = pd.concat([chao_df, new_entry_df], ignore_index=True)
+
+        # Save the updated DataFrame
         chao_df.to_parquet(chao_stats_path, index=False)
+
+
+
 
     def load_chao_stats(self, chao_stats_path):
         if os.path.exists(chao_stats_path):
@@ -252,6 +263,7 @@ class Chao(commands.Cog):
             return chao_df
         else:
             return pd.DataFrame(columns=['date'])
+
 
     def update_chao_type_and_thumbnail(
             self, guild_id, user_id, chao_name, chao_df):
@@ -445,25 +457,31 @@ class Chao(commands.Cog):
     
     async def hatch(self, ctx):
         print(f"[hatch] Command called by User: {ctx.author.id} in Guild: {ctx.guild.id}")
-        guild_id, user_id, file_path = str(ctx.guild.id), str(ctx.author.id), self.get_path(str(ctx.guild.id), str(ctx.author.id), 'user_data', 'inventory.parquet')
+        guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
+        file_path = self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
         inventory_df = self.load_inventory(file_path)
-        if (chao_egg_quantity := int(inventory_df.iloc[-1].get('Chao Egg', 0))) < 1:
+        chao_egg_quantity = int(inventory_df.iloc[-1].get('Chao Egg', 0))
+
+        if chao_egg_quantity < 1:
             print(f"[hatch] No Chao Egg available for User: {user_id}")
             return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have any Chao Eggs to hatch.")
+
         chao_dir = self.get_path(guild_id, user_id, 'chao_data', '')
         chao_name = random.choice(self.chao_names)
         os.makedirs(chao_dir, exist_ok=True)
         while chao_name in [name for name in os.listdir(chao_dir) if os.path.isdir(os.path.join(chao_dir, name))]:
             chao_name = random.choice(self.chao_names)
+
         chao_path = os.path.join(self.get_path(guild_id, user_id, 'chao_data', chao_name), f'{chao_name}_stats.parquet')
         os.makedirs(os.path.dirname(chao_path), exist_ok=True)
         inventory_df.at[inventory_df.index[-1], 'Chao Egg'] = chao_egg_quantity - 1
         self.save_inventory(file_path, inventory_df, inventory_df.iloc[-1].to_dict())
 
         # Ensure 'Form' is initialized as "1" during Chao creation
+        current_date_str = datetime.now().date().strftime("%Y-%m-%d")
         chao_stats = {
             'hatched': 1,
-            'birth_date': self.current_date.strftime("%Y-%m-%d"),
+            'birth_date': current_date_str,
             'hp_ticks': 0,
             'Form': '1',
             **{f"{stat}_ticks": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
@@ -504,12 +522,22 @@ class Chao(commands.Cog):
             mouth_image_path = os.path.join(self.MOUTH_DIR, "happy.png")
 
         # Combine images with face
-        self.combine_images_with_face(self.BACKGROUND_PATH, chao_image_path, eyes_image_path, mouth_image_path, thumbnail_path)
+        self.combine_images_with_face(
+            self.BACKGROUND_PATH,
+            chao_image_path,
+            eyes_image_path,
+            mouth_image_path,
+            thumbnail_path
+        )
 
-        await ctx.reply(file=discord.File(thumbnail_path, filename=f"{chao_name}_thumbnail.png"),
-                        embed=discord.Embed(title="Your Chao Egg has hatched!",
-                                            description=f"Your Chao Egg has hatched into a Regular Two-tone Chao named {chao_name}!",
-                                            color=discord.Color.blue()).set_image(url=f"attachment://{chao_name}_thumbnail.png"))
+        await ctx.reply(
+            file=discord.File(thumbnail_path, filename=f"{chao_name}_thumbnail.png"),
+            embed=discord.Embed(
+                title="Your Chao Egg has hatched!",
+                description=f"Your Chao Egg has hatched into a Regular Two-tone Chao named {chao_name}!",
+                color=discord.Color.blue()
+            ).set_image(url=f"attachment://{chao_name}_thumbnail.png")
+        )
         print(f"[hatch] Chao Egg hatched into {chao_name} for User: {user_id}. Chao data saved to {chao_path}")
 
     
@@ -590,7 +618,8 @@ class Chao(commands.Cog):
             if len(parts) != 2:
                 return await self.send_embed(ctx, f"{ctx.author.mention}, please use the command in the format: $restore inventory YYYY-MM-DD")
             date_str = parts[1]
-            guild_id, user_id, file_path = str(ctx.guild.id), str(ctx.author.id), self.get_path(str(ctx.guild.id), str(ctx.author.id), 'user_data', 'inventory.parquet')
+            guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
+            file_path = self.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
             try:
                 restore_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             except ValueError:
@@ -601,12 +630,13 @@ class Chao(commands.Cog):
                 print(f"[restore] No data found for date: {date_str} by User: {ctx.author.id}")
                 return await self.send_embed(ctx, f"{ctx.author.mention}, no inventory data found for {date_str}.")
             restored_inventory = inventory_df[inventory_df['date'] == date_str].iloc[0].to_dict()
-            restored_inventory['date'] = self.current_date.strftime("%Y-%m-%d")
+            current_date_str = datetime.now().date().strftime("%Y-%m-%d")
+            restored_inventory['date'] = current_date_str
             columns = ['date'] + [col for col in restored_inventory if col != 'date']
             new_entry_df = pd.DataFrame([restored_inventory])[columns]
             inventory_df = pd.concat(
                 [
-                    inventory_df[inventory_df['date'] != restored_inventory['date']],
+                    inventory_df[inventory_df['date'] != current_date_str],
                     new_entry_df
                 ],
                 ignore_index=True
@@ -620,7 +650,10 @@ class Chao(commands.Cog):
             chao_name = parts[1]
             date_str = parts[2]
             guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-            chao_stats_path = os.path.join(self.get_path(guild_id, user_id, 'chao_data', chao_name), f'{chao_name}_stats.parquet')
+            chao_stats_path = os.path.join(
+                self.get_path(guild_id, user_id, 'chao_data', chao_name),
+                f'{chao_name}_stats.parquet'
+            )
 
             if not os.path.exists(chao_stats_path):
                 print(f"[restore] Chao {chao_name} not found for User: {ctx.author.id}")
@@ -642,9 +675,13 @@ class Chao(commands.Cog):
             restored_stats = chao_df[chao_df['date'] == date_str].iloc[0].to_dict()
 
             # Update date to current date
-            restored_stats['date'] = self.current_date.strftime("%Y-%m-%d")
+            current_date_str = datetime.now().date().strftime("%Y-%m-%d")
+            restored_stats['date'] = current_date_str
             columns = ['date'] + [col for col in restored_stats if col != 'date']
             new_entry_df = pd.DataFrame([restored_stats])[columns]
+
+            # Remove any existing entry for current date
+            chao_df = chao_df[chao_df['date'] != current_date_str]
 
             # Append restored stats
             chao_df = pd.concat([chao_df, new_entry_df], ignore_index=True)
@@ -712,7 +749,7 @@ class Chao(commands.Cog):
         ], embed=embed, view=view)
 
     
-    async def feed(self, ctx, *, chao_name_and_fruit: str):
+    async def feed(self, ctx, chao_name_and_fruit: str):
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
 
@@ -735,7 +772,8 @@ class Chao(commands.Cog):
         if not chao_name or not fruit_name:
             return await self.send_embed(ctx, f"{ctx.author.mention}, please provide both a valid Chao name and a fruit.")
 
-        chao_dir_path, chao_stats_path = self.get_path(guild_id, user_id, 'chao_data', chao_name), os.path.join(self.get_path(guild_id, user_id, 'chao_data', chao_name), f'{chao_name}_stats.parquet')
+        chao_dir_path = self.get_path(guild_id, user_id, 'chao_data', chao_name)
+        chao_stats_path = os.path.join(chao_dir_path, f'{chao_name}_stats.parquet')
 
         if not os.path.exists(chao_stats_path):
             return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have a Chao named {chao_name}.")
@@ -750,50 +788,53 @@ class Chao(commands.Cog):
         # Log before feeding
         latest_stats = chao_df.iloc[-1].copy()
         print(f"[feed] Command called by User: {user_id} for Chao: {chao_name} with Fruit: {fruit_name} in Guild: {guild_id}")
-        print(f"[feed] Before feeding {fruit_name.capitalize()} | Chao: {chao_name} | {FRUIT_STATS[fruit_name]}_ticks: {latest_stats[f'{FRUIT_STATS[fruit_name]}_ticks']} | Level: {latest_stats[f'{FRUIT_STATS[fruit_name]}_level']} | swim_fly: {latest_stats['swim_fly']} | run_power: {latest_stats['run_power']}")
+        print(f"[feed] Before feeding {fruit_name.capitalize()} | Chao: {chao_name} | {FRUIT_STATS[fruit_name]}_ticks: {latest_stats.get(f'{FRUIT_STATS[fruit_name]}_ticks', 0)} | Level: {latest_stats.get(f'{FRUIT_STATS[fruit_name]}_level', 0)} | swim_fly: {latest_stats.get('swim_fly', 0)} | run_power: {latest_stats.get('run_power', 0)}")
 
         # Adjust swim_fly and run_power according to the logic
         if fruit_name.lower() == 'swim fruit':
-            latest_stats['swim_fly'] = max(-5, latest_stats['swim_fly'] - 1)
-            if latest_stats['run_power'] > 0:
+            latest_stats['swim_fly'] = max(-5, latest_stats.get('swim_fly', 0) - 1)
+            if latest_stats.get('run_power', 0) > 0:
                 latest_stats['run_power'] -= 1
-            elif latest_stats['run_power'] < 0:
+            elif latest_stats.get('run_power', 0) < 0:
                 latest_stats['run_power'] += 1
         elif fruit_name.lower() == 'fly fruit':
-            latest_stats['swim_fly'] = min(5, latest_stats['swim_fly'] + 1)
-            if latest_stats['run_power'] > 0:
+            latest_stats['swim_fly'] = min(5, latest_stats.get('swim_fly', 0) + 1)
+            if latest_stats.get('run_power', 0) > 0:
                 latest_stats['run_power'] -= 1
-            elif latest_stats['run_power'] < 0:
+            elif latest_stats.get('run_power', 0) < 0:
                 latest_stats['run_power'] += 1
         elif fruit_name.lower() == 'run fruit':
-            latest_stats['run_power'] = max(-5, latest_stats['run_power'] - 1)
-            if latest_stats['swim_fly'] > 0:
+            latest_stats['run_power'] = max(-5, latest_stats.get('run_power', 0) - 1)
+            if latest_stats.get('swim_fly', 0) > 0:
                 latest_stats['swim_fly'] -= 1
-            elif latest_stats['swim_fly'] < 0:
+            elif latest_stats.get('swim_fly', 0) < 0:
                 latest_stats['swim_fly'] += 1
         elif fruit_name.lower() == 'power fruit':
-            latest_stats['run_power'] = min(5, latest_stats['run_power'] + 1)
-            if latest_stats['swim_fly'] > 0:
+            latest_stats['run_power'] = min(5, latest_stats.get('run_power', 0) + 1)
+            if latest_stats.get('swim_fly', 0) > 0:
                 latest_stats['swim_fly'] -= 1
-            elif latest_stats['swim_fly'] < 0:
+            elif latest_stats.get('swim_fly', 0) < 0:
                 latest_stats['swim_fly'] += 1
 
         # Adjust dark_hero based on Hero or Dark Fruit
         if fruit_name.lower() == 'hero fruit':
-            latest_stats['dark_hero'] = min(5, latest_stats['dark_hero'] + 1)  # Increase dark_hero value
+            latest_stats['dark_hero'] = min(5, latest_stats.get('dark_hero', 0) + 1)  # Increase dark_hero value
         elif fruit_name.lower() == 'dark fruit':
-            latest_stats['dark_hero'] = max(-5, latest_stats['dark_hero'] - 1)  # Decrease dark_hero value
+            latest_stats['dark_hero'] = max(-5, latest_stats.get('dark_hero', 0) - 1)  # Decrease dark_hero value
 
         # Update stat ticks and level
         stat_key = f"{FRUIT_STATS[fruit['name']]}_ticks"
-        latest_stats[stat_key] += random.randint(FRUIT_TICKS_MIN, FRUIT_TICKS_MAX)
+        level_key = f"{FRUIT_STATS[fruit['name']]}_level"  # Ensure level_key is defined
+        latest_stats[stat_key] = latest_stats.get(stat_key, 0) + random.randint(FRUIT_TICKS_MIN, FRUIT_TICKS_MAX)
         if latest_stats[stat_key] >= 10:
             latest_stats[stat_key] %= 10
-            latest_stats[f"{FRUIT_STATS[fruit_name]}_level"] += 1
-            latest_stats[f"{FRUIT_STATS[fruit_name]}_exp"] += self.calculate_exp_gain(latest_stats[f"{FRUIT_STATS[fruit_name]}_grade"])
+            latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
+            exp_key = f"{FRUIT_STATS[fruit_name]}_exp"
+            grade_key = f"{FRUIT_STATS[fruit_name]}_grade"
+            latest_stats[exp_key] = latest_stats.get(exp_key, 0) + self.calculate_exp_gain(latest_stats.get(grade_key, 'D'))
             chao_type, form = self.update_chao_type_and_thumbnail(guild_id, user_id, chao_name, chao_df)
         else:
-            chao_type, form = latest_stats['Type'], latest_stats['Form']
+            chao_type, form = latest_stats.get('Type', 'Normal'), latest_stats.get('Form', '1')
 
         # Update inventory
         current_inventory = inventory_df.iloc[-1].to_dict()
@@ -805,9 +846,9 @@ class Chao(commands.Cog):
         self.save_chao_stats(chao_stats_path, chao_df, chao_stats)
 
         # Log after feeding
-        print(f"[feed] After feeding {fruit_name.capitalize()} | Chao: {chao_name} | {FRUIT_STATS[fruit_name]}_ticks: {latest_stats[stat_key]} | Level: {latest_stats[f'{FRUIT_STATS[fruit_name]}_level']} | swim_fly: {latest_stats['swim_fly']} | run_power: {latest_stats['run_power']} | dark_hero: {latest_stats['dark_hero']}")
+        print(f"[feed] After feeding {fruit_name.capitalize()} | Chao: {chao_name} | {stat_key}: {latest_stats[stat_key]} | Level: {latest_stats.get(level_key, 0)} | swim_fly: {latest_stats.get('swim_fly', 0)} | run_power: {latest_stats.get('run_power', 0)} | dark_hero: {latest_stats.get('dark_hero', 0)}")
 
-        await self.send_embed(ctx, f"{chao_name} ate {fruit_name}!\n{chao_name}'s {stat_key.split('_')[0].capitalize()} stat has increased!\nTicks: {latest_stats[stat_key]}/10\nLevel: {latest_stats[f'{FRUIT_STATS[fruit_name]}_level']} (Type: {latest_stats['Type']})\n**Current Values:** swim_fly: {latest_stats['swim_fly']}, run_power: {latest_stats['run_power']}, dark_hero: {latest_stats['dark_hero']}")
+        await self.send_embed(ctx, f"{chao_name} ate {fruit_name}!\n{chao_name}'s {stat_key.split('_')[0].capitalize()} stat has increased!\nTicks: {latest_stats[stat_key]}/10\nLevel: {latest_stats.get(level_key, 0)} (Type: {latest_stats.get('Type', 'Normal')})\n**Current Values:** swim_fly: {latest_stats.get('swim_fly', 0)}, run_power: {latest_stats.get('run_power', 0)}, dark_hero: {latest_stats.get('dark_hero', 0)}")
 
 class StatsView(View):
     def __init__(self, chao_name, guild_id, user_id, tick_positions, exp_positions, num_images, level_position_offset, level_spacing, tick_spacing, chao_type_display, alignment_label, template_path, template_page_2_path, overlay_path, icon_path):
