@@ -140,14 +140,16 @@ class Chao(commands.Cog):
         new_entry = {**{'date': current_date_str}, **current_inventory}
         columns = ['date'] + [col for col in new_entry if col != 'date']
         new_entry_df = pd.DataFrame([new_entry])[columns]
-        inventory_df = pd.concat(
-            [
-                inventory_df[inventory_df['date'] != current_date_str],
-                new_entry_df
-            ],
-            ignore_index=True
-        ).fillna(0)
+
+        # Remove any existing entries for the current date
+        inventory_df = inventory_df[inventory_df['date'] != current_date_str]
+
+        # Append the new entry
+        inventory_df = pd.concat([inventory_df, new_entry_df], ignore_index=True).fillna(0)
+
+        # Save the updated DataFrame
         inventory_df.to_parquet(path, index=False)
+
 
     def load_inventory(self, path):
         if os.path.exists(path):
@@ -161,6 +163,7 @@ class Chao(commands.Cog):
                 'date': [current_date_str],
                 'rings': [0], 'Chao Egg': [0], 'Garden Fruit': [0]
             })
+
 
     def is_user_initialized(self, guild_id, user_id):
         return os.path.exists(
@@ -634,13 +637,11 @@ class Chao(commands.Cog):
             restored_inventory['date'] = current_date_str
             columns = ['date'] + [col for col in restored_inventory if col != 'date']
             new_entry_df = pd.DataFrame([restored_inventory])[columns]
-            inventory_df = pd.concat(
-                [
-                    inventory_df[inventory_df['date'] != current_date_str],
-                    new_entry_df
-                ],
-                ignore_index=True
-            ).fillna(0)
+            # Remove any existing entry for current date
+            inventory_df = inventory_df[inventory_df['date'] != current_date_str]
+            # Append the restored entry
+            inventory_df = pd.concat([inventory_df, new_entry_df], ignore_index=True).fillna(0)
+            # Save the updated inventory DataFrame
             inventory_df.to_parquet(file_path, index=False)
             await self.send_embed(ctx, f"{ctx.author.mention}, your inventory has been restored to the state from {date_str}.")
             print(f"[restore] Inventory restored to {date_str} for User: {ctx.author.id}")
