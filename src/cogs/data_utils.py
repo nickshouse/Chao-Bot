@@ -17,21 +17,27 @@ class DataUtils(commands.Cog):
     def save_inventory(self, path, inventory_df, current_inventory):
         current_inventory.setdefault('Chao Egg', 0)
         current_date_str = datetime.now().date().strftime("%Y-%m-%d")
-        # Ensure 'date' is set to current_date_str, overriding any existing 'date' in current_inventory
-        new_entry = {**current_inventory, 'date': current_date_str}
-        columns = ['date'] + [col for col in new_entry if col != 'date']
-        new_entry_df = pd.DataFrame([new_entry])[columns]
 
-        # Check if there is an existing entry for the current date
-        if current_date_str in inventory_df['date'].values:
-            # Update the existing entry for the current date
-            inventory_df.loc[inventory_df['date'] == current_date_str, columns[1:]] = new_entry_df.iloc[0][columns[1:]].values
-        else:
-            # Append the new entry
-            inventory_df = pd.concat([inventory_df, new_entry_df], ignore_index=True).fillna(0)
+        # Merge current_inventory with the latest inventory to ensure all items are included
+        if not inventory_df.empty:
+            latest_inventory = inventory_df.iloc[-1].to_dict()
+            for key, value in latest_inventory.items():
+                if key not in current_inventory and key != 'date':
+                    current_inventory[key] = value
+
+        # Ensure 'date' is set to current_date_str
+        current_inventory['date'] = current_date_str
+
+        # Reorder columns
+        all_columns = ['date'] + sorted([col for col in current_inventory if col != 'date'])
+        new_entry_df = pd.DataFrame([current_inventory])[all_columns]
+
+        # Append the new entry regardless of date
+        inventory_df = pd.concat([inventory_df, new_entry_df], ignore_index=True).fillna(0)
 
         # Save the updated DataFrame
         inventory_df.to_parquet(path, index=False)
+
 
     def load_inventory(self, path):
         if os.path.exists(path):
@@ -40,11 +46,8 @@ class DataUtils(commands.Cog):
             inventory_df = inventory_df[columns]
             return inventory_df
         else:
-            current_date_str = datetime.now().date().strftime("%Y-%m-%d")
-            return pd.DataFrame({
-                'date': [current_date_str],
-                'rings': [0], 'Chao Egg': [0], 'Garden Fruit': [0]
-            })
+            return pd.DataFrame(columns=['date'])
+
 
     def is_user_initialized(self, guild_id, user_id):
         return os.path.exists(
