@@ -1,22 +1,27 @@
 import discord
 from discord.ext import commands
 from functools import wraps
-from cogs.chao import Chao
 
 class Commands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.chao_cog = None
+        self.data_utils = None
 
     def cog_load(self):
         self.chao_cog = self.bot.get_cog('Chao')
+        self.data_utils = self.bot.get_cog('DataUtils')
         if not self.chao_cog:
             raise Exception("Chao cog is not loaded. Make sure it is loaded before the Commands cog.")
+        if not self.data_utils:
+            raise Exception("DataUtils cog is not loaded. Make sure it is loaded before the Commands cog.")
 
     def ensure_user_initialized(func):
         @wraps(func)
         async def wrapper(self, ctx, *args, **kwargs):
-            if not self.chao_cog.is_user_initialized(str(ctx.guild.id), str(ctx.author.id)):
+            guild_id = str(ctx.guild.id)
+            user_id = str(ctx.author.id)
+            if not self.data_utils.is_user_initialized(guild_id, user_id):
                 return await ctx.send(f"{ctx.author.mention}, please use the `$chao` command to start using the Chao Bot.")
             return await func(self, ctx, *args, **kwargs)
         return wrapper
@@ -69,8 +74,6 @@ class Commands(commands.Cog):
     @ensure_user_initialized
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         await self.chao_cog.feed(ctx, chao_name_and_fruit=chao_name_and_fruit)
-
-
 
 async def setup(bot): 
     await bot.add_cog(Commands(bot))

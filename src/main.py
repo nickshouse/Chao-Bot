@@ -1,4 +1,5 @@
-import os, discord
+import os
+import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -7,7 +8,7 @@ bot = commands.Bot(command_prefix='$', intents=discord.Intents.all())
 
 @bot.event
 async def on_ready():
-    for cog in ['cogs.chao', 'cogs.commands']:
+    for cog in ['cogs.image_utils', 'cogs.data_utils', 'cogs.chao', 'cogs.commands']:
         try:
             await bot.load_extension(cog)
             print(f'Loaded {cog}')
