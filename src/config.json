@@ -1,0 +1,22 @@
+{
+    "FORM_LEVELS": [5, 8, 10],
+    "ALIGNMENTS": {"hero": 5, "dark": -5, "neutral": 0},
+    "FRUIT_TICKS_RANGE": [6, 8],
+    "FRUIT_STATS": {
+      "Garden Nut": "stamina",
+      "Hero Fruit": "stamina",
+      "Dark Fruit": "stamina",
+      "Round Fruit": "stamina",
+      "Triangle Fruit": "stamina",
+      "Heart Fruit": "stamina",
+      "Square Fruit": "stamina",
+      "Chao Fruit": "all",
+      "Smart Fruit": "mind",
+      "Power Fruit": "power",
+      "Run Fruit": "run",
+      "Swim Fruit": "swim",
+      "Fly Fruit": "fly",
+      "Tasty Fruit": "stamina",
+      "Strange Mushroom": "stamina"
+    }
+}
