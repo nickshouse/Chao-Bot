@@ -58,7 +58,7 @@ class Commands(commands.Cog):
     @commands.command(name='restore')
     @ensure_user_initialized
     async def restore(self, ctx, *, args: str):
-        await self.chao_cog.restore(ctx, args=args)
+        await self.data_utils.restore(ctx, args=args)
 
     @commands.command(name='give_egg')
     @ensure_user_initialized

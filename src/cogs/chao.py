@@ -250,7 +250,6 @@ class Chao(commands.Cog):
         return chao_type, form
 
 
-
     async def market(self, ctx):
         embed = discord.Embed(title="**Black Market**", description="**Here's what you can buy:**", color=self.embed_color)
         custom_emoji = f'<:custom_emoji:{self.CUSTOM_EMOJI_ID}>'
@@ -321,32 +320,6 @@ class Chao(commands.Cog):
         if chao_eggs > 0:
             embed.add_field(name='<:ChaoEgg:1176372485986455562> Chao Egg', value=f'Quantity: {chao_eggs}', inline=True)
         await ctx.send(embed=embed)
-
-
-    async def restore(self, ctx, *, args: str):
-        parts = args.split()
-        if len(parts) != 2 or parts[0].lower() != 'inventory':
-            return await self.send_embed(ctx, f"{ctx.author.mention}, please use the command in the format: `$restore inventory YYYY-MM-DD`")
-        date_str = parts[1]
-        guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        file_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        try:
-            datetime.strptime(date_str, "%Y-%m-%d")
-        except ValueError:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, please provide the date in YYYY-MM-DD format.")
-        inventory_df = self.data_utils.load_inventory(file_path)
-        if date_str not in inventory_df['date'].values:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, no inventory data found for {date_str}.")
-        restored_inventory = inventory_df[inventory_df['date'] == date_str].iloc[0].to_dict()
-        restored_inventory['date'] = datetime.now().date().strftime("%Y-%m-%d")
-        columns = ['date'] + [col for col in restored_inventory if col != 'date']
-        new_entry_df = pd.DataFrame([restored_inventory])[columns]
-        if restored_inventory['date'] in inventory_df['date'].values:
-            inventory_df.loc[inventory_df['date'] == restored_inventory['date'], columns[1:]] = new_entry_df.iloc[0][columns[1:]].values
-        else:
-            inventory_df = pd.concat([inventory_df, new_entry_df], ignore_index=True).fillna(0)
-        inventory_df.to_parquet(file_path, index=False)
-        await self.send_embed(ctx, f"{ctx.author.mention}, your inventory has been restored to the state from {date_str}.")
 
 
     async def stats(self, ctx, *, chao_name: str):
@@ -465,7 +438,6 @@ class Chao(commands.Cog):
         )
 
 
-
 class StatsView(View):
     def __init__(self, chao_name, guild_id, user_id, tick_positions, exp_positions, num_images, level_position_offset, level_spacing, tick_spacing, chao_type_display, alignment_label, template_path, template_page_2_path, overlay_path, icon_path, image_utils, data_utils):
         super().__init__(timeout=None)
@@ -532,6 +504,7 @@ class StatsView(View):
             discord.File(self.ICON_PATH),
             discord.File(os.path.join(chao_dir, f'{self.chao_name}_thumbnail.png'), "chao_thumbnail.png")
         ])
+
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
