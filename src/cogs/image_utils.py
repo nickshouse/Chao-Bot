@@ -10,11 +10,12 @@ class ImageUtils(commands.Cog):
         self.TICK_SPACING = 105
         self.LEVEL_POSITION_OFFSET = (826, -106)
         self.LEVEL_SPACING = 60
+        # Adjusted EXP_POSITIONS to remove the "mind" stat and shift "stamina" up
         self.EXP_POSITIONS = {
             stat: [(183 + i * 60, y) for i in range(4)]
             for stat, y in zip(
-                ['swim', 'fly', 'run', 'power', 'mind', 'stamina'],
-                [302, 576, 868, 1161, 1454, 1732]
+                ['swim', 'fly', 'run', 'power', 'stamina'],
+                [302, 576, 868, 1161, 1454]
             )
         }
         self.num_images = {
@@ -52,20 +53,20 @@ class ImageUtils(commands.Cog):
             overlay = overlay.convert("RGBA")
             # Paste EXP numbers
             for stat, exp in zip(
-                    ["swim", "fly", "run", "power", "mind", "stamina"],
-                    stats[-6:]):
+                    ["swim", "fly", "run", "power", "stamina"],
+                    stats[-5:]):  # Adjusted for 5 stats
                 exp_str = f"{int(exp):04d}"
                 for pos, digit in zip(
                         self.EXP_POSITIONS[stat], exp_str):
                     template.paste(
                         self.num_images[digit], pos, self.num_images[digit])
             # Paste ticks
-            for pos, ticks in zip(tick_positions, stats[:6]):
+            for pos, ticks in zip(tick_positions, stats[:5]):  # Adjusted for 5 stats
                 for i in range(int(ticks)):
                     tick_pos = (pos[0] + i * self.TICK_SPACING, pos[1])
                     template.paste(overlay, tick_pos, overlay)
             # Paste levels
-            for pos, level in zip(tick_positions, stats[6:12]):
+            for pos, level in zip(tick_positions, stats[5:10]):  # Adjusted indices
                 tens = int(level) // 10
                 ones = int(level) % 10
                 x_offset, y_offset = self.LEVEL_POSITION_OFFSET

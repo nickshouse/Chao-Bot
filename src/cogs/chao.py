@@ -74,13 +74,14 @@ class Chao(commands.Cog):
         self.ICON_PATH = os.path.join(self.assets_dir, 'graphics/icons/Stats.png')
         self.NEUTRAL_PATH = os.path.join(self.assets_dir, 'chao/normal/neutral/neutral_normal_1.png')
         self.BACKGROUND_PATH = os.path.join(self.assets_dir, 'graphics/thumbnails/neutral_background.png')
-        self.TICK_POSITIONS = [(446, y) for y in [1176, 315, 1747, 591, 883, 1469]]
+        # Adjusted TICK_POSITIONS to remove the "mind" stat
+        self.TICK_POSITIONS = [(446, y) for y in [1176, 315, 591, 883, 1469]]
         self.EYES_DIR = os.path.join(self.assets_dir, 'face', 'eyes')
         self.MOUTH_DIR = os.path.join(self.assets_dir, 'face', 'mouth')
         emojis = "🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍"
         names = [
             "Garden Nut", "Hero Fruit", "Dark Fruit", "Round Fruit", "Triangle Fruit",
-            "Heart Fruit", "Square Fruit", "Chao Fruit", "Smart Fruit", "Power Fruit",
+            "Heart Fruit", "Square Fruit", "Chao Fruit", "Power Fruit",
             "Run Fruit", "Swim Fruit", "Fly Fruit", "Tasty Fruit", "Strange Mushroom"
         ]
         self.fruits = [{"emoji": e, "name": n} for e, n in zip(emojis, names)]
@@ -152,10 +153,10 @@ class Chao(commands.Cog):
             'birth_date': datetime.now().date().strftime("%Y-%m-%d"),
             'hp_ticks': 0,
             'Form': '1',
-            **{f"{stat}_ticks": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
-            **{f"{stat}_level": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
-            **{f"{stat}_exp": 0 for stat in ['swim', 'fly', 'run', 'power', 'mind', 'stamina']},
-            **{f"{stat}_grade": 'D' for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']},
+            **{f"{stat}_ticks": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run']},
+            **{f"{stat}_level": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run']},
+            **{f"{stat}_exp": 0 for stat in ['swim', 'fly', 'run', 'power', 'stamina']},
+            **{f"{stat}_grade": 'D' for stat in ['power', 'swim', 'stamina', 'fly', 'run']},
             'evolved': 0,
             'Type': 'Normal',
             'swim_fly': 0,
@@ -192,7 +193,7 @@ class Chao(commands.Cog):
         latest_stats = chao_df.iloc[-1]
         chao_dir = self.data_utils.get_path(guild_id, user_id, 'chao_data', chao_name)
         thumbnail_path = os.path.join(chao_dir, f'{chao_name}_thumbnail.png')
-        stat_levels = {stat: latest_stats[f'{stat}_level'] for stat in ['power', 'swim', 'stamina', 'fly', 'run', 'mind']}
+        stat_levels = {stat: latest_stats[f'{stat}_level'] for stat in ['power', 'swim', 'stamina', 'fly', 'run']}
         max_level = max(stat_levels.values())
         dark_hero = latest_stats['dark_hero']
         current_form = latest_stats.get('Form', "1")
@@ -343,13 +344,13 @@ class Chao(commands.Cog):
         stats_image_path = os.path.join(chao_dir, f'{chao_name}_stats.png')
         self.image_utils.paste_image(
             self.TEMPLATE_PATH, self.OVERLAY_PATH, stats_image_path, self.TICK_POSITIONS,
-            chao_stats["power_ticks"], chao_stats["swim_ticks"], chao_stats["stamina_ticks"],
-            chao_stats["fly_ticks"], chao_stats["run_ticks"], chao_stats["mind_ticks"],
-            chao_stats["power_level"], chao_stats["swim_level"], chao_stats["stamina_level"],
-            chao_stats["fly_level"], chao_stats["run_level"], chao_stats["mind_level"],
+            chao_stats["power_ticks"], chao_stats["swim_ticks"], chao_stats["fly_ticks"],
+            chao_stats["run_ticks"], chao_stats["stamina_ticks"],
+            chao_stats["power_level"], chao_stats["swim_level"], chao_stats["fly_level"],
+            chao_stats["run_level"], chao_stats["stamina_level"],
             chao_stats.get("swim_exp", 0), chao_stats.get("fly_exp", 0),
             chao_stats.get("run_exp", 0), chao_stats.get("power_exp", 0),
-            chao_stats.get("mind_exp", 0), chao_stats.get("stamina_exp", 0)
+            chao_stats.get("stamina_exp", 0)
         )
         embed = discord.Embed(color=discord.Color.blue()).set_author(name=f"{chao_name}'s Stats", icon_url="attachment://Stats.png")
         embed.add_field(name="Type", value=chao_type_display, inline=True)
@@ -491,13 +492,13 @@ class StatsView(View):
             self.OVERLAY_PATH,
             image_path,
             self.tick_positions,
-            chao_to_view["power_ticks"], chao_to_view["swim_ticks"], chao_to_view["stamina_ticks"],
-            chao_to_view["fly_ticks"], chao_to_view["run_ticks"], chao_to_view["mind_ticks"],
-            chao_to_view["power_level"], chao_to_view["swim_level"], chao_to_view["stamina_level"],
-            chao_to_view["fly_level"], chao_to_view["run_level"], chao_to_view["mind_level"],
+            chao_to_view["power_ticks"], chao_to_view["swim_ticks"], chao_to_view["fly_ticks"],
+            chao_to_view["run_ticks"], chao_to_view["stamina_ticks"],
+            chao_to_view["power_level"], chao_to_view["swim_level"], chao_to_view["fly_level"],
+            chao_to_view["run_level"], chao_to_view["stamina_level"],
             chao_to_view.get("swim_exp", 0), chao_to_view.get("fly_exp", 0),
             chao_to_view.get("run_exp", 0), chao_to_view.get("power_exp", 0),
-            chao_to_view.get("mind_exp", 0), chao_to_view.get("stamina_exp", 0)
+            chao_to_view.get("stamina_exp", 0)
         )
 
         embed = discord.Embed(color=discord.Color.blue()).set_author(name=f"{self.chao_name}'s Stats", icon_url="attachment://Stats.png")
