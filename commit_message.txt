@@ -1,3 +1,0 @@
-Added new feature for user authentication
-- Updated styling for login page
-- Fixed bug with password reset functionality

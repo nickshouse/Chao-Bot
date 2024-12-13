@@ -37,8 +37,8 @@ class Commands(commands.Cog):
 
     @commands.command(name='market')
     @ensure_user_initialized
-    async def market(self, ctx):
-        await self.chao_cog.market(ctx)
+    async def market(self, ctx, *, market_type: str = None):
+        await self.chao_cog.market(ctx, market_type=market_type)
 
     @commands.command(name='give_rings')
     @ensure_user_initialized
