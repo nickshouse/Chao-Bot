@@ -1,8 +1,9 @@
 import os
 import discord
 from discord.ext import commands
-from discord.ui import View
+from discord.ui import View, Button
 import json
+import asyncio  # Ensure asyncio is imported
 
 class MarketView(View):
     def __init__(self, embed: discord.Embed, icon_path: str, thumbnail_path: str, page_1_path: str, page_2_path: str):
@@ -19,15 +20,8 @@ class MarketView(View):
         if self.current_page != 1:
             self.current_page = 1
             self.embed.set_image(url="attachment://black_market_fruits_page_1.png")
-            await interaction.response.edit_message(
-                embed=self.embed,
-                view=self,
-                attachments=[
-                    discord.File(self.icon_path, filename="Black_Market.png"),
-                    discord.File(self.thumbnail_path, filename="black_market.png"),
-                    discord.File(self.page_1_path, filename="black_market_fruits_page_1.png")
-                ]
-            )
+            self.embed.set_footer(text="Page 1 / 2")  # Add footer indicating current page
+            await self.update_market(interaction, self.page_1_path, "black_market_fruits_page_1.png")
         else:
             await interaction.response.defer()
 
@@ -36,17 +30,28 @@ class MarketView(View):
         if self.current_page != 2:
             self.current_page = 2
             self.embed.set_image(url="attachment://black_market_fruits_page_2.png")
+            self.embed.set_footer(text="Page 2 / 2")  # Add footer indicating current page
+            await self.update_market(interaction, self.page_2_path, "black_market_fruits_page_2.png")
+        else:
+            await interaction.response.defer()
+
+    async def update_market(self, interaction: discord.Interaction, page_path: str, page_filename: str):
+        # Since images are static, we don't need to process them again.
+        # Just resend the existing image.
+        try:
             await interaction.response.edit_message(
                 embed=self.embed,
                 view=self,
                 attachments=[
                     discord.File(self.icon_path, filename="Black_Market.png"),
                     discord.File(self.thumbnail_path, filename="black_market.png"),
-                    discord.File(self.page_2_path, filename="black_market_fruits_page_2.png")
+                    discord.File(page_path, filename=page_filename)
                 ]
             )
-        else:
-            await interaction.response.defer()
+        except Exception as e:
+            print(f"[MarketView] Failed to edit message: {e}")
+            await interaction.response.send_message("An error occurred while updating the market page.", ephemeral=True)
+
 
 
 class BlackMarket(commands.Cog):
@@ -98,6 +103,7 @@ class BlackMarket(commands.Cog):
                 embed.add_field(name="Shop Type", value="Fruits", inline=True)
                 embed.set_thumbnail(url="attachment://black_market.png")
                 embed.set_image(url="attachment://black_market_fruits_page_1.png")
+                embed.set_footer(text="Page 1 / 2")  # Add footer indicating initial page
 
                 view = MarketView(
                     embed=embed,
@@ -131,6 +137,7 @@ class BlackMarket(commands.Cog):
             embed.add_field(name="Rings", value=f"{ring_emoji} x {rings}", inline=True)
             embed.set_thumbnail(url="attachment://black_market.png")
             embed.set_image(url="attachment://black_market_fruits_page_1.png")
+            embed.set_footer(text="Page 1 / 2")  # Add footer indicating initial page
 
             view = MarketView(
                 embed=embed,
@@ -140,10 +147,15 @@ class BlackMarket(commands.Cog):
                 page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH
             )
 
-            msg = await ctx.send(files=[icon_file, thumb_file, page_1_file], embed=embed, view=view)
-            with open("market_message_id.txt", "w") as f:
-                f.write(str(msg.id))
-            self.market_message_id = msg.id
+            try:
+                msg = await ctx.send(files=[icon_file, thumb_file, page_1_file], embed=embed, view=view)
+                with open("market_message_id.txt", "w") as f:
+                    f.write(str(msg.id))
+                self.market_message_id = msg.id
+                self.bot.add_view(view, message_id=msg.id)
+            except Exception as e:
+                print(f"[market] Failed to send market message: {e}")
+                await ctx.send("An error occurred while opening the market.")
         else:
             await self.send_embed(ctx, "Please specify a valid market type. For example: `$market fruits`")
 

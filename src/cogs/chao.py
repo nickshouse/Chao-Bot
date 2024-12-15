@@ -4,8 +4,8 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 import random
-from discord.ui import View  # Add this line
-
+from discord.ui import View, Button
+import asyncio  # Ensure asyncio is imported
 
 class StatsView(View):
     def __init__(self, chao_name, guild_id, user_id, tick_positions, exp_positions, num_images, level_position_offset, level_spacing, tick_spacing, chao_type_display, alignment_label, template_path, template_page_2_path, overlay_path, icon_path, image_utils, data_utils):
@@ -37,6 +37,7 @@ class StatsView(View):
         await self.update_stats(interaction, "Page 2")
 
     async def update_stats(self, interaction: discord.Interaction, page: str):
+        # Offload image processing to a separate thread
         chao_dir = self.data_utils.get_path(self.guild_id, self.user_id, 'chao_data', self.chao_name)
         chao_stats_path = os.path.join(chao_dir, f'{self.chao_name}_stats.parquet')
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
@@ -47,23 +48,32 @@ class StatsView(View):
         if page == "Page 1":
             template_path = self.TEMPLATE_PATH
             image_path = os.path.join(chao_dir, f'{self.chao_name}_stats_page_1.png')
+            footer_text = "Page 1 / 2"
         else:
             template_path = self.TEMPLATE_PAGE_2_PATH
             image_path = os.path.join(chao_dir, f'{self.chao_name}_stats_page_2.png')
+            footer_text = "Page 2 / 2"
 
-        self.image_utils.paste_image(
-            template_path,
-            self.OVERLAY_PATH,
-            image_path,
-            self.tick_positions,
-            chao_to_view["power_ticks"], chao_to_view["swim_ticks"], chao_to_view["fly_ticks"],
-            chao_to_view["run_ticks"], chao_to_view["stamina_ticks"],
-            chao_to_view["power_level"], chao_to_view["swim_level"], chao_to_view["fly_level"],
-            chao_to_view["run_level"], chao_to_view["stamina_level"],
-            chao_to_view.get("swim_exp", 0), chao_to_view.get("fly_exp", 0),
-            chao_to_view.get("run_exp", 0), chao_to_view.get("power_exp", 0),
-            chao_to_view.get("stamina_exp", 0)
-        )
+        try:
+            # Perform image processing asynchronously
+            await asyncio.to_thread(
+                self.image_utils.paste_image,
+                template_path,
+                self.OVERLAY_PATH,
+                image_path,
+                self.tick_positions,
+                chao_to_view["power_ticks"], chao_to_view["swim_ticks"], chao_to_view["fly_ticks"],
+                chao_to_view["run_ticks"], chao_to_view["stamina_ticks"],
+                chao_to_view["power_level"], chao_to_view["swim_level"], chao_to_view["fly_level"],
+                chao_to_view["run_level"], chao_to_view["stamina_level"],
+                chao_to_view.get("swim_exp", 0), chao_to_view.get("fly_exp", 0),
+                chao_to_view.get("run_exp", 0), chao_to_view.get("power_exp", 0),
+                chao_to_view.get("stamina_exp", 0)
+            )
+        except Exception as e:
+            print(f"[update_stats] Image processing failed: {e}")
+            await interaction.response.send_message("An error occurred while updating the stats.", ephemeral=True)
+            return
 
         embed = discord.Embed(color=discord.Color.blue()).set_author(
             name=f"{self.chao_name}'s Stats",
@@ -73,12 +83,17 @@ class StatsView(View):
         embed.add_field(name="Alignment", value=self.alignment_label, inline=True)
         embed.set_thumbnail(url="attachment://chao_thumbnail.png")
         embed.set_image(url=f"attachment://{os.path.basename(image_path)}")
+        embed.set_footer(text=footer_text)  # Add footer indicating current page
 
-        await interaction.response.edit_message(embed=embed, view=self, attachments=[
-            discord.File(image_path, os.path.basename(image_path)),
-            discord.File(self.ICON_PATH, filename="Stats.png"),
-            discord.File(os.path.join(chao_dir, f'{self.chao_name}_thumbnail.png'), "chao_thumbnail.png")
-        ])
+        try:
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[
+                discord.File(image_path, os.path.basename(image_path)),
+                discord.File(self.ICON_PATH, filename="Stats.png"),
+                discord.File(os.path.join(chao_dir, f'{self.chao_name}_thumbnail.png'), "chao_thumbnail.png")
+            ])
+        except Exception as e:
+            print(f"[update_stats] Failed to edit message: {e}")
+            await interaction.response.send_message("An error occurred while updating the stats.", ephemeral=True)
 
 
 class Chao(commands.Cog):
@@ -166,6 +181,7 @@ class Chao(commands.Cog):
         self.EYES_DIR = os.path.join(self.assets_dir, 'face', 'eyes')
         self.MOUTH_DIR = os.path.join(self.assets_dir, 'face', 'mouth')
 
+        # Removed MarketView related code from here as it's now in black_market.py
 
     def send_embed(self, ctx, description, title="Chao Bot"):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
@@ -420,7 +436,9 @@ class Chao(commands.Cog):
         alignment_label = chao_stats.get('Alignment', 'Neutral').capitalize()
         stats_image_path = os.path.join(chao_dir, f'{chao_name}_stats.png')
 
-        self.image_utils.paste_image(
+        # Offload image processing to a separate thread
+        await asyncio.to_thread(
+            self.image_utils.paste_image,
             self.TEMPLATE_PATH,
             self.OVERLAY_PATH,
             stats_image_path,
@@ -448,6 +466,7 @@ class Chao(commands.Cog):
         embed.add_field(name="Alignment", value=alignment_label, inline=True)
         embed.set_thumbnail(url="attachment://chao_thumbnail.png")
         embed.set_image(url="attachment://output_image.png")
+        embed.set_footer(text="Page 1 / 2")  # Add footer for the initial page
 
         view = StatsView(
             chao_name,
@@ -469,18 +488,20 @@ class Chao(commands.Cog):
             self.data_utils
         )
 
-        sent_message = await ctx.send(
-            files=[
-                discord.File(stats_image_path, "output_image.png"),
-                discord.File(self.ICON_PATH),
-                discord.File(os.path.join(chao_dir, f'{chao_name}_thumbnail.png'), "chao_thumbnail.png")
-            ],
-            embed=embed,
-            view=view
-        )
-
-        self.bot.add_view(view, message_id=sent_message.id)
-
+        try:
+            sent_message = await ctx.send(
+                files=[
+                    discord.File(stats_image_path, "output_image.png"),
+                    discord.File(self.ICON_PATH),
+                    discord.File(os.path.join(chao_dir, f'{chao_name}_thumbnail.png'), "chao_thumbnail.png")
+                ],
+                embed=embed,
+                view=view
+            )
+            self.bot.add_view(view, message_id=sent_message.id)
+        except Exception as e:
+            print(f"[stats] Failed to send message: {e}")
+            await ctx.send("An error occurred while sending the stats.")
 
     
     async def feed(self, ctx, *, chao_name_and_fruit: str):
