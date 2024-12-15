@@ -11,10 +11,13 @@ class Commands(commands.Cog):
     def cog_load(self):
         self.chao_cog = self.bot.get_cog('Chao')
         self.data_utils = self.bot.get_cog('DataUtils')
+        self.black_market_cog = self.bot.get_cog('BlackMarket')  # Add this line
         if not self.chao_cog:
-            raise Exception("Chao cog is not loaded. Make sure it is loaded before the Commands cog.")
+            raise Exception("Chao cog is not loaded.")
         if not self.data_utils:
-            raise Exception("DataUtils cog is not loaded. Make sure it is loaded before the Commands cog.")
+            raise Exception("DataUtils cog is not loaded.")
+        if not self.black_market_cog:
+            raise Exception("BlackMarket cog is not loaded.")
 
     def ensure_user_initialized(func):
         @wraps(func)
@@ -38,7 +41,7 @@ class Commands(commands.Cog):
     @commands.command(name='market')
     @ensure_user_initialized
     async def market(self, ctx, *, market_type: str = None):
-        await self.chao_cog.market(ctx, market_type=market_type)
+        await self.black_market_cog.market(ctx, market_type=market_type)
 
     @commands.command(name='give_rings')
     @ensure_user_initialized
@@ -48,7 +51,7 @@ class Commands(commands.Cog):
     @commands.command(name='buy')
     @ensure_user_initialized
     async def buy(self, ctx, *, item_quantity: str):
-        await self.chao_cog.buy(ctx, item_quantity=item_quantity)
+        await self.black_market_cog.buy(ctx, item_quantity=item_quantity)
 
     @commands.command(name='inventory')
     @ensure_user_initialized

@@ -7,52 +7,6 @@ import random
 from discord.ui import View  # Add this line
 
 
-class MarketView(discord.ui.View):
-    def __init__(self, embed: discord.Embed, icon_path: str, thumbnail_path: str, page_1_path: str, page_2_path: str):
-        super().__init__(timeout=None)
-        self.embed = embed
-        self.icon_path = icon_path
-        self.thumbnail_path = thumbnail_path
-        self.page_1_path = page_1_path
-        self.page_2_path = page_2_path
-        self.current_page = 1
-
-    @discord.ui.button(label="Page 1", style=discord.ButtonStyle.primary, custom_id="market_page_1")
-    async def page_1_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page != 1:
-            self.current_page = 1
-            self.embed.set_image(url="attachment://black_market_fruits_page_1.png")
-            await interaction.response.edit_message(
-                embed=self.embed,
-                view=self,
-                attachments=[
-                    discord.File(self.icon_path, filename="Black_Market.png"),
-                    discord.File(self.thumbnail_path, filename="black_market.png"),
-                    discord.File(self.page_1_path, filename="black_market_fruits_page_1.png")
-                ]
-            )
-        else:
-            await interaction.response.defer()
-
-    @discord.ui.button(label="Page 2", style=discord.ButtonStyle.secondary, custom_id="market_page_2")
-    async def page_2_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page != 2:
-            self.current_page = 2
-            self.embed.set_image(url="attachment://black_market_fruits_page_2.png")
-            await interaction.response.edit_message(
-                embed=self.embed,
-                view=self,
-                attachments=[
-                    discord.File(self.icon_path, filename="Black_Market.png"),
-                    discord.File(self.thumbnail_path, filename="black_market.png"),
-                    discord.File(self.page_2_path, filename="black_market_fruits_page_2.png")
-                ]
-            )
-        else:
-            await interaction.response.defer()
-
-
-
 class StatsView(View):
     def __init__(self, chao_name, guild_id, user_id, tick_positions, exp_positions, num_images, level_position_offset, level_spacing, tick_spacing, chao_type_display, alignment_label, template_path, template_page_2_path, overlay_path, icon_path, image_utils, data_utils):
         super().__init__(timeout=None)
@@ -212,27 +166,6 @@ class Chao(commands.Cog):
         self.EYES_DIR = os.path.join(self.assets_dir, 'face', 'eyes')
         self.MOUTH_DIR = os.path.join(self.assets_dir, 'face', 'mouth')
 
-        # If we have a saved message ID, recreate the MarketView and re-add it.
-        if os.path.exists("market_message_id.txt"):
-            with open("market_message_id.txt", "r") as f:
-                market_message_id_str = f.read().strip()
-            if market_message_id_str.isdigit():
-                self.market_message_id = int(market_message_id_str)
-                embed = discord.Embed(color=self.embed_color)
-                embed.set_author(name="Black Market", icon_url="attachment://Black_Market.png")
-                embed.description = "Buy somethin' will ya?"
-                embed.add_field(name="Shop Type", value="Fruits", inline=True)
-                embed.set_thumbnail(url="attachment://black_market.png")
-                embed.set_image(url="attachment://black_market_fruits_page_1.png")
-
-                view = MarketView(
-                    embed=embed,
-                    icon_path=self.BLACK_MARKET_ICON_PATH,
-                    thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
-                    page_1_path=self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
-                    page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH
-                )
-                self.bot.add_view(view, message_id=self.market_message_id)
 
     def send_embed(self, ctx, description, title="Chao Bot"):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
@@ -429,44 +362,6 @@ class Chao(commands.Cog):
             print(f"[update_chao_type_and_thumbnail] Error: {e}")
             return None, None
 
-
-    
-    async def market(self, ctx, market_type: str = None):
-        guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        inv_df = self.data_utils.load_inventory(inv_path)
-        current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
-        rings = int(current_inv.get('rings', 0))
-        ring_emoji = f'<:custom_emoji:{self.CUSTOM_EMOJI_ID}>'
-
-        if market_type and market_type.lower() == "fruits":
-            icon_file = discord.File(self.BLACK_MARKET_ICON_PATH, filename="Black_Market.png")
-            thumb_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
-            page_1_file = discord.File(self.BLACK_MARKET_FRUITS_PAGE_1_PATH, filename="black_market_fruits_page_1.png")
-
-            embed = discord.Embed(color=self.embed_color)
-            embed.set_author(name="Black Market - Fruits", icon_url="attachment://Black_Market.png")
-            embed.description = "Buy fruits to feed your Chao!"
-            embed.add_field(name="Rings", value=f"{ring_emoji} x {rings}", inline=True)
-            embed.set_thumbnail(url="attachment://black_market.png")
-            embed.set_image(url="attachment://black_market_fruits_page_1.png")
-
-            view = MarketView(
-                embed=embed,
-                icon_path=self.BLACK_MARKET_ICON_PATH,
-                thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
-                page_1_path=self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
-                page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH
-            )
-
-            msg = await ctx.send(files=[icon_file, thumb_file, page_1_file], embed=embed, view=view)
-            with open("market_message_id.txt", "w") as f:
-                f.write(str(msg.id))
-            self.market_message_id = msg.id
-        else:
-            await self.send_embed(ctx, "Please specify a valid market type. For example: `$market fruits`")
-
-
     async def give_egg(self, ctx):
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
         inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
@@ -479,34 +374,6 @@ class Chao(commands.Cog):
         current_inv['Chao Egg'] = current_inv.get('Chao Egg', 0) + 1
         self.data_utils.save_inventory(inv_path, inv_df, current_inv)
         await self.send_embed(ctx, f"{ctx.author.mention} received a Chao Egg! You now have {current_inv['Chao Egg']} Egg(s).")
-
-    
-    async def buy(self, ctx, *, item_quantity: str):
-        try:
-            *item_parts, quantity = item_quantity.rsplit(' ', 1)
-            item_name, quantity = ' '.join(item_parts), int(quantity)
-        except ValueError:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, use `$buy [item] [quantity]`.")
-
-        guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        inv_df = self.data_utils.load_inventory(inv_path)
-        current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
-        rings = current_inv.get('rings', 0)
-
-        fruit = next((f for f in self.fruits if f.lower() == item_name.lower()), None)
-        if not fruit:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, '{item_name}' is not sold here.")
-
-        total_cost = self.fruit_prices * quantity
-        if rings < total_cost:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, not enough rings ({total_cost} needed).")
-
-        current_inv['rings'] = rings - total_cost
-        current_inv[fruit] = current_inv.get(fruit, 0) + quantity
-        self.data_utils.save_inventory(inv_path, inv_df, current_inv)
-        await self.send_embed(ctx, f"{ctx.author.mention} bought {quantity}x {fruit} for {total_cost} rings! Now you have {current_inv['rings']} rings.")
-
     
     async def inventory(self, ctx):
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
@@ -711,74 +578,6 @@ class Chao(commands.Cog):
             color=self.embed_color
         ).set_image(url=f"attachment://{chao_name}_thumbnail.png")
         await ctx.send(file=discord.File(thumbnail_path, filename=f"{chao_name}_thumbnail.png"), embed=embed)
-
-
-class StatsView(View):
-    def __init__(self, chao_name, guild_id, user_id, tick_positions, exp_positions, num_images, level_position_offset, level_spacing, tick_spacing, chao_type_display, alignment_label, template_path, template_page_2_path, overlay_path, icon_path, image_utils, data_utils):
-        super().__init__(timeout=None)
-        self.chao_name = chao_name
-        self.guild_id = guild_id
-        self.user_id = user_id
-        self.tick_positions = tick_positions
-        self.exp_positions = exp_positions
-        self.num_images = num_images
-        self.level_position_offset = level_position_offset
-        self.level_spacing = level_spacing
-        self.tick_spacing = tick_spacing
-        self.chao_type_display = chao_type_display
-        self.alignment_label = alignment_label
-        self.TEMPLATE_PATH = template_path
-        self.TEMPLATE_PAGE_2_PATH = template_page_2_path
-        self.OVERLAY_PATH = overlay_path
-        self.ICON_PATH = icon_path
-        self.image_utils = image_utils
-        self.data_utils = data_utils
-
-    @discord.ui.button(label="Page 1", style=discord.ButtonStyle.primary)
-    async def page_1_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.update_stats(interaction, "Page 1")
-
-    @discord.ui.button(label="Page 2", style=discord.ButtonStyle.secondary)
-    async def page_2_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.update_stats(interaction, "Page 2")
-
-    async def update_stats(self, interaction: discord.Interaction, page: str):
-        chao_dir = self.data_utils.get_path(self.guild_id, self.user_id, 'chao_data', self.chao_name)
-        chao_stats_path = os.path.join(chao_dir, f'{self.chao_name}_stats.parquet')
-        chao_df = self.data_utils.load_chao_stats(chao_stats_path)
-        chao_to_view = chao_df.iloc[-1].to_dict()
-
-        print(f"[update_stats] Displaying {page} for Chao: {self.chao_name}, User: {self.user_id}")
-
-        if page == "Page 1":
-            template_path = self.TEMPLATE_PATH
-            image_path = os.path.join(chao_dir, f'{self.chao_name}_stats_page_1.png')
-        else:
-            template_path = self.TEMPLATE_PAGE_2_PATH
-            image_path = os.path.join(chao_dir, f'{self.chao_name}_stats_page_2.png')
-
-        self.image_utils.paste_image(
-            template_path,
-            self.OVERLAY_PATH,
-            image_path,
-            self.tick_positions,
-            chao_to_view["power_ticks"], chao_to_view["swim_ticks"], chao_to_view["fly_ticks"],
-            chao_to_view["run_ticks"], chao_to_view["stamina_ticks"],
-            chao_to_view["power_level"], chao_to_view["swim_level"], chao_to_view["fly_level"],
-            chao_to_view["run_level"], chao_to_view["stamina_level"],
-            chao_to_view.get("swim_exp", 0), chao_to_view.get("fly_exp", 0),
-            chao_to_view.get("run_exp", 0), chao_to_view.get("power_exp", 0),
-            chao_to_view.get("stamina_exp", 0)
-        )
-
-        embed = discord.Embed(color=discord.Color.blue()).set_author(name=f"{self.chao_name}'s Stats", icon_url="attachment://Stats.png")
-        embed.add_field(name="Type", value=self.chao_type_display, inline=True).add_field(name="Alignment", value=self.alignment_label, inline=True).set_thumbnail(url="attachment://chao_thumbnail.png").set_image(url=f"attachment://{os.path.basename(image_path)}")
-
-        await interaction.response.edit_message(embed=embed, view=self, attachments=[
-            discord.File(image_path, os.path.basename(image_path)),
-            discord.File(self.ICON_PATH),
-            discord.File(os.path.join(chao_dir, f'{self.chao_name}_thumbnail.png'), "chao_thumbnail.png")
-        ])
 
 async def setup(bot):
     await bot.add_cog(Chao(bot))
