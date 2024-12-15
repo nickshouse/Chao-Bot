@@ -1,43 +1,60 @@
+# cogs/black_market.py
+
 import os
 import discord
 from discord.ext import commands
 from discord.ui import View, Button
 import json
-import asyncio  # Ensure asyncio is imported
+import asyncio
+
 
 class MarketView(View):
-    def __init__(self, embed: discord.Embed, icon_path: str, thumbnail_path: str, page_1_path: str, page_2_path: str):
+    def __init__(self, embed: discord.Embed, icon_path: str, thumbnail_path: str, page_1_path: str, page_2_path: str, total_pages=2):
         super().__init__(timeout=None)
         self.embed = embed
         self.icon_path = icon_path
         self.thumbnail_path = thumbnail_path
         self.page_1_path = page_1_path
         self.page_2_path = page_2_path
-        self.current_page = 1
+        self.current_page = 1  # Start at Page 1
+        self.total_pages = total_pages
 
-    @discord.ui.button(label="Page 1", style=discord.ButtonStyle.primary, custom_id="market_page_1")
-    async def page_1_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page != 1:
-            self.current_page = 1
-            self.embed.set_image(url="attachment://black_market_fruits_page_1.png")
-            self.embed.set_footer(text="Page 1 / 2")  # Add footer indicating current page
-            await self.update_market(interaction, self.page_1_path, "black_market_fruits_page_1.png")
+        # Replace text buttons with arrow buttons
+        self.add_item(self.previous_button())
+        self.add_item(self.next_button())
+
+    def previous_button(self) -> Button:
+        button = Button(label="⬅️", style=discord.ButtonStyle.primary, custom_id="market_previous")
+        button.callback = self.previous_page
+        return button
+
+    def next_button(self) -> Button:
+        button = Button(label="➡️", style=discord.ButtonStyle.primary, custom_id="market_next")
+        button.callback = self.next_page
+        return button
+
+    async def previous_page(self, interaction: discord.Interaction):
+        # Cycle to the previous page
+        self.current_page = self.current_page - 1 if self.current_page > 1 else self.total_pages
+        await self.update_market(interaction, self.current_page)
+
+    async def next_page(self, interaction: discord.Interaction):
+        # Cycle to the next page
+        self.current_page = self.current_page + 1 if self.current_page < self.total_pages else 1
+        await self.update_market(interaction, self.current_page)
+
+    async def update_market(self, interaction: discord.Interaction, page: int):
+        if page == 1:
+            image_filename = "black_market_fruits_page_1.png"
+            image_path = self.page_1_path
         else:
-            await interaction.response.defer()
+            image_filename = "black_market_fruits_page_2.png"
+            image_path = self.page_2_path
 
-    @discord.ui.button(label="Page 2", style=discord.ButtonStyle.secondary, custom_id="market_page_2")
-    async def page_2_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page != 2:
-            self.current_page = 2
-            self.embed.set_image(url="attachment://black_market_fruits_page_2.png")
-            self.embed.set_footer(text="Page 2 / 2")  # Add footer indicating current page
-            await self.update_market(interaction, self.page_2_path, "black_market_fruits_page_2.png")
-        else:
-            await interaction.response.defer()
+        # Update embed image and footer
+        self.embed.set_image(url=f"attachment://{image_filename}")
+        self.embed.set_footer(text=f"Page {page} / {self.total_pages}")
 
-    async def update_market(self, interaction: discord.Interaction, page_path: str, page_filename: str):
-        # Since images are static, we don't need to process them again.
-        # Just resend the existing image.
         try:
             await interaction.response.edit_message(
                 embed=self.embed,
@@ -45,13 +62,12 @@ class MarketView(View):
                 attachments=[
                     discord.File(self.icon_path, filename="Black_Market.png"),
                     discord.File(self.thumbnail_path, filename="black_market.png"),
-                    discord.File(page_path, filename=page_filename)
+                    discord.File(image_path, filename=image_filename)
                 ]
             )
         except Exception as e:
             print(f"[MarketView] Failed to edit message: {e}")
             await interaction.response.send_message("An error occurred while updating the market page.", ephemeral=True)
-
 
 
 class BlackMarket(commands.Cog):
@@ -79,7 +95,7 @@ class BlackMarket(commands.Cog):
         self.CUSTOM_EMOJI_ID = 1176313914464681984
         self.embed_color = discord.Color.blue()
 
-    def cog_load(self):
+    async def cog_load(self):
         self.image_utils = self.bot.get_cog('ImageUtils')
         self.data_utils = self.bot.get_cog('DataUtils')
         if not self.image_utils or not self.data_utils:
@@ -103,14 +119,15 @@ class BlackMarket(commands.Cog):
                 embed.add_field(name="Shop Type", value="Fruits", inline=True)
                 embed.set_thumbnail(url="attachment://black_market.png")
                 embed.set_image(url="attachment://black_market_fruits_page_1.png")
-                embed.set_footer(text="Page 1 / 2")  # Add footer indicating initial page
+                embed.set_footer(text="Page 1 / 2")  # Initial footer
 
                 view = MarketView(
                     embed=embed,
                     icon_path=self.BLACK_MARKET_ICON_PATH,
                     thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
                     page_1_path=self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
-                    page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH
+                    page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH,
+                    total_pages=2  # Specify total pages
                 )
                 self.bot.add_view(view, message_id=self.market_message_id)
 
@@ -137,14 +154,15 @@ class BlackMarket(commands.Cog):
             embed.add_field(name="Rings", value=f"{ring_emoji} x {rings}", inline=True)
             embed.set_thumbnail(url="attachment://black_market.png")
             embed.set_image(url="attachment://black_market_fruits_page_1.png")
-            embed.set_footer(text="Page 1 / 2")  # Add footer indicating initial page
+            embed.set_footer(text="Page 1 / 2")  # Initial footer
 
             view = MarketView(
                 embed=embed,
                 icon_path=self.BLACK_MARKET_ICON_PATH,
                 thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
                 page_1_path=self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
-                page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH
+                page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH,
+                total_pages=2  # Specify total pages
             )
 
             try:
