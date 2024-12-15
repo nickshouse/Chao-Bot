@@ -19,17 +19,25 @@ class MarketView(View):
         self.current_page = 1  # Start at Page 1
         self.total_pages = total_pages
 
-        # Replace text buttons with arrow buttons
+        # Replace text buttons with arrow emojis using the 'emoji' parameter
         self.add_item(self.previous_button())
         self.add_item(self.next_button())
 
     def previous_button(self) -> Button:
-        button = Button(label="⬅️", style=discord.ButtonStyle.primary, custom_id="market_previous")
+        button = Button(
+            style=discord.ButtonStyle.primary,
+            emoji="⬅️",  # Left arrow emoji
+            custom_id="market_previous"
+        )
         button.callback = self.previous_page
         return button
 
     def next_button(self) -> Button:
-        button = Button(label="➡️", style=discord.ButtonStyle.primary, custom_id="market_next")
+        button = Button(
+            style=discord.ButtonStyle.primary,
+            emoji="➡️",  # Right arrow emoji
+            custom_id="market_next"
+        )
         button.callback = self.next_page
         return button
 

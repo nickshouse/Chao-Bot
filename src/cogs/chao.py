@@ -55,17 +55,25 @@ class StatsView(View):
         self.total_pages = total_pages
         self.current_page = 1  # Start at Page 1
 
-        # Replace text buttons with arrow buttons
+        # Replace text buttons with arrow emojis using the 'emoji' parameter
         self.add_item(self.previous_button())
         self.add_item(self.next_button())
 
     def previous_button(self) -> Button:
-        button = Button(label="⬅️", style=discord.ButtonStyle.primary, custom_id="stats_previous")
+        button = Button(
+            style=discord.ButtonStyle.primary,
+            emoji="⬅️",  # Left arrow emoji
+            custom_id="stats_previous"
+        )
         button.callback = self.previous_page
         return button
 
     def next_button(self) -> Button:
-        button = Button(label="➡️", style=discord.ButtonStyle.primary, custom_id="stats_next")
+        button = Button(
+            style=discord.ButtonStyle.primary,
+            emoji="➡️",  # Right arrow emoji
+            custom_id="stats_next"
+        )
         button.callback = self.next_page
         return button
 
