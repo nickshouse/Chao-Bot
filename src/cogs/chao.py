@@ -83,7 +83,6 @@ class StatsView(View):
         await self.update_stats(interaction, "Page 2")
 
     async def update_stats(self, interaction: discord.Interaction, page: str):
-        # This is unchanged from the user's original stats code.
         chao_dir = self.data_utils.get_path(self.guild_id, self.user_id, 'chao_data', self.chao_name)
         chao_stats_path = os.path.join(chao_dir, f'{self.chao_name}_stats.parquet')
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
@@ -133,7 +132,7 @@ class Chao(commands.Cog):
         self.bot = bot
         self.embed_color = discord.Color.blue()
         self.image_utils = self.data_utils = None
-        self.market_message_id = None  # Will be loaded in cog_load if exists
+        self.market_message_id = None
 
         # Load configuration
         with open('config.json', 'r') as f:
@@ -181,7 +180,14 @@ class Chao(commands.Cog):
         self.TICK_POSITIONS = None
         self.EYES_DIR = None
         self.MOUTH_DIR = None
-        self.fruits = None
+
+        # Just store fruit names now; no emojis
+        names = [
+            "Garden Nut", "Hero Fruit", "Dark Fruit", "Round Fruit", "Triangle Fruit",
+            "Heart Fruit", "Square Fruit", "Chao Fruit", "Power Fruit",
+            "Run Fruit", "Swim Fruit", "Fly Fruit", "Tasty Fruit", "Strange Mushroom"
+        ]
+        self.fruits = names
         self.fruit_prices = 15
 
     def cog_load(self):
@@ -206,22 +212,12 @@ class Chao(commands.Cog):
         self.EYES_DIR = os.path.join(self.assets_dir, 'face', 'eyes')
         self.MOUTH_DIR = os.path.join(self.assets_dir, 'face', 'mouth')
 
-        emojis = "🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍"
-        names = [
-            "Garden Nut", "Hero Fruit", "Dark Fruit", "Round Fruit", "Triangle Fruit",
-            "Heart Fruit", "Square Fruit", "Chao Fruit", "Power Fruit",
-            "Run Fruit", "Swim Fruit", "Fly Fruit", "Tasty Fruit", "Strange Mushroom"
-        ]
-        self.fruits = [{"emoji": e, "name": n} for e, n in zip(emojis, names)]
-        self.fruit_prices = 15
-
         # If we have a saved message ID, recreate the MarketView and re-add it.
         if os.path.exists("market_message_id.txt"):
             with open("market_message_id.txt", "r") as f:
                 market_message_id_str = f.read().strip()
             if market_message_id_str.isdigit():
                 self.market_message_id = int(market_message_id_str)
-                # Recreate the MarketView
                 embed = discord.Embed(color=self.embed_color)
                 embed.set_author(name="Black Market", icon_url="attachment://Black_Market.png")
                 embed.description = "Buy somethin' will ya?"
@@ -236,8 +232,6 @@ class Chao(commands.Cog):
                     page_1_path=self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
                     page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH
                 )
-
-                # Re-add the view to make buttons persistent
                 self.bot.add_view(view, message_id=self.market_message_id)
 
     def send_embed(self, ctx, description, title="Chao Bot"):
@@ -247,31 +241,36 @@ class Chao(commands.Cog):
     
     async def hatch(self, ctx):
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inventory_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        inventory_df = self.data_utils.load_inventory(inventory_path)
-        current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {}
-        chao_egg_qty = int(current_inventory.get('Chao Egg', 0))
-        if chao_egg_qty < 1:
+        inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        inv_df = self.data_utils.load_inventory(inv_path)
+        current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
+
+        if current_inv.get('Chao Egg', 0) < 1:
             return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have any Chao Eggs to hatch.")
+
         chao_dir = self.data_utils.get_path(guild_id, user_id, 'chao_data', '')
-        chao_name = random.choice(self.chao_names)
         os.makedirs(chao_dir, exist_ok=True)
+        chao_name = random.choice(self.chao_names)
         while chao_name in os.listdir(chao_dir):
             chao_name = random.choice(self.chao_names)
-        chao_stats_path = os.path.join(chao_dir, chao_name, f'{chao_name}_stats.parquet')
-        os.makedirs(os.path.dirname(chao_stats_path), exist_ok=True)
-        current_inventory['Chao Egg'] = chao_egg_qty - 1
-        self.data_utils.save_inventory(inventory_path, inventory_df, current_inventory)
+
+        chao_path = os.path.join(chao_dir, chao_name)
+        os.makedirs(chao_path, exist_ok=True)
+        chao_stats_path = os.path.join(chao_path, f'{chao_name}_stats.parquet')
+        current_inv['Chao Egg'] = current_inv.get('Chao Egg', 0) - 1
+        self.data_utils.save_inventory(inv_path, inv_df, current_inv)
+
+        base_stats = {f"{stat}_ticks": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run']}
+        base_stats.update({f"{stat}_level": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run']})
+        base_stats.update({f"{stat}_exp": 0 for stat in ['swim', 'fly', 'run', 'power', 'stamina']})
+        base_stats.update({f"{stat}_grade": 'D' for stat in ['power', 'swim', 'stamina', 'fly', 'run']})
+
         chao_stats = {
             'date': datetime.now().date().strftime("%Y-%m-%d"),
             'hatched': 1,
             'birth_date': datetime.now().date().strftime("%Y-%m-%d"),
             'hp_ticks': 0,
             'Form': '1',
-            **{f"{stat}_ticks": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run']},
-            **{f"{stat}_level": 0 for stat in ['power', 'swim', 'stamina', 'fly', 'run']},
-            **{f"{stat}_exp": 0 for stat in ['swim', 'fly', 'run', 'power', 'stamina']},
-            **{f"{stat}_grade": 'D' for stat in ['power', 'swim', 'stamina', 'fly', 'run']},
             'evolved': 0,
             'Type': 'Normal',
             'swim_fly': 0,
@@ -279,63 +278,59 @@ class Chao(commands.Cog):
             'dark_hero': 0,
             'eyes': random.choice(self.eye_types),
             'mouth': random.choice(self.mouth_types),
-            # Initialize new parameters
-            'happiness': 50,    # Starting with a neutral happiness value
-            'mating': 0,        # Initial mating readiness
-            'belly': 0,         # Chao is hungry at the start
-            'illness': 0,       # No illness initially
-            'hp': 1000,         # Starting HP
+            'happiness': 50,
+            'mating': 0,
+            'belly': 0,
+            'illness': 0,
+            'hp': 1000,
+            **base_stats
         }
+
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, chao_stats)
-        chao_image_path = self.NEUTRAL_PATH
-        thumbnail_path = os.path.join(chao_dir, chao_name, f"{chao_name}_thumbnail.png")
+
         eyes, mouth = chao_stats['eyes'], chao_stats['mouth']
         alignment_str = 'neutral'
-        eyes_image_path = os.path.join(self.EYES_DIR, f"{alignment_str}_{eyes}.png")
-        if not os.path.exists(eyes_image_path):
-            eyes_image_path = os.path.join(self.EYES_DIR, f"{alignment_str}.png")
-        mouth_image_path = os.path.join(self.MOUTH_DIR, f"{mouth}.png")
-        if not os.path.exists(mouth_image_path):
-            mouth_image_path = os.path.join(self.MOUTH_DIR, "happy.png")
+        eyes_path = os.path.join(self.EYES_DIR, f"{alignment_str}_{eyes}.png")
+        if not os.path.exists(eyes_path):
+            eyes_path = os.path.join(self.EYES_DIR, f"{alignment_str}.png")
+        mouth_path = os.path.join(self.MOUTH_DIR, f"{mouth}.png")
+        if not os.path.exists(mouth_path):
+            mouth_path = os.path.join(self.MOUTH_DIR, "happy.png")
+
+        thumbnail_path = os.path.join(chao_path, f"{chao_name}_thumbnail.png")
         self.image_utils.combine_images_with_face(
-            self.BACKGROUND_PATH, chao_image_path, eyes_image_path, mouth_image_path, thumbnail_path
+            self.BACKGROUND_PATH,
+            self.NEUTRAL_PATH,
+            eyes_path,
+            mouth_path,
+            thumbnail_path
         )
-        await ctx.reply(
-            file=discord.File(thumbnail_path, filename=f"{chao_name}_thumbnail.png"),
-            embed=discord.Embed(
-                title="Your Chao Egg has hatched!",
-                description=f"Your Chao Egg has hatched into a Regular Two-tone Chao named {chao_name}!",
-                color=discord.Color.blue()
-            ).set_image(url=f"attachment://{chao_name}_thumbnail.png")
-        )
+
+        embed = discord.Embed(
+            title="Your Chao Egg has hatched!",
+            description=f"Your Chao Egg hatched into a Regular Two-tone Chao named {chao_name}!",
+            color=discord.Color.blue()
+        ).set_image(url=f"attachment://{chao_name}_thumbnail.png")
+
+        await ctx.reply(file=discord.File(thumbnail_path, filename=f"{chao_name}_thumbnail.png"), embed=embed)
+
 
     def update_chao_type_and_thumbnail(self, guild_id, user_id, chao_name, latest_stats):
         try:
-            print(f"[update_chao_type_and_thumbnail] Updating Chao: {chao_name}")
             chao_dir = self.data_utils.get_path(guild_id, user_id, 'chao_data', chao_name)
             thumbnail_path = os.path.join(chao_dir, f'{chao_name}_thumbnail.png')
 
-            # Use latest_stats directly
-            stat_levels = {
-                stat: latest_stats.get(f'{stat}_level', 0) for stat in ['power', 'swim', 'stamina', 'fly', 'run']
-            }
+            stat_levels = {s: latest_stats.get(f'{s}_level', 0) for s in ['power', 'swim', 'stamina', 'fly', 'run']}
             max_stat = max(stat_levels, key=stat_levels.get)
             max_level = stat_levels[max_stat]
             dark_hero = latest_stats.get('dark_hero', 0)
-            current_form = latest_stats.get('Form', "1")
+            form = latest_stats.get('Form', "1")
             current_type = latest_stats.get('Type', 'normal').lower()
-
-            print(f"[update_chao_type_and_thumbnail] Current Form: {current_form}, "
-                  f"Max Level: {max_level}, Max Stat: {max_stat}")
-
-            # Initialize variables
             chao_type = current_type
-            form = current_form
 
-            # Determine alignment based on form
-            if current_form in ["1", "2"]:
-                # Update alignment based on dark_hero
+            # Alignment
+            if form in ["1", "2"]:
                 if dark_hero >= self.HERO_ALIGNMENT:
                     alignment = "hero"
                 elif dark_hero <= self.DARK_ALIGNMENT:
@@ -344,114 +339,84 @@ class Chao(commands.Cog):
                     alignment = "neutral"
                 latest_stats['Alignment'] = alignment
             else:
-                # Keep existing alignment
-                alignment = latest_stats.get('Alignment', 'neutral')  # Default to neutral if not set
+                alignment = latest_stats.get('Alignment', 'neutral')
 
             # Evolution logic
-            if current_form == "1" and max_level >= self.FORM_LEVEL_2:
-                form = "2"
-                # Form 1 to Form 2 transformations
+            def evolve_to_form_2():
                 run_power = latest_stats.get('run_power', 0)
                 swim_fly = latest_stats.get('swim_fly', 0)
                 if run_power >= self.RUN_POWER_THRESHOLD:
-                    chao_type = f"{current_type}_power"
+                    return f"{current_type}_power"
                 elif run_power <= -self.RUN_POWER_THRESHOLD:
-                    chao_type = f"{current_type}_run"
+                    return f"{current_type}_run"
                 elif swim_fly >= self.SWIM_FLY_THRESHOLD:
-                    chao_type = f"{current_type}_fly"
+                    return f"{current_type}_fly"
                 elif swim_fly <= -self.SWIM_FLY_THRESHOLD:
-                    chao_type = f"{current_type}_swim"
-                else:
-                    chao_type = f"{current_type}_normal"
-            elif current_form == "2" and max_level >= self.FORM_LEVEL_3:
-                form = "3"
-                # Form 2 to Form 3 transformations
+                    return f"{current_type}_swim"
+                return f"{current_type}_normal"
+
+            def evolve_to_form_3():
                 run_power = latest_stats.get('run_power', 0)
                 swim_fly = latest_stats.get('swim_fly', 0)
+                new_type = "normal"
                 if run_power >= self.RUN_POWER_THRESHOLD:
-                    chao_type = "power"
+                    new_type = "power"
                 elif run_power <= -self.RUN_POWER_THRESHOLD:
-                    chao_type = "run"
+                    new_type = "run"
                 elif swim_fly >= self.SWIM_FLY_THRESHOLD:
-                    chao_type = "fly"
+                    new_type = "fly"
                 elif swim_fly <= -self.SWIM_FLY_THRESHOLD:
-                    chao_type = "swim"
-                else:
-                    chao_type = "normal"
-                # Store alignment permanently in latest_stats
+                    new_type = "swim"
                 latest_stats['Alignment'] = alignment
-            elif current_form == "3" and max_level >= self.FORM_LEVEL_4:
-                form = "4"
-                # Form 3 to Form 4 transformations
-                base_type = current_type if current_type in ['power', 'run', 'swim', 'fly', 'normal'] else 'normal'
+                return new_type
 
-                # Determine second evolution
+            def evolve_to_form_4():
+                base_type = current_type if current_type in ['power', 'run', 'swim', 'fly', 'normal'] else 'normal'
                 run_power = latest_stats.get('run_power', 0)
                 swim_fly = latest_stats.get('swim_fly', 0)
+                second = "normal"
                 if run_power >= self.RUN_POWER_THRESHOLD:
-                    second_evolution = "power"
+                    second = "power"
                 elif run_power <= -self.RUN_POWER_THRESHOLD:
-                    second_evolution = "run"
+                    second = "run"
                 elif swim_fly >= self.SWIM_FLY_THRESHOLD:
-                    second_evolution = "fly"
+                    second = "fly"
                 elif swim_fly <= -self.SWIM_FLY_THRESHOLD:
-                    second_evolution = "swim"
-                else:
-                    second_evolution = "normal"
+                    second = "swim"
+                return f"{base_type}_{second}"
 
-                chao_type = f"{base_type}_{second_evolution}"
+            if form == "1" and max_level >= self.FORM_LEVEL_2:
+                form, chao_type = "2", evolve_to_form_2()
+            elif form == "2" and max_level >= self.FORM_LEVEL_3:
+                form, chao_type = "3", evolve_to_form_3()
+            elif form == "3" and max_level >= self.FORM_LEVEL_4:
+                form, chao_type = "4", evolve_to_form_4()
+                if "_" not in chao_type:
+                    chao_type = f"{chao_type}_normal"
 
-            # Ensure the chao_type has two descriptors for Form 4
-            if form == "4" and "_" not in chao_type:
-                chao_type = f"{chao_type}_normal"
+            latest_stats['Type'], latest_stats['Form'] = chao_type, form
 
-            # Update latest_stats with new Type and Form
-            latest_stats['Type'] = chao_type
-            latest_stats['Form'] = form
-
-            print(f"[update_chao_type_and_thumbnail] Determined Form: {form}, "
-                  f"Type: {chao_type}, Alignment: {alignment}")
-
-            # Determine eyes alignment based on form
-            if form in ["1", "2"]:
-                eyes_alignment = "neutral"
-            else:
-                eyes_alignment = alignment
-
-            # Get eyes and mouth attributes
             eyes = latest_stats['eyes']
             mouth = latest_stats['mouth']
+            eyes_alignment = "neutral" if form in ["1", "2"] else alignment
 
-            # Paths to facial features
-            eyes_image_filename = f"{eyes_alignment}_{eyes}.png"
-            eyes_image_path = os.path.join(self.EYES_DIR, eyes_image_filename)
-            if not os.path.exists(eyes_image_path):
-                eyes_image_path = os.path.join(self.EYES_DIR, f"neutral_{eyes}.png")
-            if not os.path.exists(eyes_image_path):
-                eyes_image_path = os.path.join(self.EYES_DIR, f"{eyes_alignment}.png")
+            def valid_path(base, name, fallback):
+                p = os.path.join(base, name)
+                return p if os.path.exists(p) else os.path.join(base, fallback)
 
-            mouth_image_filename = f"{mouth}.png"
-            mouth_image_path = os.path.join(self.MOUTH_DIR, mouth_image_filename)
-            if not os.path.exists(mouth_image_path):
-                mouth_image_path = os.path.join(self.MOUTH_DIR, "happy.png")
+            eyes_image_path = valid_path(self.EYES_DIR, f"{eyes_alignment}_{eyes}.png",
+                                        f"{eyes_alignment}.png" if os.path.exists(os.path.join(self.EYES_DIR, f"{eyes_alignment}.png")) else "happy.png")
+            if not os.path.exists(eyes_image_path) and "neutral_" in eyes_image_path:
+                eyes_image_path = os.path.join(self.EYES_DIR, "neutral.png")
 
-            # Build the sprite image filename
+            mouth_image_path = valid_path(self.MOUTH_DIR, f"{mouth}.png", "happy.png")
+
             chao_image_filename = f"{alignment}_{chao_type}_{form}.png"
-
-            # Construct the sprite image path
             base_type = chao_type.split('_')[0]
-            chao_image_path = os.path.join(
-                self.assets_dir, 'chao', base_type,
-                alignment, chao_image_filename)
-
-            # Check if the sprite image exists
+            chao_image_path = os.path.join(self.assets_dir, 'chao', base_type, alignment, chao_image_filename)
             if not os.path.exists(chao_image_path):
-                print(f"[update_chao_type_and_thumbnail] Sprite not found: {chao_image_path}")
                 chao_image_path = os.path.join(self.assets_dir, 'chao', 'chao_missing.png')
 
-            print(f"[update_chao_type_and_thumbnail] Using sprite: {chao_image_path}")
-
-            # Combine images with facial features using image_utils
             self.image_utils.combine_images_with_face(
                 self.BACKGROUND_PATH,
                 chao_image_path,
@@ -459,24 +424,24 @@ class Chao(commands.Cog):
                 mouth_image_path,
                 thumbnail_path
             )
-
             return chao_type, form
         except Exception as e:
-            print(f"[update_chao_type_and_thumbnail] An error occurred: {e}")
+            print(f"[update_chao_type_and_thumbnail] Error: {e}")
             return None, None
+
 
     
     async def market(self, ctx, market_type: str = None):
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inventory_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        inventory_df = self.data_utils.load_inventory(inventory_path)
-        current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {'rings': 0}
-        rings = int(current_inventory.get('rings', 0))
+        inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        inv_df = self.data_utils.load_inventory(inv_path)
+        current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
+        rings = int(current_inv.get('rings', 0))
         ring_emoji = f'<:custom_emoji:{self.CUSTOM_EMOJI_ID}>'
 
         if market_type and market_type.lower() == "fruits":
             icon_file = discord.File(self.BLACK_MARKET_ICON_PATH, filename="Black_Market.png")
-            thumbnail_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
+            thumb_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
             page_1_file = discord.File(self.BLACK_MARKET_FRUITS_PAGE_1_PATH, filename="black_market_fruits_page_1.png")
 
             embed = discord.Embed(color=self.embed_color)
@@ -494,31 +459,26 @@ class Chao(commands.Cog):
                 page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH
             )
 
-            sent_message = await ctx.send(
-                files=[icon_file, thumbnail_file, page_1_file],
-                embed=embed,
-                view=view
-            )
-
-            # Store the message_id for re-adding the persistent view after restart
+            msg = await ctx.send(files=[icon_file, thumb_file, page_1_file], embed=embed, view=view)
             with open("market_message_id.txt", "w") as f:
-                f.write(str(sent_message.id))
-            self.market_message_id = sent_message.id
+                f.write(str(msg.id))
+            self.market_message_id = msg.id
         else:
-            await self.send_embed(ctx, "Please specify a valid market type. For example: `$market fruits`", "Chao Bot")
+            await self.send_embed(ctx, "Please specify a valid market type. For example: `$market fruits`")
 
 
     async def give_egg(self, ctx):
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inventory_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        inventory_df = self.data_utils.load_inventory(inventory_path)
-        current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {}
-        chao_egg_qty = int(current_inventory.get('Chao Egg', 0))
-        if chao_egg_qty >= 1:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, you already have a Chao Egg! Hatch it first before receiving another one.")
-        current_inventory['Chao Egg'] = chao_egg_qty + 1
-        self.data_utils.save_inventory(inventory_path, inventory_df, current_inventory)
-        await self.send_embed(ctx, f"{ctx.author.mention} has received a Chao Egg! You now have {current_inventory['Chao Egg']} Chao Egg(s).")
+        inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        inv_df = self.data_utils.load_inventory(inv_path)
+        current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
+
+        if current_inv.get('Chao Egg', 0) >= 1:
+            return await self.send_embed(ctx, f"{ctx.author.mention}, you already have a Chao Egg!")
+
+        current_inv['Chao Egg'] = current_inv.get('Chao Egg', 0) + 1
+        self.data_utils.save_inventory(inv_path, inv_df, current_inv)
+        await self.send_embed(ctx, f"{ctx.author.mention} received a Chao Egg! You now have {current_inv['Chao Egg']} Egg(s).")
 
     
     async def buy(self, ctx, *, item_quantity: str):
@@ -526,45 +486,48 @@ class Chao(commands.Cog):
             *item_parts, quantity = item_quantity.rsplit(' ', 1)
             item_name, quantity = ' '.join(item_parts), int(quantity)
         except ValueError:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, please specify the item and quantity correctly. For example: `$buy garden fruit 10`")
+            return await self.send_embed(ctx, f"{ctx.author.mention}, use `$buy [item] [quantity]`.")
+
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inventory_df = self.data_utils.load_inventory(
-            self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        )
-        current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {'rings': 0}
-        rings = current_inventory.get('rings', 0)
-        fruit = next((f for f in self.fruits if f['name'].lower() == item_name.lower()), None)
+        inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        inv_df = self.data_utils.load_inventory(inv_path)
+        current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
+        rings = current_inv.get('rings', 0)
+
+        fruit = next((f for f in self.fruits if f.lower() == item_name.lower()), None)
         if not fruit:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, the item '{item_name}' is not available in the market.")
+            return await self.send_embed(ctx, f"{ctx.author.mention}, '{item_name}' is not sold here.")
+
         total_cost = self.fruit_prices * quantity
         if rings < total_cost:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have enough rings to buy {quantity} '{fruit['name']}'. You need {total_cost} rings.")
-        current_inventory['rings'] -= total_cost
-        current_inventory[fruit['name']] = current_inventory.get(fruit['name'], 0) + quantity
-        self.data_utils.save_inventory(
-            self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet'),
-            inventory_df,
-            current_inventory
-        )
-        await self.send_embed(ctx, f"{ctx.author.mention} has purchased {quantity} '{fruit['name']}(s)' for {total_cost} rings! You now have {current_inventory['rings']} rings.")
+            return await self.send_embed(ctx, f"{ctx.author.mention}, not enough rings ({total_cost} needed).")
+
+        current_inv['rings'] = rings - total_cost
+        current_inv[fruit] = current_inv.get(fruit, 0) + quantity
+        self.data_utils.save_inventory(inv_path, inv_df, current_inv)
+        await self.send_embed(ctx, f"{ctx.author.mention} bought {quantity}x {fruit} for {total_cost} rings! Now you have {current_inv['rings']} rings.")
 
     
     async def inventory(self, ctx):
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inventory_df = self.data_utils.load_inventory(
+        inv_df = self.data_utils.load_inventory(
             self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
         ).fillna(0)
-        current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {'rings': 0}
+        current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
+
         embed = discord.Embed(title="Your Inventory", description="Here's what you have:", color=self.embed_color)
-        embed.add_field(name='Rings', value=str(current_inventory.get("rings", 0)), inline=False)
-        embed.add_field(name='Last Updated', value=current_inventory.get("date", "N/A"), inline=False)
+        embed.add_field(name='Rings', value=str(current_inv.get("rings", 0)), inline=False)
+        embed.add_field(name='Last Updated', value=current_inv.get("date", "N/A"), inline=False)
+
         for fruit in self.fruits:
-            qty = int(current_inventory.get(fruit['name'], 0))
+            qty = int(current_inv.get(fruit, 0))
             if qty > 0:
-                embed.add_field(name=f'{fruit["emoji"]} {fruit["name"]}', value=f'Quantity: {qty}', inline=True)
-        chao_eggs = int(current_inventory.get('Chao Egg', 0))
-        if chao_eggs > 0:
-            embed.add_field(name='<:ChaoEgg:1176372485986455562> Chao Egg', value=f'Quantity: {chao_eggs}', inline=True)
+                embed.add_field(name=fruit, value=f'Quantity: {qty}', inline=True)
+
+        eggs = int(current_inv.get('Chao Egg', 0))
+        if eggs > 0:
+            embed.add_field(name='<:ChaoEgg:1176372485986455562> Chao Egg', value=f'Quantity: {eggs}', inline=True)
+
         await ctx.send(embed=embed)
 
     
@@ -573,18 +536,13 @@ class Chao(commands.Cog):
         chao_dir = self.data_utils.get_path(guild_id, user_id, 'chao_data', chao_name)
         chao_stats_path = os.path.join(chao_dir, f'{chao_name}_stats.parquet')
 
-        # Check if the Chao exists
         if not os.path.exists(chao_stats_path):
-            return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have a Chao named {chao_name}.")
+            return await self.send_embed(ctx, f"{ctx.author.mention}, no Chao named {chao_name}.")
 
-        # Load Chao stats
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         chao_stats = chao_df.iloc[-1].to_dict()
-
-        # Update Chao type and thumbnail
         chao_type, form = self.update_chao_type_and_thumbnail(guild_id, user_id, chao_name, chao_stats)
 
-        # Determine how to display the Chao type
         if form in ["1", "2"]:
             chao_type_display = "Normal"
         elif form == "4":
@@ -592,13 +550,9 @@ class Chao(commands.Cog):
         else:
             chao_type_display = chao_type.capitalize()
 
-        # Retrieve alignment from chao_stats
         alignment_label = chao_stats.get('Alignment', 'Neutral').capitalize()
-
-        # Prepare the stats image path
         stats_image_path = os.path.join(chao_dir, f'{chao_name}_stats.png')
 
-        # Generate the stats image
         self.image_utils.paste_image(
             self.TEMPLATE_PATH,
             self.OVERLAY_PATH,
@@ -621,7 +575,6 @@ class Chao(commands.Cog):
             chao_stats.get("stamina_exp", 0)
         )
 
-        # Create the embed message
         embed = discord.Embed(color=self.embed_color)
         embed.set_author(name=f"{chao_name}'s Stats", icon_url="attachment://Stats.png")
         embed.add_field(name="Type", value=chao_type_display, inline=True)
@@ -629,7 +582,6 @@ class Chao(commands.Cog):
         embed.set_thumbnail(url="attachment://chao_thumbnail.png")
         embed.set_image(url="attachment://output_image.png")
 
-        # Create the StatsView for pagination if applicable
         view = StatsView(
             chao_name,
             guild_id,
@@ -650,7 +602,6 @@ class Chao(commands.Cog):
             self.data_utils
         )
 
-        # Send the embed with the attached images and store the sent message reference
         sent_message = await ctx.send(
             files=[
                 discord.File(stats_image_path, "output_image.png"),
@@ -661,7 +612,6 @@ class Chao(commands.Cog):
             view=view
         )
 
-        # Register the stats view after sending the message
         self.bot.add_view(view, message_id=sent_message.id)
 
 
@@ -669,58 +619,44 @@ class Chao(commands.Cog):
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
         parts = chao_name_and_fruit.split()
-        fruit_name, chao_name = None, None
 
-        # Extract the Chao name and fruit name
+        fruit_name, chao_name = None, None
+        # Identify fruit and chao name from the user input
         for i in range(1, len(parts) + 1):
-            potential_fruit = ' '.join(parts[-i:])
-            fruit_match = next((f['name'] for f in self.fruits if f['name'].lower() == potential_fruit.lower()), None)
-            if fruit_match:
-                fruit_name = fruit_match
+            potential = ' '.join(parts[-i:])
+            if any(f.lower() == potential.lower() for f in self.fruits):
+                fruit_name = next(f for f in self.fruits if f.lower() == potential.lower())
                 chao_name = ' '.join(parts[:-i])
                 break
 
         if not chao_name or not fruit_name:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, please provide both a valid Chao name and a fruit.")
+            return await self.send_embed(ctx, f"{ctx.author.mention}, provide a valid Chao name and fruit.")
 
         chao_dir = self.data_utils.get_path(guild_id, user_id, 'chao_data', chao_name)
         chao_stats_path = os.path.join(chao_dir, f'{chao_name}_stats.parquet')
         if not os.path.exists(chao_stats_path):
-            return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have a Chao named {chao_name}.")
+            return await self.send_embed(ctx, f"{ctx.author.mention}, no Chao named {chao_name}.")
 
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
-        inventory_df = self.data_utils.load_inventory(
-            self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        )
-        current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {}
-        if int(current_inventory.get(fruit_name, 0)) <= 0:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, you do not have any {fruit_name} to feed your Chao.")
+        inv_df = self.data_utils.load_inventory(self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet'))
+        current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
+        if current_inv.get(fruit_name, 0) <= 0:
+            return await self.send_embed(ctx, f"{ctx.author.mention}, you have no {fruit_name}.")
 
         latest_stats = chao_df.iloc[-1].copy()
-
-        # Adjust belly based on time elapsed
-        last_update_time = datetime.strptime(latest_stats.get('date', datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d")
-        current_time = datetime.now()
-        days_elapsed = (current_time - last_update_time).days
-
-        # Decrease belly by 1 per day, minimum 0
+        last_update = datetime.strptime(latest_stats.get('date', datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d")
+        days_elapsed = (datetime.now() - last_update).days
         latest_stats['belly'] = max(0, latest_stats.get('belly', 0) - days_elapsed)
+        latest_stats['date'] = datetime.now().strftime("%Y-%m-%d")
 
-        # Update the 'date' field
-        latest_stats['date'] = current_time.strftime("%Y-%m-%d")
+        if latest_stats['belly'] >= 10:
+            return await self.send_embed(ctx, f"{ctx.author.mention}, {chao_name} is too full.")
 
-        # Check if the Chao is too full to eat
-        if latest_stats.get('belly', 0) >= 10:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, {chao_name} is too full to eat right now. Please wait until they are hungry again.")
-
-        # Increase the belly value
-        latest_stats['belly'] = min(10, latest_stats.get('belly', 0) + 2)  # Assuming each fruit increases belly by 2
-
+        latest_stats['belly'] = min(10, latest_stats['belly'] + 2)
         stat_key = f"{self.FRUIT_STATS[fruit_name]}_ticks"
         level_key = f"{self.FRUIT_STATS[fruit_name]}_level"
         latest_stats[stat_key] = latest_stats.get(stat_key, 0) + random.randint(self.FRUIT_TICKS_MIN, self.FRUIT_TICKS_MAX)
 
-        # Level up if ticks exceed threshold
         if latest_stats[stat_key] >= 10:
             latest_stats[stat_key] %= 10
             latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
@@ -728,63 +664,54 @@ class Chao(commands.Cog):
             grade_key = f"{self.FRUIT_STATS[fruit_name]}_grade"
             latest_stats[exp_key] = latest_stats.get(exp_key, 0) + self.calculate_exp_gain(latest_stats.get(grade_key, 'D'))
 
-        # Get current form
         current_form = latest_stats.get('Form', '1')
 
-        # Adjust alignment and attributes only if Form is 1 or 2
-        if current_form in ["1", "2"]:
-            if fruit_name.lower() == 'hero fruit':
+        def adjust_alignment(fruit):
+            if fruit.lower() == 'hero fruit':
                 latest_stats['dark_hero'] = min(self.HERO_ALIGNMENT, latest_stats.get('dark_hero', 0) + 1)
-            elif fruit_name.lower() == 'dark fruit':
+            elif fruit.lower() == 'dark fruit':
                 latest_stats['dark_hero'] = max(self.DARK_ALIGNMENT, latest_stats.get('dark_hero', 0) - 1)
 
-        # Adjust attributes regardless of form
-        if fruit_name.lower() == 'swim fruit':
-            latest_stats['swim_fly'] = max(-self.SWIM_FLY_THRESHOLD, latest_stats.get('swim_fly', 0) - 1)
-            latest_stats['run_power'] += 1 if latest_stats.get('run_power', 0) < 0 else -1
-        elif fruit_name.lower() == 'fly fruit':
-            latest_stats['swim_fly'] = min(self.SWIM_FLY_THRESHOLD, latest_stats.get('swim_fly', 0) + 1)
-            latest_stats['run_power'] += 1 if latest_stats.get('run_power', 0) < 0 else -1
-        elif fruit_name.lower() == 'run fruit':
-            latest_stats['run_power'] = max(-self.RUN_POWER_THRESHOLD, latest_stats.get('run_power', 0) - 1)
-            latest_stats['swim_fly'] += 1 if latest_stats.get('swim_fly', 0) < 0 else -1
-        elif fruit_name.lower() == 'power fruit':
-            latest_stats['run_power'] = min(self.RUN_POWER_THRESHOLD, latest_stats.get('run_power', 0) + 1)
-            latest_stats['swim_fly'] += 1 if latest_stats.get('swim_fly', 0) < 0 else -1
+        def adjust_stats(fruit):
+            run_power = latest_stats.get('run_power', 0)
+            swim_fly = latest_stats.get('swim_fly', 0)
+            fname = fruit.lower()
+            if fname == 'swim fruit':
+                latest_stats['swim_fly'] = max(-self.SWIM_FLY_THRESHOLD, swim_fly - 1)
+                latest_stats['run_power'] += 1 if run_power < 0 else -1
+            elif fname == 'fly fruit':
+                latest_stats['swim_fly'] = min(self.SWIM_FLY_THRESHOLD, swim_fly + 1)
+                latest_stats['run_power'] += 1 if run_power < 0 else -1
+            elif fname == 'run fruit':
+                latest_stats['run_power'] = max(-self.RUN_POWER_THRESHOLD, run_power - 1)
+                latest_stats['swim_fly'] += 1 if swim_fly < 0 else -1
+            elif fname == 'power fruit':
+                latest_stats['run_power'] = min(self.RUN_POWER_THRESHOLD, run_power + 1)
+                latest_stats['swim_fly'] += 1 if swim_fly < 0 else -1
 
-        # Update Chao type and thumbnail
+        if current_form in ["1", "2"]:
+            adjust_alignment(fruit_name)
+        adjust_stats(fruit_name)
+
         chao_type, form = self.update_chao_type_and_thumbnail(guild_id, user_id, chao_name, latest_stats)
 
-        # Update inventory
-        current_inventory[fruit_name] -= 1
-        self.data_utils.save_inventory(
-            self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet'),
-            inventory_df,
-            current_inventory
-        )
-
-        # Save updated Chao stats
+        current_inv[fruit_name] -= 1
+        self.data_utils.save_inventory(self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet'),
+                                    inv_df, current_inv)
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats.to_dict())
 
-        # Prepare the updated thumbnail
         thumbnail_path = os.path.join(chao_dir, f'{chao_name}_thumbnail.png')
-
-        # Create an embed with the updated thumbnail
         embed = discord.Embed(
             description=f"{chao_name} ate {fruit_name}!\n"
-            f"{chao_name}'s {stat_key.split('_')[0].capitalize()} stat has increased!\n"
-            f"Ticks: {latest_stats[stat_key]}/10\n"
-            f"Level: {latest_stats.get(level_key, 0)} (Type: {latest_stats.get('Type', 'Normal')})\n"
-            f"Belly: {latest_stats['belly']}/10\n"
-            f"**Current Values:** swim_fly: {latest_stats.get('swim_fly', 0)}, "
-            f"run_power: {latest_stats.get('run_power', 0)}, dark_hero: {latest_stats.get('dark_hero', 0)}",
+                        f"{chao_name}'s {stat_key.split('_')[0].capitalize()} stat increased!\n"
+                        f"Ticks: {latest_stats[stat_key]}/10\n"
+                        f"Level: {latest_stats.get(level_key, 0)} (Type: {latest_stats.get('Type', 'Normal')})\n"
+                        f"Belly: {latest_stats['belly']}/10\n"
+                        f"**Current Values:** swim_fly: {latest_stats.get('swim_fly', 0)}, run_power: {latest_stats.get('run_power', 0)}, dark_hero: {latest_stats.get('dark_hero', 0)}",
             color=self.embed_color
-        )
-        embed.set_image(url=f"attachment://{chao_name}_thumbnail.png")
-        await ctx.send(
-            file=discord.File(thumbnail_path, filename=f"{chao_name}_thumbnail.png"),
-            embed=embed
-        )
+        ).set_image(url=f"attachment://{chao_name}_thumbnail.png")
+        await ctx.send(file=discord.File(thumbnail_path, filename=f"{chao_name}_thumbnail.png"), embed=embed)
+
 
 class StatsView(View):
     def __init__(self, chao_name, guild_id, user_id, tick_positions, exp_positions, num_images, level_position_offset, level_spacing, tick_spacing, chao_type_display, alignment_label, template_path, template_page_2_path, overlay_path, icon_path, image_utils, data_utils):
