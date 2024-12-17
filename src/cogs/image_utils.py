@@ -1,6 +1,9 @@
+# image_utils.py
+
 import os
 from PIL import Image
 from discord.ext import commands
+from typing import Dict, Tuple  # Added import for type annotations
 
 class ImageUtils(commands.Cog):
     def __init__(self, bot):
@@ -45,41 +48,149 @@ class ImageUtils(commands.Cog):
             final_image = Image.alpha_composite(background, chao_with_face)
             final_image.save(output_path)
 
-    def paste_image(
+    def paste_page1_image(
             self, template_path, overlay_path, output_path,
-            tick_positions, *stats):
+            tick_positions, power_ticks, swim_ticks, fly_ticks, run_ticks, stamina_ticks,
+            power_level, swim_level, fly_level, run_level, stamina_level,
+            power_exp, swim_exp, fly_exp, run_exp, stamina_exp):
+        """
+        Paste ticks, levels, and EXP for Page 1.
+        """
         with Image.open(template_path) as template, \
-                Image.open(overlay_path) as overlay:
-            overlay = overlay.convert("RGBA")
-            # Paste EXP numbers
-            for stat, exp in zip(
-                    ["swim", "fly", "run", "power", "stamina"],
-                    stats[-5:]):  # Adjusted for 5 stats
-                exp_str = f"{int(exp):04d}"
-                for pos, digit in zip(
-                        self.EXP_POSITIONS[stat], exp_str):
-                    template.paste(
-                        self.num_images[digit], pos, self.num_images[digit])
+                Image.open(overlay_path).convert("RGBA") as overlay:
+
             # Paste ticks
-            for pos, ticks in zip(tick_positions, stats[:5]):  # Adjusted for 5 stats
+            for pos, ticks in zip(tick_positions, [power_ticks, swim_ticks, fly_ticks, run_ticks, stamina_ticks]):
                 for i in range(int(ticks)):
                     tick_pos = (pos[0] + i * self.TICK_SPACING, pos[1])
                     template.paste(overlay, tick_pos, overlay)
+
             # Paste levels
-            for pos, level in zip(tick_positions, stats[5:10]):  # Adjusted indices
-                tens = int(level) // 10
-                ones = int(level) % 10
+            for pos, level in zip(tick_positions, [power_level, swim_level, fly_level, run_level, stamina_level]):
+                tens = level // 10
+                ones = level % 10
                 x_offset, y_offset = self.LEVEL_POSITION_OFFSET
                 template.paste(
-                    self.num_images[str(tens)],
+                    self.num_images.get(str(tens), self.num_images['0']),
                     (pos[0] + x_offset, pos[1] + y_offset),
-                    self.num_images[str(tens)])
+                    self.num_images.get(str(tens), self.num_images['0'])
+                )
                 template.paste(
-                    self.num_images[str(ones)],
-                    (pos[0] + x_offset + self.LEVEL_SPACING,
-                     pos[1] + y_offset),
-                    self.num_images[str(ones)])
+                    self.num_images.get(str(ones), self.num_images['0']),
+                    (pos[0] + x_offset + self.LEVEL_SPACING, pos[1] + y_offset),
+                    self.num_images.get(str(ones), self.num_images['0'])
+                )
+
+            # Paste EXP
+            for stat, exp in zip(["swim", "fly", "run", "power", "stamina"], 
+                                [swim_exp, fly_exp, run_exp, power_exp, stamina_exp]):
+                exp_str = f"{int(exp):04d}"  # Convert EXP to zero-padded string
+                for pos, digit in zip(self.EXP_POSITIONS[stat], exp_str):
+                    template.paste(
+                        self.num_images.get(digit, self.num_images['0']), pos, self.num_images.get(digit, self.num_images['0'])
+                    )
+
+            # Save the output file as "stats_page.png"
             template.save(output_path)
+
+    def paste_page2_image(
+            self, template_path, overlay_path, output_path,
+            stats_positions: Dict[str, Tuple[int, int]],
+            stats_values: Dict[str, int]):
+        """
+        Paste multiple stats ticks for Page 2 and display the percentages for all Page 2 stats.
+        Includes: Belly, Happiness, Illness, Energy, and HP.
+        Ensures alignment by pasting 'blank.png' for 1 and 2-digit numbers.
+        """
+        # Updated path for number images
+        number_images_dir = r"C:\Users\You\Documents\GitHub\Chao-Bot\assets\resized"
+        num_images = {
+            str(i): Image.open(os.path.join(number_images_dir, f"{i}.png"))
+            for i in range(10)
+        }
+        blank_image = Image.open(os.path.join(number_images_dir, "blank.png"))
+
+        # Coordinates for percentage display
+        percentage_coords = {
+            "belly": (1044, 214),
+            "happiness": (1044, 490),
+            "illness": (1044, 782),
+            "energy": (1044, 1073),
+            "hp": (1044, 1370)
+        }
+
+        with Image.open(template_path) as template, \
+                Image.open(overlay_path).convert("RGBA") as overlay:
+
+            # Paste tick marks for each stat
+            for stat, position in stats_positions.items():
+                ticks = stats_values.get(stat, 0)
+                for i in range(int(ticks)):
+                    tick_pos = (position[0] + i * self.TICK_SPACING, position[1])
+                    template.paste(overlay, tick_pos, overlay)
+
+            # Function to calculate and paste percentages
+            def paste_percentage(stat_name, percentage, coords):
+                x_base, y_base = coords
+                hundreds = percentage // 100
+                tens = (percentage % 100) // 10
+                ones = percentage % 10
+
+                # Handle alignment for 0% (1-digit number: paste 2 blanks and '0')
+                if percentage == 0:
+                    template.paste(blank_image, (x_base, y_base), blank_image)
+                    x_base += self.LEVEL_SPACING
+                    template.paste(blank_image, (x_base, y_base), blank_image)
+                    x_base += self.LEVEL_SPACING
+                    template.paste(num_images.get("0"), (x_base, y_base), num_images.get("0"))
+                    return
+
+                # Handle alignment for 1-digit numbers (paste 2 blanks first)
+                if hundreds == 0 and tens == 0:
+                    template.paste(blank_image, (x_base, y_base), blank_image)
+                    x_base += self.LEVEL_SPACING
+                    template.paste(blank_image, (x_base, y_base), blank_image)
+                    x_base += self.LEVEL_SPACING
+
+                # Handle alignment for 2-digit numbers (paste 1 blank first)
+                elif hundreds == 0:
+                    template.paste(blank_image, (x_base, y_base), blank_image)
+                    x_base += self.LEVEL_SPACING
+
+                # Paste hundreds place if it exists
+                if hundreds > 0:
+                    template.paste(
+                        num_images.get(str(hundreds), num_images['0']),
+                        (x_base, y_base),
+                        num_images.get(str(hundreds), num_images['0'])
+                    )
+                    x_base += self.LEVEL_SPACING
+
+                # Paste tens place
+                template.paste(
+                    num_images.get(str(tens), num_images['0']),
+                    (x_base, y_base),
+                    num_images.get(str(tens), num_images['0'])
+                )
+                x_base += self.LEVEL_SPACING
+
+                # Paste ones place
+                template.paste(
+                    num_images.get(str(ones), num_images['0']),
+                    (x_base, y_base),
+                    num_images.get(str(ones), num_images['0'])
+                )
+
+
+            # Calculate and paste percentages for all stats
+            for stat, coords in percentage_coords.items():
+                ticks = stats_values.get(stat, 0)
+                percentage = int((ticks / 10) * 100)  # Convert ticks to percentage
+                paste_percentage(stat, percentage, coords)
+
+            # Save the updated image
+            template.save(output_path)
+
 
     def change_image_hue(
             self, image_path, output_path, hue, saturation):

@@ -64,6 +64,20 @@ class Commands(commands.Cog):
     async def give_egg(self, ctx):
         await self.chao_cog.give_egg(ctx)
 
+    @commands.command(name='force_life_check')
+    @ensure_user_initialized
+    async def force_life_check(self, ctx, *, chao_name: str):
+        """Force a life check based solely on happiness."""
+        await self.chao_cog.force_life_check(ctx, chao_name=chao_name)
+
+    @commands.command(name='force_happiness')
+    @ensure_user_initialized
+    async def force_happiness(self, ctx, chao_name: str, happiness_value: int):
+        """Manually set a Chao's happiness value between 0 and 10."""
+        if not (0 <= happiness_value <= 10):
+            return await ctx.send(f"{ctx.author.mention}, happiness must be a value between 0 and 10.")
+        await self.chao_cog.force_happiness(ctx, chao_name=chao_name, happiness_value=happiness_value)
+
     @commands.command(name='stats')
     @ensure_user_initialized
     async def stats(self, ctx, *, chao_name: str):
