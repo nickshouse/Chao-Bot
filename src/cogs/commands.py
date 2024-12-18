@@ -64,6 +64,11 @@ class Commands(commands.Cog):
     async def give_egg(self, ctx):
         await self.chao_cog.give_egg(ctx)
 
+    @commands.command(name='give_rings')
+    @ensure_user_initialized
+    async def give_rings(self, ctx):
+        await self.chao_cog.give_rings(ctx)
+
     @commands.command(name='force_life_check')
     @ensure_user_initialized
     async def force_life_check(self, ctx, *, chao_name: str):

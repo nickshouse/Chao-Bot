@@ -106,16 +106,147 @@ class Chao(commands.Cog):
         c = l(f); d = c.iloc[-1].to_dict(); d['happiness_ticks'] = happiness_value; s(f, c, d)
         await ctx.send(embed=e(description=f"✅ **{chao_name}'s happiness has been set to {happiness_value}.**", color=0x00FF00))
 
+    async def chao(self, ctx):
+        await self.initialize_inventory(
+            ctx, str(ctx.guild.id), str(ctx.author.id),
+            "Welcome to Chao Bot!",
+            "**You Receive:**\n- `1x Chao Egg`\n- `500x Rings`\n- `5x Garden Nut`\n\n"
+            "**Example Commands:**\n- `$feed [Chao name] [item]` to feed your Chao.\n"
+            "- `$race [Chao name]` to enter your Chao in a race.\n"
+            "- `$train [Chao name] [stat]` to train a specific stat.\n"
+            "- `$stats [Chao name]` to view your Chao's stats."
+        )
+
+    async def initialize_inventory(self, ctx, guild_id, user_id, embed_title, embed_desc):
+        if self.data_utils.is_user_initialized(guild_id, user_id):
+            return await ctx.send(f"{ctx.author.mention}, you have already started using the Chao Bot.")
+        inventory_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        self.data_utils.save_inventory(
+            inventory_path,
+            self.data_utils.load_inventory(inventory_path),
+            {'rings': 500, 'Chao Egg': 1, 'Garden Fruit': 5}
+        )
+        await ctx.reply(
+            file=discord.File(self.NEUTRAL_PATH, filename="neutral_normal_1.png"),
+            embed=discord.Embed(title=embed_title, description=embed_desc, color=self.embed_color)
+            .set_image(url="attachment://neutral_normal_1.png")
+        )
+
+    
+    async def give_rings(self, ctx):
+        guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
+        inventory_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        inventory_df = self.data_utils.load_inventory(inventory_path)
+        current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {'rings': 0}
+        current_inventory['rings'] = current_inventory.get('rings', 0) + 10000
+        self.data_utils.save_inventory(inventory_path, inventory_df, current_inventory)
+        await self.send_embed(ctx, f"{ctx.author.mention} has been given 10000 rings! Your current rings: {current_inventory['rings']}")
+        print(f"[give_rings] 10000 Rings added to User: {user_id}. New balance: {current_inventory['rings']}")
+
+
     async def hatch(self, ctx):
-        g, u, p, l, s, r, m, o = str(ctx.guild.id), str(ctx.author.id), self.data_utils.get_path, self.data_utils.load_inventory, self.data_utils.save_inventory, random.choice, os.makedirs, os.path
-        v, d = l(p(g, u, 'user_data', 'inventory.parquet')).iloc[-1].to_dict() if not l(p(g, u, 'user_data', 'inventory.parquet')).empty else {}, p(g, u, 'chao_data', '')
-        if v.get('Chao Egg', 0) < 1: return await ctx.send(f"{ctx.author.mention}, you do not have any Chao Eggs to hatch.")
-        m(d, exist_ok=True); n = next(i for i in (r(self.chao_names) for _ in range(100)) if i not in os.listdir(d)); v['Chao Egg'] -= 1; s(p(g, u, 'user_data', 'inventory.parquet'), l(p(g, u, 'user_data', 'inventory.parquet')), v)
-        t, c = datetime.now().strftime("%Y-%m-%d"), {f"{a}_{b}": 0 for a in ['swim', 'fly', 'power', 'run', 'stamina'] for b in ['exp', 'level', 'ticks']}
-        c.update({'date': t, 'birth_date': t, 'Form': '1', 'Type': 'Normal', 'hatched': 1, 'reincarnations': 0, 'eyes': r(self.eye_types), 'mouth': r(self.mouth_types), 'belly_ticks': 5, 'happiness_ticks': 10, 'energy_ticks': 10, 'hp_ticks': 10, 'dark_hero': 0})
-        chao_path = o.join(d, n); m(chao_path, exist_ok=True); s(o.join(chao_path, f'{n}_stats.parquet'), self.data_utils.load_chao_stats(o.join(chao_path, f'{n}_stats.parquet')), c)
-        self.image_utils.combine_images_with_face(self.BACKGROUND_PATH, self.NEUTRAL_PATH, o.join(self.EYES_DIR, f"neutral_{c['eyes']}.png") if o.exists(o.join(self.EYES_DIR, f"neutral_{c['eyes']}.png")) else o.join(self.EYES_DIR, "neutral.png"), o.join(self.MOUTH_DIR, f"{c['mouth']}.png") if o.exists(o.join(self.MOUTH_DIR, f"{c['mouth']}.png")) else o.join(self.MOUTH_DIR, "happy.png"), o.join(chao_path, f"{n}_thumbnail.png"))
-        await ctx.reply(file=discord.File(o.join(chao_path, f"{n}_thumbnail.png"), filename=f"{n.replace(' ', '_')}_thumbnail.png"), embed=discord.Embed(title="Your Chao Egg has hatched!", description=f"Your Chao Egg hatched into a Regular Two-tone Chao named {n}!", color=discord.Color.blue()).set_image(url=f"attachment://{n.replace(' ', '_')}_thumbnail.png"))
+        """
+        Command to hatch a Chao Egg. Initializes the Chao's database with default stats
+        and generates the initial thumbnail for the Chao.
+        """
+        guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
+        chao_dir = self.data_utils.get_path(guild_id, user_id, 'chao_data')
+        inventory_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+
+        # Load the user's inventory
+        inventory_df = self.data_utils.load_inventory(inventory_path)
+        inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {}
+
+        # Check if the user has a Chao Egg to hatch
+        if inventory.get('Chao Egg', 0) < 1:
+            return await ctx.send(f"{ctx.author.mention}, you do not have any Chao Eggs to hatch.")
+
+        # Decrement the Chao Egg count in the inventory
+        inventory['Chao Egg'] -= 1
+        self.data_utils.save_inventory(inventory_path, inventory_df, inventory)
+
+        # Generate a unique name for the Chao
+        os.makedirs(chao_dir, exist_ok=True)
+        chao_name = next(name for name in (random.choice(self.chao_names) for _ in range(100)) if name not in os.listdir(chao_dir))
+
+        # Create the Chao's stats directory
+        chao_path = os.path.join(chao_dir, chao_name)
+        os.makedirs(chao_path, exist_ok=True)
+
+        # Initialize the Chao's database with the required stats
+        chao_stats = {
+            'date': datetime.now().strftime("%Y-%m-%d"),
+            'birth_date': datetime.now().strftime("%Y-%m-%d"),
+            'Form': '1',
+            'Type': 'Normal',
+            'hatched': 1,
+            'evolved': 0,
+            'dead': 0,
+            'immortal': 0,
+            'reincarnations': 0,
+            'eyes': random.choice(self.eye_types),
+            'mouth': random.choice(self.mouth_types),
+            'dark_hero': 0,
+            'belly_ticks': 5,
+            'happiness_ticks': 10,
+            'illness_ticks': 0,
+            'energy_ticks': 10,
+            'hp_ticks': 10,
+            'swim_exp': 0,
+            'swim_grade': 'D',
+            'swim_level': 0,
+            'swim_fly': 0,
+            'fly_exp': 0,
+            'fly_grade': 'D',
+            'fly_level': 0,
+            'fly_ticks': 0,
+            'power_exp': 0,
+            'power_grade': 'D',
+            'power_level': 0,
+            'power_ticks': 0,
+            'run_exp': 0,
+            'run_grade': 'D',
+            'run_level': 0,
+            'run_power': 0,
+            'run_ticks': 0,
+            'stamina_exp': 0,
+            'stamina_grade': 'D',
+            'stamina_level': 0,
+            'stamina_ticks': 0
+        }
+
+        # Save the Chao's stats to a Parquet file
+        chao_stats_path = os.path.join(chao_path, f'{chao_name}_stats.parquet')
+        self.data_utils.save_chao_stats(chao_stats_path, pd.DataFrame([chao_stats]))
+
+        # Generate the Chao's initial thumbnail image
+        eyes_image_path = os.path.join(self.EYES_DIR, f"neutral_{chao_stats['eyes']}.png") \
+            if os.path.exists(os.path.join(self.EYES_DIR, f"neutral_{chao_stats['eyes']}.png")) else \
+            os.path.join(self.EYES_DIR, "neutral.png")
+        mouth_image_path = os.path.join(self.MOUTH_DIR, f"{chao_stats['mouth']}.png") \
+            if os.path.exists(os.path.join(self.MOUTH_DIR, f"{chao_stats['mouth']}.png")) else \
+            os.path.join(self.MOUTH_DIR, "happy.png")
+        thumbnail_path = os.path.join(chao_path, f"{chao_name}_thumbnail.png")
+
+        self.image_utils.combine_images_with_face(
+            self.BACKGROUND_PATH,
+            self.NEUTRAL_PATH,
+            eyes_image_path,
+            mouth_image_path,
+            thumbnail_path
+        )
+
+        # Send a confirmation message with the Chao's thumbnail
+        embed = discord.Embed(
+            title="Your Chao Egg has hatched!",
+            description=f"Your Chao Egg hatched into a Regular Two-tone Chao named **{chao_name}**!",
+            color=discord.Color.blue()
+        ).set_image(url=f"attachment://{chao_name.replace(' ', '_')}_thumbnail.png")
+
+        await ctx.reply(
+            file=discord.File(thumbnail_path, filename=f"{chao_name.replace(' ', '_')}_thumbnail.png"),
+            embed=embed
+        )
 
 
     def update_chao_type_and_thumbnail(self, guild_id: str, user_id: str, chao_name: str, latest_stats: Dict) -> Tuple[Optional[str], Optional[str]]:
