@@ -203,6 +203,10 @@ class Chao(commands.Cog):
 
 
     async def stats(self, ctx, *, chao_name: str):
+        """
+        Command to display the stats of a specific Chao. This generates the Page 1 and Page 2
+        stat cards dynamically and sends them as Discord embeds with attached images.
+        """
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
         chao_dir = self.data_utils.get_path(guild_id, user_id, 'chao_data', chao_name)
         chao_stats_path = os.path.join(chao_dir, f'{chao_name}_stats.parquet')
@@ -211,21 +215,16 @@ class Chao(commands.Cog):
         if not os.path.exists(chao_stats_path):
             return await ctx.send(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
 
+        # Load the Chao stats from the database
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
-        chao_stats = chao_df.iloc[-1].to_dict()
+        chao_stats = chao_df.iloc[-1].to_dict()  # Get the most recent stats
 
-        # Check lifecycle and handle changes
-        life_status = self.check_life_cycle(chao_stats)
-        if life_status in {"died", "reincarnated"}:
-            self.data_utils.save_chao_stats(chao_stats_path, chao_df, chao_stats)
-            message = (
-                f"😢 **{chao_name} has passed away due to low happiness.**"
-                if life_status == "died" else
-                f"✨ **{chao_name} has reincarnated! A fresh start begins!**"
-            )
-            return await ctx.send(embed=discord.Embed(description=message, color=0x00FF00 if life_status == "reincarnated" else 0xFF0000))
+        # Debugging: Print the loaded stats
+        print("DEBUG - Chao Stats Loaded from Database:")
+        for key, value in chao_stats.items():
+            print(f"{key}: {value}")
 
-        # Update Chao type and thumbnail
+        # Update Chao type and thumbnail (this function also updates alignment/type visuals)
         chao_type, form = self.update_chao_type_and_thumbnail(guild_id, user_id, chao_name, chao_stats)
         chao_type_display = "Normal" if form in ["1", "2"] else chao_type.replace("_", "/").capitalize()
         alignment_label = chao_stats.get('Alignment', 'Neutral').capitalize()
@@ -237,9 +236,34 @@ class Chao(commands.Cog):
         }
         thumbnail_path = os.path.join(chao_dir, f'{chao_name}_thumbnail.png')
 
-        stats_values_page2 = {stat: chao_stats.get(f"{stat}_ticks", 0) for stat in self.PAGE2_TICK_POSITIONS}
+        # Extract the relevant levels and ticks from the database (and convert to integers)
+        power_level = int(chao_stats.get("power_level", 0))
+        swim_level = int(chao_stats.get("swim_level", 0))
+        fly_level = int(chao_stats.get("fly_level", 0))
+        run_level = int(chao_stats.get("run_level", 0))
+        stamina_level = int(chao_stats.get("stamina_level", 0))
 
-        # Generate images for stats
+        power_ticks = int(chao_stats.get("power_ticks", 0))
+        swim_ticks = int(chao_stats.get("swim_ticks", 0))
+        fly_ticks = int(chao_stats.get("fly_ticks", 0))
+        run_ticks = int(chao_stats.get("run_ticks", 0))
+        stamina_ticks = int(chao_stats.get("stamina_ticks", 0))
+
+        power_exp = int(chao_stats.get("power_exp", 0))
+        swim_exp = int(chao_stats.get("swim_exp", 0))
+        fly_exp = int(chao_stats.get("fly_exp", 0))
+        run_exp = int(chao_stats.get("run_exp", 0))
+        stamina_exp = int(chao_stats.get("stamina_exp", 0))
+
+        # Debugging: Confirm extracted values before passing them to the image function
+        print("DEBUG - Extracted Levels and Ticks:")
+        print(f"Power Level: {power_level}, Ticks: {power_ticks}, EXP: {power_exp}")
+        print(f"Swim Level: {swim_level}, Ticks: {swim_ticks}, EXP: {swim_exp}")
+        print(f"Fly Level: {fly_level}, Ticks: {fly_ticks}, EXP: {fly_exp}")
+        print(f"Run Level: {run_level}, Ticks: {run_ticks}, EXP: {run_exp}")
+        print(f"Stamina Level: {stamina_level}, Ticks: {stamina_ticks}, EXP: {stamina_exp}")
+
+        # Generate images for stats (Page 1 and Page 2)
         await asyncio.gather(
             asyncio.to_thread(
                 self.image_utils.paste_page1_image,
@@ -247,9 +271,9 @@ class Chao(commands.Cog):
                 self.OVERLAY_PATH,
                 stats_image_paths[1],
                 self.PAGE1_TICK_POSITIONS,
-                *[chao_stats.get(f"{stat}_ticks", 0) for stat in ['power', 'swim', 'fly', 'run', 'stamina']],
-                *[chao_stats.get(f"{stat}_level", 0) for stat in ['power', 'swim', 'fly', 'run', 'stamina']],
-                *[chao_stats.get(f"{stat}_exp", 0) for stat in ['power', 'swim', 'fly', 'run', 'stamina']]
+                power_ticks, swim_ticks, fly_ticks, run_ticks, stamina_ticks,
+                power_level, swim_level, fly_level, run_level, stamina_level,
+                power_exp, swim_exp, fly_exp, run_exp, stamina_exp
             ),
             asyncio.to_thread(
                 self.image_utils.paste_page2_image,
@@ -257,7 +281,7 @@ class Chao(commands.Cog):
                 self.OVERLAY_PATH,
                 stats_image_paths[2],
                 self.PAGE2_TICK_POSITIONS,
-                stats_values_page2
+                {stat: chao_stats.get(f"{stat}_ticks", 0) for stat in self.PAGE2_TICK_POSITIONS}
             )
         )
 
@@ -269,7 +293,7 @@ class Chao(commands.Cog):
         ).add_field(
             name="Alignment", value=alignment_label, inline=True
         ).set_thumbnail(
-            url="attachment://chao_thumbnail.png"  # Correctly link to the thumbnail file
+            url="attachment://chao_thumbnail.png"
         ).set_image(
             url="attachment://stats_page.png"
         ).set_footer(
@@ -277,27 +301,15 @@ class Chao(commands.Cog):
         )
 
         # StatsView Instance
-        view = StatsView(
-            bot=self.bot,
-            chao_name=chao_name,
-            guild_id=guild_id,
-            user_id=user_id,
-            page1_tick_positions=self.PAGE1_TICK_POSITIONS,
-            page2_tick_positions=self.PAGE2_TICK_POSITIONS,
-            exp_positions=self.image_utils.EXP_POSITIONS,
-            num_images=self.image_utils.num_images,
-            level_position_offset=self.image_utils.LEVEL_POSITION_OFFSET,
-            level_spacing=self.image_utils.LEVEL_SPACING,
-            tick_spacing=self.image_utils.TICK_SPACING,
-            chao_type_display=chao_type_display,
-            alignment_label=alignment_label,
-            template_path=self.TEMPLATE_PATH,
-            template_page_2_path=self.TEMPLATE_PAGE_2_PATH,
-            overlay_path=self.OVERLAY_PATH,
-            icon_path=self.ICON_PATH,
-            image_utils=self.image_utils,
-            data_utils=self.data_utils
-        )
+        view = StatsView.from_data({
+            "chao_name": chao_name,
+            "guild_id": guild_id,
+            "user_id": user_id,
+            "chao_type_display": chao_type_display,
+            "alignment_label": alignment_label,
+            "total_pages": 2,
+            "current_page": 1
+        }, self)
 
         # Save the persistent view
         self.save_persistent_view({
@@ -315,11 +327,12 @@ class Chao(commands.Cog):
             files=[
                 discord.File(stats_image_paths[1], "stats_page.png"),
                 discord.File(self.ICON_PATH, filename="Stats.png"),
-                discord.File(thumbnail_path, filename="chao_thumbnail.png")  # Correctly attach thumbnail
+                discord.File(thumbnail_path, filename="chao_thumbnail.png")
             ],
             embed=embed,
             view=view
         )
+
 
     async def give_egg(self, ctx):
         p, i, d = self.data_utils.get_path, self.data_utils.load_inventory, self.data_utils.save_inventory
