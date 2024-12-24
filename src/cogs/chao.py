@@ -478,15 +478,62 @@ class Chao(commands.Cog):
 
 
     async def inventory(self, ctx):
-        i, p, l, f = self.data_utils.get_path, self.data_utils.load_inventory, discord.Embed, self.fruits
-        c, g, u = ctx.send, str(ctx.guild.id), str(ctx.author.id)
-        v = l(i(g, u, 'user_data', 'inventory.parquet')).fillna(0)
-        d = v.iloc[-1].to_dict() if not v.empty else {'rings': 0}
-        e = f(title="Your Inventory", description="Here's what you have:", color=self.embed_color)
-        e.add_field(name='Rings', value=d.get("rings", 0), inline=False).add_field(name='Last Updated', value=d.get("date", "N/A"), inline=False)
-        [e.add_field(name=k, value=f"Quantity: {int(d[k])}", inline=True) for k in f if int(d.get(k, 0)) > 0]
-        e.add_field(name='<:ChaoEgg:1176372485986455562> Chao Egg', value=f"Quantity: {int(d['Chao Egg'])}", inline=True) if int(d.get('Chao Egg', 0)) > 0 else None
-        await c(embed=e)
+        # Use clear variable names
+        get_path = self.data_utils.get_path
+        load_inventory = self.data_utils.load_inventory
+        fruits_list = self.fruits
+        
+        # Gather context info
+        guild_id = str(ctx.guild.id)
+        user_id = str(ctx.author.id)
+
+        # Load the inventory from disk
+        inventory_path = get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        inventory_df = load_inventory(inventory_path).fillna(0)
+
+        # If empty, default to 0 rings
+        current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {'rings': 0}
+
+        # Create an embed
+        embed = discord.Embed(
+            title="Your Inventory",
+            description="Here's what you have:",
+            color=self.embed_color
+        )
+
+        # Add some fields
+        embed.add_field(
+            name='Rings',
+            value=current_inventory.get("rings", 0),
+            inline=False
+        ).add_field(
+            name='Last Updated',
+            value=current_inventory.get("date", "N/A"),
+            inline=False
+        )
+
+        # List the fruits in inventory
+        for fruit_name in fruits_list:
+            quantity = int(current_inventory.get(fruit_name, 0))
+            if quantity > 0:
+                embed.add_field(
+                    name=fruit_name,
+                    value=f"Quantity: {quantity}",
+                    inline=True
+                )
+
+        # If you also have a Chao Egg, show it
+        egg_count = current_inventory.get('Chao Egg', 0)
+        if egg_count > 0:
+            embed.add_field(
+                name='<:ChaoEgg:1176372485986455562> Chao Egg',
+                value=f"Quantity: {egg_count}",
+                inline=True
+            )
+
+        # Finally, send the embed
+        await ctx.send(embed=embed)
+
 
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
