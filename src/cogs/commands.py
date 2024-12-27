@@ -1,3 +1,5 @@
+# cogs/commands.py
+
 import discord
 from discord.ext import commands
 from functools import wraps
@@ -24,11 +26,16 @@ class Commands(commands.Cog):
         @wraps(func)
         async def wrapper(self, ctx, *args, **kwargs):
             guild_id = str(ctx.guild.id)
-            user_id = str(ctx.author.id)
-            if not self.data_utils.is_user_initialized(guild_id, user_id):
+            guild_name = ctx.guild.name
+            user = ctx.author  # Pass the full user object
+
+            # Ensure user is initialized
+            if not self.data_utils.is_user_initialized(guild_id, guild_name, user):
                 return await ctx.send(f"{ctx.author.mention}, please use the `$chao` command to start using the Chao Bot.")
+            
             return await func(self, ctx, *args, **kwargs)
         return wrapper
+
 
     @commands.command(name='chao')
     async def chao(self, ctx):

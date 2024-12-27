@@ -144,8 +144,10 @@ class BlackMarket(commands.Cog):
         return ctx.send(embed=embed)
 
     async def market(self, ctx, *, market_type: str = None):
-        guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        guild_id, guild_name, user = str(ctx.guild.id), ctx.guild.name, ctx.author
+        inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
+
+        # Load the inventory data
         inv_df = self.data_utils.load_inventory(inv_path)
         current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
         rings = int(current_inv.get('rings', 0))
@@ -192,8 +194,8 @@ class BlackMarket(commands.Cog):
         except ValueError:
             return await self.send_embed(ctx, f"{ctx.author.mention}, use `$buy [item] [quantity]`.")
 
-        guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
-        inv_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
+        guild_id, guild_name, user = str(ctx.guild.id), ctx.guild.name, ctx.author
+        inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
         inv_df = self.data_utils.load_inventory(inv_path)
         current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
         rings = current_inv.get('rings', 0)
@@ -210,7 +212,6 @@ class BlackMarket(commands.Cog):
         current_inv[fruit] = current_inv.get(fruit, 0) + quantity
         self.data_utils.save_inventory(inv_path, inv_df, current_inv)
         await self.send_embed(ctx, f"{ctx.author.mention} bought {quantity}x {fruit} for {total_cost} rings! Now you have {current_inv['rings']} rings.")
-
 
 async def setup(bot):
     await bot.add_cog(BlackMarket(bot))
