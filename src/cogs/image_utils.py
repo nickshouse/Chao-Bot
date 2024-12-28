@@ -222,6 +222,75 @@ class ImageUtils(commands.Cog):
             template.save(output_path)
 
 
+    def paste_black_market_prices_page1(
+        self, template_path: str, output_path: str, fruit_prices: Dict[str, int]
+    ):
+        """
+        Generate the Black Market Page 1 image dynamically by pasting prices
+        directly onto the provided template and saving the result to `output_path`.
+        """
+        fruit_coords = {
+            "Round Fruit":   (1220, 220),
+            "Triangle Fruit": (1220, 375),
+            "Square Fruit":   (1220, 530),
+            "Hero Fruit":     (1220, 675),
+            "Dark Fruit":     (1220, 835),
+            "Strong Fruit":   (1220, 990),
+            "Tasty Fruit":    (1220, 1140),
+            "Heart Fruit":    (1220, 1280),
+            "Chao Fruit":     (1220, 1430),
+        }
+
+        with Image.open(template_path).convert("RGBA") as template:
+            for fruit_name, (x, y) in fruit_coords.items():
+                price = fruit_prices.get(fruit_name, 0)
+                digits_str = str(price)
+                spacing = 60
+                x_current = x
+
+                # Paste each digit of the price
+                for digit in digits_str:
+                    digit_img = self.num_images.get(digit, self.num_images['0'])
+                    template.paste(digit_img, (x_current, y), digit_img)
+                    x_current += spacing
+
+            # Save the updated image to the specified output path
+            template.save(output_path, format="PNG")
+
+    def paste_black_market_prices_page2(
+        self, template_path: str, output_path: str, fruit_prices: Dict[str, int]
+    ):
+        """
+        Generate the Black Market Page 2 image dynamically by pasting prices
+        directly onto the provided template and saving the result to `output_path`.
+        """
+        fruit_coords = {
+            "Orange Fruit":  (1220, 220),
+            "Yellow Fruit":  (1220, 375),
+            "Green Fruit":   (1220, 530),
+            "Red Fruit":     (1220, 675),
+            "Blue Fruit":    (1220, 835),
+            "Pink Fruit":    (1220, 990),
+            "Purple Fruit":  (1220, 1140),
+        }
+
+        with Image.open(template_path).convert("RGBA") as template:
+            for fruit_name, (x, y) in fruit_coords.items():
+                price = fruit_prices.get(fruit_name, 0)
+                digits_str = str(price)
+                spacing = 60
+                x_current = x
+
+                # Paste each digit of the price
+                for digit in digits_str:
+                    digit_img = self.num_images.get(digit, self.num_images['0'])
+                    template.paste(digit_img, (x_current, y), digit_img)
+                    x_current += spacing
+
+            # Save the updated image to the specified output path
+            template.save(output_path, format="PNG")
+
+
     def change_image_hue(
             self, image_path, output_path, hue, saturation):
         img = Image.open(image_path).convert('RGB')

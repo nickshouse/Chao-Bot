@@ -1,25 +1,23 @@
-# cogs/black_market.py
-
 import os
 import discord
 from discord.ext import commands
 from discord.ui import View, Button
 import json
-import asyncio
+
 
 
 class MarketView(View):
-    def __init__(self, embed: discord.Embed, icon_path: str, thumbnail_path: str, page_1_path: str, page_2_path: str, total_pages=2):
+    def __init__(self, embed: discord.Embed, icon_path: str, thumbnail_path: str, page_1_path: str, page_2_path: str, black_market_cog, total_pages=2):
         super().__init__(timeout=None)
         self.embed = embed
         self.icon_path = icon_path
         self.thumbnail_path = thumbnail_path
         self.page_1_path = page_1_path
         self.page_2_path = page_2_path
+        self.black_market_cog = black_market_cog  # Store the BlackMarket cog reference
         self.current_page = 1  # Start at Page 1
         self.total_pages = total_pages
 
-        # Replace text buttons with arrow emojis using the 'emoji' parameter
         self.add_item(self.previous_button())
         self.add_item(self.next_button())
 
@@ -42,36 +40,48 @@ class MarketView(View):
         return button
 
     async def previous_page(self, interaction: discord.Interaction):
-        # Cycle to the previous page
         self.current_page = self.current_page - 1 if self.current_page > 1 else self.total_pages
-        await self.update_market(interaction, self.current_page)
+        await self.update_market(interaction)
 
     async def next_page(self, interaction: discord.Interaction):
-        # Cycle to the next page
         self.current_page = self.current_page + 1 if self.current_page < self.total_pages else 1
-        await self.update_market(interaction, self.current_page)
+        await self.update_market(interaction)
 
-    async def update_market(self, interaction: discord.Interaction, page: int):
-        if page == 1:
-            image_filename = "black_market_fruits_page_1.png"
-            image_path = self.page_1_path
-        else:
-            image_filename = "black_market_fruits_page_2.png"
-            image_path = self.page_2_path
+    async def update_market(self, interaction: discord.Interaction):
+        # Load updated fruit prices
+        fruit_prices = self.black_market_cog.load_fruit_prices()
 
-        # Update embed image and footer
-        self.embed.set_image(url=f"attachment://{image_filename}")
-        self.embed.set_footer(text=f"Page {page} / {self.total_pages}")
+        # Temporary file paths
+        page_1_output_path = "black_market_fruits_page_1_temp.png"
+        page_2_output_path = "black_market_fruits_page_2_temp.png"
 
+        # Regenerate the corresponding page with updated prices
         try:
+            if self.current_page == 1:
+                self.black_market_cog.image_utils.paste_black_market_prices_page1(
+                    self.black_market_cog.BLACK_MARKET_FRUITS_PAGE_1_PATH, page_1_output_path, fruit_prices
+                )
+                image_path = page_1_output_path
+            else:
+                self.black_market_cog.image_utils.paste_black_market_prices_page2(
+                    self.black_market_cog.BLACK_MARKET_FRUITS_PAGE_2_PATH, page_2_output_path, fruit_prices
+                )
+                image_path = page_2_output_path
+
+            # Update embed
+            image_filename = f"black_market_fruits_page_{self.current_page}.png"
+            self.embed.set_image(url=f"attachment://{image_filename}")
+            self.embed.set_footer(text=f"Page {self.current_page} / {self.total_pages}")
+
+            # Send updated message
             await interaction.response.edit_message(
                 embed=self.embed,
                 view=self,
                 attachments=[
                     discord.File(self.icon_path, filename="Black_Market.png"),
                     discord.File(self.thumbnail_path, filename="black_market.png"),
-                    discord.File(image_path, filename=image_filename)
-                ]
+                    discord.File(image_path, filename=image_filename),
+                ],
             )
         except Exception as e:
             print(f"[MarketView] Failed to edit message: {e}")
@@ -85,23 +95,27 @@ class BlackMarket(commands.Cog):
         self.image_utils = self.data_utils = None
         self.market_message_id = None
 
-        # Load configuration or receive it from a shared config
-        with open('config.json', 'r') as f:
-            config = json.load(f)
+        self.prices_file = "fruit_prices.json"
 
-        self.FORM_LEVELS = config['FORM_LEVELS']
-        self.ALIGNMENTS = config['ALIGNMENTS']
-        self.FRUIT_TICKS_RANGE = config['FRUIT_TICKS_RANGE']
-        self.FRUIT_STATS = config['FRUIT_STATS']
+        self.default_prices = {
+            "Round Fruit": 15, "Triangle Fruit": 15, "Square Fruit": 15,
+            "Hero Fruit": 15, "Dark Fruit": 15, "Strong Fruit": 15,
+            "Tasty Fruit": 15, "Heart Fruit": 15, "Chao Fruit": 15,
+            "Orange Fruit": 15, "Yellow Fruit": 15, "Green Fruit": 15,
+            "Red Fruit": 15, "Blue Fruit": 15, "Pink Fruit": 15, "Purple Fruit": 15
+        }
 
-        self.fruits = [
-            "Garden Nut", "Hero Fruit", "Dark Fruit", "Round Fruit", "Triangle Fruit",
-            "Heart Fruit", "Square Fruit", "Chao Fruit", "Power Fruit",
-            "Run Fruit", "Swim Fruit", "Fly Fruit", "Tasty Fruit", "Strange Mushroom"
-        ]
-        self.fruit_prices = 15
-        self.CUSTOM_EMOJI_ID = 1176313914464681984
-        self.embed_color = discord.Color.blue()
+        self.fruit_prices = self.load_fruit_prices()
+
+    def load_fruit_prices(self):
+        if os.path.exists(self.prices_file):
+            with open(self.prices_file, "r") as f:
+                return json.load(f)
+        return self.default_prices.copy()
+
+    def save_fruit_prices(self):
+        with open(self.prices_file, "w") as f:
+            json.dump(self.fruit_prices, f)
 
     async def cog_load(self):
         self.image_utils = self.bot.get_cog('ImageUtils')
@@ -115,7 +129,6 @@ class BlackMarket(commands.Cog):
         self.BLACK_MARKET_FRUITS_PAGE_2_PATH = os.path.join(self.assets_dir, 'graphics/cards/black_market_fruits_page_2.png')
         self.BLACK_MARKET_ICON_PATH = os.path.join(self.assets_dir, 'graphics/icons/Black_Market.png')
 
-        # If we have a saved message ID, recreate the MarketView and re-add it.
         if os.path.exists("market_message_id.txt"):
             with open("market_message_id.txt", "r") as f:
                 market_message_id_str = f.read().strip()
@@ -127,7 +140,7 @@ class BlackMarket(commands.Cog):
                 embed.add_field(name="Shop Type", value="Fruits", inline=True)
                 embed.set_thumbnail(url="attachment://black_market.png")
                 embed.set_image(url="attachment://black_market_fruits_page_1.png")
-                embed.set_footer(text="Page 1 / 2")  # Initial footer
+                embed.set_footer(text="Page 1 / 2")
 
                 view = MarketView(
                     embed=embed,
@@ -135,7 +148,8 @@ class BlackMarket(commands.Cog):
                     thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
                     page_1_path=self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
                     page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH,
-                    total_pages=2  # Specify total pages
+                    black_market_cog=self,
+                    total_pages=2
                 )
                 self.bot.add_view(view, message_id=self.market_message_id)
 
@@ -143,49 +157,67 @@ class BlackMarket(commands.Cog):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
         return ctx.send(embed=embed)
 
+
+
     async def market(self, ctx, *, market_type: str = None):
         guild_id, guild_name, user = str(ctx.guild.id), ctx.guild.name, ctx.author
         inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
 
-        # Load the inventory data
         inv_df = self.data_utils.load_inventory(inv_path)
         current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
         rings = int(current_inv.get('rings', 0))
-        ring_emoji = f'<:custom_emoji:{self.CUSTOM_EMOJI_ID}>'
+        ring_emoji = f'<:custom_emoji:1176313914464681984>'  # Updated to provided emoji ID
 
         if market_type and market_type.lower() == "fruits":
-            icon_file = discord.File(self.BLACK_MARKET_ICON_PATH, filename="Black_Market.png")
-            thumb_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
-            page_1_file = discord.File(self.BLACK_MARKET_FRUITS_PAGE_1_PATH, filename="black_market_fruits_page_1.png")
-
-            embed = discord.Embed(color=self.embed_color)
-            embed.set_author(name="Black Market - Fruits", icon_url="attachment://Black_Market.png")
-            embed.description = "Buy fruits to feed your Chao!"
-            embed.add_field(name="Rings", value=f"{ring_emoji} x {rings}", inline=True)
-            embed.set_thumbnail(url="attachment://black_market.png")
-            embed.set_image(url="attachment://black_market_fruits_page_1.png")
-            embed.set_footer(text="Page 1 / 2")  # Initial footer
-
-            view = MarketView(
-                embed=embed,
-                icon_path=self.BLACK_MARKET_ICON_PATH,
-                thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
-                page_1_path=self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
-                page_2_path=self.BLACK_MARKET_FRUITS_PAGE_2_PATH,
-                total_pages=2  # Specify total pages
-            )
+            # Generate updated images as temporary files
+            page_1_output_path = "black_market_fruits_page_1_temp.png"
+            page_2_output_path = "black_market_fruits_page_2_temp.png"
 
             try:
+                # Ensure files are created successfully
+                self.image_utils.paste_black_market_prices_page1(
+                    self.BLACK_MARKET_FRUITS_PAGE_1_PATH, page_1_output_path, self.fruit_prices
+                )
+                self.image_utils.paste_black_market_prices_page2(
+                    self.BLACK_MARKET_FRUITS_PAGE_2_PATH, page_2_output_path, self.fruit_prices
+                )
+
+                # Prepare attachments
+                icon_file = discord.File(self.BLACK_MARKET_ICON_PATH, filename="Black_Market.png")
+                thumb_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
+                page_1_file = discord.File(page_1_output_path, filename="black_market_fruits_page_1.png")
+
+                embed = discord.Embed(color=self.embed_color)
+                embed.set_author(name="Black Market - Fruits", icon_url="attachment://Black_Market.png")
+                embed.description = "Buy fruits to feed your Chao!"
+                embed.add_field(name="Rings", value=f"{ring_emoji} x {rings}", inline=True)
+                embed.set_thumbnail(url="attachment://black_market.png")
+                embed.set_image(url="attachment://black_market_fruits_page_1.png")
+                embed.set_footer(text="Page 1 / 2")
+
+                view = MarketView(
+                    embed=embed,
+                    icon_path=self.BLACK_MARKET_ICON_PATH,
+                    thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
+                    page_1_path=page_1_output_path,  # Include page_1_path
+                    page_2_path=page_2_output_path,  # Include page_2_path
+                    black_market_cog=self,
+                    total_pages=2
+                )
+
+                # Send the message
                 msg = await ctx.send(files=[icon_file, thumb_file, page_1_file], embed=embed, view=view)
                 with open("market_message_id.txt", "w") as f:
                     f.write(str(msg.id))
                 self.market_message_id = msg.id
                 self.bot.add_view(view, message_id=msg.id)
+
             except Exception as e:
                 print(f"[market] Failed to send market message: {e}")
                 await ctx.send("An error occurred while opening the market.")
         else:
             await self.send_embed(ctx, "Please specify a valid market type. For example: `$market fruits`")
+
 
     async def buy(self, ctx, *, item_quantity: str):
         try:
@@ -200,18 +232,25 @@ class BlackMarket(commands.Cog):
         current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
         rings = current_inv.get('rings', 0)
 
-        fruit = next((f for f in self.fruits if f.lower() == item_name.lower()), None)
-        if not fruit:
+        if item_name not in self.fruit_prices:
             return await self.send_embed(ctx, f"{ctx.author.mention}, '{item_name}' is not sold here.")
 
-        total_cost = self.fruit_prices * quantity
-        if rings < total_cost:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, not enough rings ({total_cost} needed).")
+        price = self.fruit_prices[item_name] * quantity
+        if rings < price:
+            return await self.send_embed(ctx, f"{ctx.author.mention}, not enough rings ({price} needed).")
 
-        current_inv['rings'] = rings - total_cost
-        current_inv[fruit] = current_inv.get(fruit, 0) + quantity
+        current_inv['rings'] = rings - price
+        current_inv[item_name] = current_inv.get(item_name, 0) + quantity
         self.data_utils.save_inventory(inv_path, inv_df, current_inv)
-        await self.send_embed(ctx, f"{ctx.author.mention} bought {quantity}x {fruit} for {total_cost} rings! Now you have {current_inv['rings']} rings.")
+        await self.send_embed(ctx, f"{ctx.author.mention} bought {quantity}x {item_name} for {price} rings! Now you have {current_inv['rings']} rings.")
+    
+    async def cog_unload(self):
+        # Cleanup temporary files
+        temp_files = ["black_market_fruits_page_1_temp.png", "black_market_fruits_page_2_temp.png"]
+        for temp_file in temp_files:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
 
 async def setup(bot):
     await bot.add_cog(BlackMarket(bot))
