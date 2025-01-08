@@ -14,7 +14,7 @@ class Chao(commands.Cog):
         self.embed_color = discord.Color.blue()
         c = json.load(open('config.json'))
 
-        # We extract the form thresholds and alignment thresholds
+        # Extract thresholds and alignments
         self.FORM_LEVEL_2, self.FORM_LEVEL_3, self.FORM_LEVEL_4, a = *c['FORM_LEVELS'], c['ALIGNMENTS']
         self.HERO_ALIGNMENT, self.DARK_ALIGNMENT, self.FRUIT_TICKS_MIN, self.FRUIT_TICKS_MAX = (
             a['hero'], a['dark'], *c['FRUIT_TICKS_RANGE']
@@ -23,6 +23,30 @@ class Chao(commands.Cog):
         # Fruit stats and grading
         self.FRUIT_STATS, self.GRADES = c['FRUIT_STATS'], ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'X']
         self.GRADE_TO_VALUE = {g: v for g, v in zip(self.GRADES, range(-1, 7))}
+
+        # Define fruit stats adjustments
+        self.fruit_stats_adjustments = {
+            "round fruit": {"stamina": (1, 3)},
+            "triangle fruit": {"stamina": (1, 3)},
+            "square fruit": {"stamina": (1, 3)},
+            "hero fruit": {"stamina": (1, 3), "dark_hero": 1},
+            "dark fruit": {"stamina": (1, 3), "dark_hero": -1},
+            "chao fruit": {"swim": 4, "fly": 4, "run": 4, "power": 4, "stamina": 4},
+            "heart fruit": {"stamina": (1, 2)},
+            "garden nut": {"stamina": (1, 3)},
+            "orange fruit": {"swim": 3, "fly": -2, "run": -2, "power": 3, "stamina": 1},
+            "blue fruit": {"swim": 2, "fly": 5, "run": -1, "power": -1, "stamina": 3},
+            "pink fruit": {"swim": 4, "fly": -3, "run": 4, "power": -3, "stamina": 2},
+            "green fruit": {"swim": 0, "fly": -1, "run": 3, "power": 4, "stamina": 2},
+            "purple fruit": {"swim": -2, "fly": 3, "run": 3, "power": -2, "stamina": 1},
+            "yellow fruit": {"swim": -3, "fly": 4, "run": -3, "power": 4, "stamina": 2},
+            "red fruit": {"swim": 3, "fly": 1, "run": 3, "power": 2, "stamina": -5},
+            "power fruit": {"power": 4},
+            "swim fruit": {"swim": 4},
+            "run fruit": {"run": 4},
+            "fly fruit": {"fly": 8},
+            "strange mushroom": {},  # Add custom logic for randomizing ticks
+        }
 
         # Eye and mouth variations
         self.eye_types = ['normal', 'happy', 'angry', 'sad', 'sleep', 'tired', 'pain']
@@ -37,19 +61,14 @@ class Chao(commands.Cog):
         ]
 
         # Fruits list
-        self.fruits = [
-            "Round Fruit", "Triangle Fruit", "Square Fruit",
-            "Hero Fruit", "Dark Fruit", "Swim Fruit", "Fly Fruit",
-            "Run Fruit", "Power Fruit", "Strong Fruit", "Tasty Fruit",
-            "Heart Fruit", "Chao Fruit", "Orange Fruit", "Yellow Fruit",
-            "Green Fruit", "Red Fruit", "Blue Fruit", "Pink Fruit", "Purple Fruit"
-        ]
+        self.fruits = [fruit.title() for fruit in self.fruit_stats_adjustments.keys()]
 
         # Thresholds for run_power / swim_fly
         self.RUN_POWER_THRESHOLD = c.get("RUN_POWER_THRESHOLD", 5)
         self.SWIM_FLY_THRESHOLD = c.get("SWIM_FLY_THRESHOLD", 5)
 
         self.assets_dir = None  # Will be set in cog_load
+
 
     async def cog_load(self):
         """Called automatically when this Cog is loaded. We set up all required file paths here."""
@@ -126,7 +145,7 @@ class Chao(commands.Cog):
 
     def send_embed(self, ctx, description: str, title: str = "Chao Bot"):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
-        return ctx.send(embed=embed)
+        return ctx.reply(embed=embed)
 
     def check_life_cycle(self, c: Dict) -> str:
         """Check if a Chao is older than 60 days and decide if it reincarnates or dies."""
@@ -156,7 +175,7 @@ class Chao(commands.Cog):
 
         f = o.join(p(g, u, 'chao_data', chao_name), f'{chao_name}_stats.parquet')
         if not o.exists(f):
-            return await ctx.send(embed=e(description=f"{ctx.author.mention}, no Chao named **{chao_name}** exists.", color=0xFF0000))
+            return await ctx.reply(embed=e(description=f"{ctx.author.mention}, no Chao named **{chao_name}** exists.", color=0xFF0000))
 
         c, d = l(f), l(f).iloc[-1].to_dict()
         m = (
@@ -181,7 +200,7 @@ class Chao(commands.Cog):
 
         s(f, c, new_data)
         color_val = 0x00FF00 if "reincarnated" in m else 0x8B0000
-        await ctx.send(embed=e(description=m, color=color_val))
+        await ctx.reply(embed=e(description=m, color=color_val))
 
     async def force_happiness(self, ctx, *, chao_name: str, happiness_value: int):
         """Set a chao's happiness to a specific value."""
@@ -191,14 +210,14 @@ class Chao(commands.Cog):
 
         f = o.join(p(g, u, 'chao_data', chao_name), f"{chao_name}_stats.parquet")
         if not o.exists(f):
-            return await ctx.send(embed=e(description=f"{ctx.author.mention}, no Chao named **{chao_name}** exists.", color=0xFF0000))
+            return await ctx.reply(embed=e(description=f"{ctx.author.mention}, no Chao named **{chao_name}** exists.", color=0xFF0000))
 
         c = l(f)
         d = c.iloc[-1].to_dict()
         d['happiness_ticks'] = happiness_value
         s(f, c, d)
 
-        await ctx.send(embed=e(
+        await ctx.reply(embed=e(
             description=f"✅ **{chao_name}'s happiness has been set to {happiness_value}.**",
             color=0x00FF00
         ))
@@ -210,7 +229,7 @@ class Chao(commands.Cog):
         user = ctx.author
 
         if self.data_utils.is_user_initialized(guild_id, guild_name, user):
-            return await ctx.send(f"{ctx.author.mention}, you have already started using the Chao Bot.")
+            return await ctx.reply(f"{ctx.author.mention}, you have already started using the Chao Bot.")
 
         inventory_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
         self.data_utils.save_inventory(
@@ -248,7 +267,7 @@ class Chao(commands.Cog):
     async def initialize_inventory(self, ctx, guild_id, user_id, embed_title, embed_desc):
         """Initialize the user's inventory with default items."""
         if self.data_utils.is_user_initialized(guild_id, user_id):
-            return await ctx.send(f"{ctx.author.mention}, you have already started using the Chao Bot.")
+            return await ctx.reply(f"{ctx.author.mention}, you have already started using the Chao Bot.")
 
         inventory_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
         self.data_utils.save_inventory(
@@ -280,6 +299,56 @@ class Chao(commands.Cog):
         )
         print(f"[give_rings] 10,000 Rings added to User: {user.id}. New balance: {current_inventory['rings']}")
 
+
+    async def show_grades(self, ctx, chao_name: str):
+        """
+        Retrieve and display the grades of a specified Chao.
+        """
+        guild_id = str(ctx.guild.id)
+        guild_name = ctx.guild.name
+        user = ctx.author
+
+        # Locate the Chao's stats file
+        chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
+        chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
+
+        if not os.path.exists(chao_stats_path):
+            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
+
+        # Load Chao stats
+        chao_df = self.data_utils.load_chao_stats(chao_stats_path)
+        latest_stats = chao_df.iloc[-1].to_dict()
+
+        # Extract grades
+        grades = {stat: latest_stats.get(f"{stat}_grade", "F") for stat in ["power", "swim", "fly", "run", "stamina"]}
+
+        # Extract Chao thumbnail path
+        thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
+
+        # Create an embed to display the grades
+        embed = discord.Embed(
+            title=f"{chao_name}'s Grades",
+            description="Here are the current grades for your Chao:",
+            color=discord.Color.blue()
+        )
+
+        # Add grades as a list
+        grade_list = "\n".join([f"**{stat.capitalize()}**: {grade}" for stat, grade in grades.items()])
+        embed.add_field(name="Grades", value=grade_list, inline=False)
+
+        # Add thumbnail if it exists
+        if os.path.exists(thumbnail_path):
+            file_url = f"attachment://{os.path.basename(thumbnail_path)}"
+            embed.set_thumbnail(url=file_url)
+
+        # Add footer
+        embed.set_footer(text="Graphics Pending")
+
+        # Send the embed as a reply
+        file = discord.File(thumbnail_path, filename=os.path.basename(thumbnail_path)) if os.path.exists(thumbnail_path) else None
+        await ctx.reply(embed=embed, file=file)
+
+
     async def hatch(self, ctx):
         """
         Command to hatch a Chao Egg. Initializes the Chao's stats
@@ -294,7 +363,7 @@ class Chao(commands.Cog):
 
         # Check for Chao Egg
         if inventory.get('Chao Egg', 0) < 1:
-            return await ctx.send(f"{ctx.author.mention}, you do not have any Chao Eggs to hatch.")
+            return await ctx.reply(f"{ctx.author.mention}, you do not have any Chao Eggs to hatch.")
 
         # Decrement egg
         inventory['Chao Egg'] -= 1
@@ -316,7 +385,7 @@ class Chao(commands.Cog):
         available_names = [n for n in self.chao_names if n not in used_names]
 
         if not available_names:
-            return await ctx.send(
+            return await ctx.reply(
                 f"{ctx.author.mention}, all default chao names are used up. "
                 f"Please remove an old Chao or extend self.chao_names!"
             )
@@ -411,12 +480,8 @@ class Chao(commands.Cog):
         latest_stats: Dict
     ) -> Tuple[Optional[str], Optional[str]]:
         """
-        Enforces:
-         - Form 1 => alignment_normal_1
-         - Form 2 => alignment_normal_suffix_2
-         - Form 3 => alignment_suffix_3
-         - Form 4 => alignment_suffix_suffix_4
-         Also picks background for forms 3/4 based on alignment.
+        Updates the Chao type and form based on current stats and evolution rules.
+        Generates the updated thumbnail for the Chao.
         """
         try:
             if not self.assets_dir:
@@ -428,85 +493,79 @@ class Chao(commands.Cog):
             # Current Stats
             stat_levels = {s: latest_stats.get(f"{s}_level", 0) for s in ["power", "swim", "stamina", "fly", "run"]}
             dark_hero = latest_stats.get("dark_hero", 0)
-            current_form = str(latest_stats.get("Form", "1"))
-            current_type = (latest_stats.get("Type", "normal") or "normal").lower()
-
-            max_stat = max(stat_levels, key=stat_levels.get)
-            max_level = stat_levels[max_stat]
             run_power = latest_stats.get("run_power", 0)
             swim_fly = latest_stats.get("swim_fly", 0)
+            current_form = str(latest_stats.get("Form", "1"))
+            max_level = max(stat_levels.values())
 
-            print(
-                f"[update_chao_type_and_thumbnail] Current Form: {current_form}, "
-                f"Type: {current_type}, Max Stat: {max_stat}, Max Level: {max_level}"
+            # Cap thresholds for dark_hero, run_power, swim_fly
+            latest_stats["dark_hero"] = max(min(dark_hero, 5), -5)
+            latest_stats["run_power"] = max(min(run_power, 5), -5)
+            latest_stats["swim_fly"] = max(min(swim_fly, 5), -5)
+
+            # Determine alignment
+            alignment = (
+                "hero" if latest_stats["dark_hero"] == 5 else
+                "dark" if latest_stats["dark_hero"] == -5 else
+                "neutral"
             )
+            latest_stats["Alignment"] = alignment
 
-            # Decide alignment if form in [1,2]
-            if current_form in ["1", "2"]:
-                if dark_hero >= self.HERO_ALIGNMENT:
-                    alignment = "hero"
-                elif dark_hero <= self.DARK_ALIGNMENT:
-                    alignment = "dark"
-                else:
-                    alignment = "neutral"
-                latest_stats["Alignment"] = alignment
-            else:
-                alignment = latest_stats.get("Alignment", "neutral")
-
-            form = current_form
-            chao_type = current_type
-
-            # Helper for evolve suffix
-            def evolve_suffix(rp: int, sf: int) -> str:
-                if rp >= self.RUN_POWER_THRESHOLD:
+            # Helper function to determine suffix
+            def determine_suffix(rp: int, sf: int) -> str:
+                if rp == 5:
                     return "power"
-                elif rp <= -self.RUN_POWER_THRESHOLD:
+                elif rp == -5:
                     return "run"
-                elif sf >= self.SWIM_FLY_THRESHOLD:
+                elif sf == 5:
                     return "fly"
-                elif sf <= -self.SWIM_FLY_THRESHOLD:
+                elif sf == -5:
                     return "swim"
                 return "normal"
 
-            suffix = evolve_suffix(run_power, swim_fly)
+            suffix = determine_suffix(run_power, swim_fly)
+            chao_type = latest_stats.get("Type", f"{alignment}_normal_1")  # Default type for Form 1
 
-            # EVOLUTION logic
-            if form == "1" and max_level >= self.FORM_LEVEL_2:
-                form = "2"
+            # Evolution logic
+            if current_form == "1" and max_level >= self.FORM_LEVEL_2:
+                suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
+                current_form = "2"
                 chao_type = f"{alignment}_normal_{suffix}_2"
-            elif form == "2" and max_level >= self.FORM_LEVEL_3:
-                form = "3"
+            elif current_form == "2" and max_level >= self.FORM_LEVEL_3:
+                suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
+                current_form = "3"
                 chao_type = f"{alignment}_{suffix}_3"
-            elif form == "3" and max_level >= self.FORM_LEVEL_4:
-                form = "4"
-                base_type = self._strip_form_digit(chao_type)
-                parts = base_type.split("_", 1)
-                old_suffix = parts[1] if len(parts) > 1 else "normal"
-                chao_type = f"{alignment}_{old_suffix}_{suffix}_4"
+            elif current_form == "3" and max_level >= self.FORM_LEVEL_4:
+                base_suffix = chao_type.split("_")[1] if chao_type.endswith("_3") else "normal"
+                suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
+                current_form = "4"
+                chao_type = f"{alignment}_{base_suffix}_{suffix}_4"
 
-            # If brand new form1 => alignment_normal_1
-            if form == "1":
-                desired_form1 = f"{alignment}_normal_1"
-                if chao_type != desired_form1:
-                    chao_type = desired_form1
+                # Handle special case for neutral/normal at Form 4
+                if suffix == "normal" and base_suffix == "normal":
+                    chao_type = f"{alignment}_normal_normal_4"
 
-            # Force double-type for form4
-            if form == "4":
-                chao_type = self._ensure_form4_double_type(chao_type)
-
-            # Save final
-            latest_stats["Form"] = form
+            # Save final form and type
+            latest_stats["Form"] = current_form
             latest_stats["Type"] = chao_type
-            print(f"[update_chao_type_and_thumbnail] => Final Type: {chao_type}, Form: {form}, Alignment: {alignment}")
 
-            # Build eye + mouth
+            # Build sprite paths
+            sprite_path = os.path.join(
+                self.assets_dir,
+                "chao",
+                chao_type.split("_")[1],
+                alignment,
+                f"{chao_type}.png"
+            )
+            if not os.path.exists(sprite_path):
+                sprite_path = os.path.join(self.assets_dir, "chao", "chao_missing.png")
+
+            # Build eyes and mouth paths
             eyes = latest_stats.get("eyes", "neutral")
             mouth = latest_stats.get("mouth", "happy")
-            eyes_alignment = "neutral" if form in ["1", "2"] else alignment
+            eyes_alignment = "neutral" if current_form in ["1", "2"] else alignment
 
             eyes_image_path = os.path.join(self.EYES_DIR, f"{eyes_alignment}_{eyes}.png")
-            if not os.path.exists(eyes_image_path):
-                eyes_image_path = os.path.join(self.EYES_DIR, f"{eyes_alignment}.png")
             if not os.path.exists(eyes_image_path):
                 eyes_image_path = os.path.join(self.EYES_DIR, "neutral.png")
 
@@ -514,39 +573,17 @@ class Chao(commands.Cog):
             if not os.path.exists(mouth_image_path):
                 mouth_image_path = os.path.join(self.MOUTH_DIR, "happy.png")
 
-            # Build sprite path
-            chao_image_filename = f"{chao_type}.png"
-            base_type_for_subfolder = self._extract_base_for_subfolder(chao_type, alignment)
-            sprite_path = os.path.join(
-                self.assets_dir,
-                "chao",
-                base_type_for_subfolder,
-                alignment,
-                chao_image_filename
-            )
-            print(f"[update_chao_type_and_thumbnail] Attempting to find sprite at: {sprite_path}")
-
-            if not os.path.exists(sprite_path):
-                print(f"[update_chao_type_and_thumbnail] Missing sprite file: {sprite_path}. "
-                      f"Falling back to 'chao_missing.png'.")
-                sprite_path = os.path.join(self.assets_dir, "chao", "chao_missing.png")
-
-            print(f"[update_chao_type_and_thumbnail] => Using sprite: {sprite_path}")
-
-            # PICK BACKGROUND
-            if form in ["3", "4"]:
-                # If alignment is hero => hero_background
-                if alignment == "hero":
-                    bg_path = self.HERO_BG_PATH
-                elif alignment == "dark":
-                    bg_path = self.DARK_BG_PATH
-                else:
-                    bg_path = self.NEUTRAL_BG_PATH
+            # Choose background
+            if current_form in ["3", "4"]:
+                bg_path = (
+                    self.HERO_BG_PATH if alignment == "hero" else
+                    self.DARK_BG_PATH if alignment == "dark" else
+                    self.NEUTRAL_BG_PATH
+                )
             else:
-                # For forms 1 & 2 => default
                 bg_path = self.BACKGROUND_PATH
 
-            # Combine images => thumbnail
+            # Generate thumbnail
             self.image_utils.combine_images_with_face(
                 bg_path,
                 sprite_path,
@@ -555,11 +592,12 @@ class Chao(commands.Cog):
                 thumbnail_path
             )
 
-            return chao_type, form
+            return chao_type, current_form
 
         except Exception as e:
             print(f"[update_chao_type_and_thumbnail] An error occurred: {e}")
             return "normal", "1"
+
 
     # Additional helper methods
     def _strip_form_digit(self, chao_type: str) -> str:
@@ -583,19 +621,37 @@ class Chao(commands.Cog):
             chao_type = segs[0]
         return chao_type.split("_", 1)[0] if "_" in chao_type else chao_type or "normal"
 
+    def get_stat_increment(self, grade: str) -> int:
+        """
+        Returns a random stat increment based on the grade of the stat.
+        """
+        grade_ranges = {
+            'F': (8, 12),
+            'E': (11, 15),
+            'D': (14, 18),
+            'C': (17, 21),
+            'B': (20, 24),
+            'A': (23, 27),
+            'S': (26, 30),
+            'X': (30, 35)
+        }
+        return random.randint(*grade_ranges.get(grade.upper(), (8, 12)))
+
+
     async def feed(self, ctx, *, chao_name_and_fruit: str):
-        """Feed a particular fruit to a Chao, possibly evolving it."""
+        """
+        Feed a particular fruit to a Chao, applying its effects and updating stats.
+        """
         guild_id = str(ctx.guild.id)
         guild_name = ctx.guild.name
         user = ctx.author
 
-        # 1) Attempt to parse chao_name and fruit from right to left
+        # Parsing Chao name and fruit
         parts = chao_name_and_fruit.split()
         fruit_name, chao_name = None, None
-
         for i in range(1, len(parts) + 1):
             potential_fruit = ' '.join(parts[-i:]).strip().lower()
-            if fruit := next((f for f in self.fruits if f.lower() == potential_fruit), None):
+            if fruit := next((f.lower() for f in self.fruits if f.lower() == potential_fruit), None):
                 fruit_name = fruit
                 chao_name = ' '.join(parts[:-i]).strip()
                 break
@@ -607,118 +663,106 @@ class Chao(commands.Cog):
                 f"Valid fruits: {', '.join(self.fruits)}"
             )
 
-        # 2) Confirm chao existence
+        # Confirm Chao existence
         chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
         chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
         if not os.path.exists(chao_stats_path):
             return await self.send_embed(ctx, f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
 
-        # 3) Confirm user has fruit
+        # Confirm user has fruit
         inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
         inv_df = self.data_utils.load_inventory(inv_path)
         current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
-        if current_inv.get(fruit_name, 0) <= 0:
+
+        normalized_inventory = {k.lower(): v for k, v in current_inv.items()}
+        if normalized_inventory.get(fruit_name, 0) <= 0:
             return await self.send_embed(ctx, f"{ctx.author.mention}, you have no **{fruit_name}**.")
 
-        # 4) Load Chao stats
+        # Load Chao stats
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         latest_stats = chao_df.iloc[-1].to_dict()
 
-        # 5) Update belly based on day
-        days_elapsed = (
-            datetime.now() - datetime.strptime(
-                latest_stats.get('date', datetime.now().strftime("%Y-%m-%d")),
-                "%Y-%m-%d"
-            )
-        ).days
+        # Update belly and date
+        days_elapsed = (datetime.now() - datetime.strptime(latest_stats.get('date', datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d")).days
         latest_stats['belly'] = max(0, latest_stats.get('belly', 0) - days_elapsed)
         latest_stats['belly'] = min(10, latest_stats['belly'] + 2)
         latest_stats['date'] = datetime.now().strftime("%Y-%m-%d")
 
-        # 6) Ensure missing stats exist
-        for stat in ['swim_ticks', 'fly_ticks', 'power_ticks', 'run_ticks', 'stamina_ticks']:
-            latest_stats.setdefault(stat, 0)
-        latest_stats.setdefault('run_power', 0)
-        latest_stats.setdefault('swim_fly', 0)
+        # Stats before feeding
+        print(f"Feeding {chao_name} a {fruit_name.title()}")
+        print("Stats before feeding:")
+        print(f"run level: {latest_stats.get('run_level', 0)}")
+        print(f"run ticks: {latest_stats.get('run_ticks', 0)}")
+        print(f"run_power: {latest_stats.get('run_power', 0)}")
+        print(f"swim level: {latest_stats.get('swim_level', 0)}")
+        print(f"swim ticks: {latest_stats.get('swim_ticks', 0)}")
+        print(f"fly level: {latest_stats.get('fly_level', 0)}")
+        print(f"fly ticks: {latest_stats.get('fly_ticks', 0)}")
+        print(f"power level: {latest_stats.get('power_level', 0)}")
+        print(f"power ticks: {latest_stats.get('power_ticks', 0)}")
+        print(f"swim_fly: {latest_stats.get('swim_fly', 0)}")
+        print(f"Form: {latest_stats.get('Form', 'Unknown')}")
+        print(f"Type: {latest_stats.get('Type', 'Unknown')}" + "\n")
 
-        # 7) Fruit effects
-        fruit_effects = {
-            "Round Fruit": {"stamina": 2},
-            "Triangle Fruit": {"stamina": 2},
-            "Square Fruit": {"stamina": 2},
-            "Hero Fruit": {"stamina": 1},
-            "Dark Fruit": {"stamina": 1},
-            "Swim Fruit": {"swim": 4},
-            "Fly Fruit": {"fly": 4},
-            "Run Fruit": {"run": 4},
-            "Power Fruit": {"power": 4},
-            "Strong Fruit": {"stamina": 4},
-            "Tasty Fruit": {"stamina": 3},
-            "Heart Fruit": {"stamina": 2},
-            "Chao Fruit": {"swim": 2, "fly": 2, "run": 2, "power": 2, "stamina": 2},
-            "Orange Fruit": {"swim": 3, "fly": -2, "run": -2, "power": 3, "stamina": 1},
-            "Blue Fruit": {"swim": 2, "fly": 5, "run": -1, "power": -1, "stamina": 3},
-            "Pink Fruit": {"swim": 4, "fly": -3, "run": 4, "power": -3, "stamina": 2},
-            "Green Fruit": {"swim": 3, "fly": -1, "run": 3, "power": 4, "stamina": 2},
-            "Purple Fruit": {"swim": -2, "fly": 3, "run": 3, "power": -2, "stamina": 1},
-            "Yellow Fruit": {"swim": -3, "fly": 4, "run": -3, "power": 4, "stamina": 2},
-            "Red Fruit": {"swim": 3, "fly": 1, "run": 3, "power": 2, "stamina": -5},
+        # Apply fruit effects
+        fruit_to_stat = {
+            "run fruit": "run",
+            "power fruit": "power",
+            "swim fruit": "swim",
+            "fly fruit": "fly"
         }
 
-        stat_changes = []
-        level_ups = []
+        stat = fruit_to_stat.get(fruit_name.lower())
+        if stat:
+            ticks_key = f"{stat}_ticks"
+            level_key = f"{stat}_level"
+            exp_key = f"{stat}_exp"
+            grade_key = f"{stat}_grade"
 
-        if fruit_name in fruit_effects:
-            for stat, tick_change in fruit_effects[fruit_name].items():
-                stat_key = f"{stat}_ticks"
-                level_key = f"{stat}_level"
-                current_ticks = latest_stats[stat_key]
+            current_ticks = latest_stats.get(ticks_key, 0)
+            tick_increment = 8  # All fruits add 8 ticks now
+            new_ticks = current_ticks + tick_increment
 
-                new_ticks = current_ticks + tick_change
-                if new_ticks >= 10:
-                    latest_stats[stat_key] = new_ticks - 10
-                    latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
-                    level_ups.append(f"{stat.capitalize()} leveled up to {latest_stats[level_key]}")
-                else:
-                    latest_stats[stat_key] = max(0, new_ticks)
+            # Update level if ticks reach 10
+            if new_ticks >= 10:
+                latest_stats[ticks_key] = new_ticks - 10
+                latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
 
-                desc = (
-                    f"{stat.capitalize()} gained {tick_change} ticks"
-                    if tick_change > 0 else
-                    f"{stat.capitalize()} lost {-tick_change} ticks"
-                )
-                stat_changes.append(f"{desc} ({latest_stats[stat_key]}/9)")
+                # Determine stat gain based on grade
+                grade = latest_stats.get(grade_key, 'F')
+                stat_gain = self.get_stat_increment(grade)
+                latest_stats[exp_key] = latest_stats.get(exp_key, 0) + stat_gain
+            else:
+                latest_stats[ticks_key] = new_ticks
 
-            # 9) Also update run_power / swim_fly
-            run_effect = fruit_effects[fruit_name].get("run", 0)
-            power_effect = fruit_effects[fruit_name].get("power", 0)
-            fly_effect = fruit_effects[fruit_name].get("fly", 0)
-            swim_effect = fruit_effects[fruit_name].get("swim", 0)
+            # Adjust run_power or swim_fly and counter-adjust the other stat
+            if stat in {"run", "power"}:
+                latest_stats["run_power"] = max(-5, min(5, latest_stats.get("run_power", 0) + (1 if stat == "power" else -1)))
+                latest_stats["swim_fly"] += 1 if latest_stats["swim_fly"] < 0 else -1 if latest_stats["swim_fly"] > 0 else 0
+            elif stat in {"swim", "fly"}:
+                latest_stats["swim_fly"] = max(-5, min(5, latest_stats.get("swim_fly", 0) + (1 if stat == "fly" else -1)))
+                latest_stats["run_power"] += 1 if latest_stats["run_power"] < 0 else -1 if latest_stats["run_power"] > 0 else 0
 
-            latest_stats["run_power"] += power_effect
-            latest_stats["run_power"] -= run_effect
-
-            latest_stats["swim_fly"] += fly_effect
-            latest_stats["swim_fly"] -= swim_effect
-
-        # Hero/Dark fruit => alignment shift + 1 stamina tick
-        if fruit_name.lower() == 'hero fruit':
-            latest_stats['dark_hero'] = min(self.HERO_ALIGNMENT, latest_stats.get('dark_hero', 0) + 1)
-            latest_stats['stamina_ticks'] = latest_stats.get('stamina_ticks', 0) + 1
-            stat_changes.append("Stamina gained 1 tick (Hero Fruit effect)")
-        elif fruit_name.lower() == 'dark fruit':
-            latest_stats['dark_hero'] = max(self.DARK_ALIGNMENT, latest_stats.get('dark_hero', 0) - 1)
-            latest_stats['stamina_ticks'] = latest_stats.get('stamina_ticks', 0) + 1
-            stat_changes.append("Stamina gained 1 tick (Dark Fruit effect)")
+            # Change type instantly if run_power or swim_fly reaches ±5
+            if latest_stats.get("Form") == "2":
+                if latest_stats["run_power"] == 5:
+                    latest_stats["Type"] = "neutral_normal_power_2"
+                elif latest_stats["run_power"] == -5:
+                    latest_stats["Type"] = "neutral_normal_run_2"
+                elif latest_stats["swim_fly"] == 5:
+                    latest_stats["Type"] = "neutral_normal_fly_2"
+                elif latest_stats["swim_fly"] == -5:
+                    latest_stats["Type"] = "neutral_normal_swim_2"
 
         # Deduct fruit
-        current_inv[fruit_name] -= 1
-        self.data_utils.save_inventory(inv_path, inv_df, current_inv)
+        normalized_inventory[fruit_name] -= 1
+        updated_inventory = {k: normalized_inventory[k.lower()] for k in current_inv.keys()}
+        self.data_utils.save_inventory(inv_path, inv_df, updated_inventory)
 
         # Save updated stats
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
 
-        # Possibly evolve
+        # Possibly evolve and update thumbnail
         chao_type, form = self.update_chao_type_and_thumbnail(
             guild_id, guild_name, user, chao_name, latest_stats
         )
@@ -726,21 +770,34 @@ class Chao(commands.Cog):
         latest_stats["Type"] = chao_type
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
 
-        # Build embed
-        description = f"{chao_name} ate a {fruit_name}!\n\n"
-        if stat_changes:
-            description += "\n".join(stat_changes) + "\n"
-        if level_ups:
-            description += "\n" + "\n".join(level_ups)
+        # Stats after feeding
+        print("Stats after feeding:")
+        print(f"run level: {latest_stats.get('run_level', 0)}")
+        print(f"run ticks: {latest_stats.get('run_ticks', 0)}")
+        print(f"run_power: {latest_stats.get('run_power', 0)}")
+        print(f"swim level: {latest_stats.get('swim_level', 0)}")
+        print(f"swim ticks: {latest_stats.get('swim_ticks', 0)}")
+        print(f"fly level: {latest_stats.get('fly_level', 0)}")
+        print(f"fly ticks: {latest_stats.get('fly_ticks', 0)}")
+        print(f"power level: {latest_stats.get('power_level', 0)}")
+        print(f"power ticks: {latest_stats.get('power_ticks', 0)}")
+        print(f"swim_fly: {latest_stats.get('swim_fly', 0)}")
+        print(f"Form: {latest_stats.get('Form', 'Unknown')}")
+        print(f"Type: {latest_stats.get('Type', 'Unknown')}")
 
+        # Build embed
+        description = f"{chao_name} ate a {fruit_name.title()}!\n\n"
         embed = discord.Embed(title="Chao Feed Success", description=description, color=self.embed_color)
-        thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
         embed.set_image(url=f"attachment://{chao_name.replace(' ', '_')}_thumbnail.png")
 
-        await ctx.send(
-            file=discord.File(thumbnail_path, filename=f"{chao_name.replace(' ', '_')}_thumbnail.png"),
+        await ctx.reply(
+            file=discord.File(
+                os.path.join(chao_dir, f"{chao_name.replace(' ', '_')}_thumbnail.png"),
+                filename=f"{chao_name.replace(' ', '_')}_thumbnail.png"
+            ),
             embed=embed
         )
+
 
     async def stats(self, ctx, *, chao_name: str):
         """
@@ -754,7 +811,7 @@ class Chao(commands.Cog):
         chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
 
         if not os.path.exists(chao_stats_path):
-            return await ctx.send(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
+            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
 
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         chao_stats = chao_df.iloc[-1].to_dict()
@@ -763,25 +820,53 @@ class Chao(commands.Cog):
             guild_id, ctx.guild.name, ctx.author, chao_name, chao_stats
         )
 
+        # Ensure the database is updated if Type or Form changes
         if chao_stats.get("Form", None) != form or chao_stats.get("Type", None) != chao_type:
             chao_stats["Form"] = form
             chao_stats["Type"] = chao_type
             self.data_utils.save_chao_stats(chao_stats_path, chao_df, chao_stats)
 
-        # For simpler display
-        if form in ["1", "2"]:
-            chao_type_display = "Normal"
-        else:
-            chao_type_display = chao_type.replace("_", "/").capitalize()
+        # Map chao_type to display-friendly format
+        type_mapping = {
+            # Fly types
+            **{f"{alignment}_fly_3": "Fly" for alignment in ["dark", "hero", "neutral"]},
+            **{f"{alignment}_fly_{suffix}_4": f"Fly/{suffix.capitalize()}" for alignment in ["dark", "hero", "neutral"]
+            for suffix in ["fly", "normal", "power", "run", "swim"]},
+            # Normal types
+            **{f"{alignment}_normal_1": "Normal" for alignment in ["dark", "hero", "neutral"]},
+            **{f"{alignment}_normal_3": "Normal" for alignment in ["dark", "hero", "neutral"]},
+            **{f"{alignment}_normal_{suffix}_2": "Normal" for alignment in ["dark", "hero", "neutral"]
+            for suffix in ["fly", "normal", "power", "run", "swim"]},
+            **{f"{alignment}_normal_{suffix}_4": f"Normal/{suffix.capitalize()}" for alignment in ["dark", "hero", "neutral"]
+            for suffix in ["fly", "normal", "power", "run", "swim"]},
+            # Power types
+            **{f"{alignment}_power_3": "Power" for alignment in ["dark", "hero", "neutral"]},
+            **{f"{alignment}_power_{suffix}_4": f"Power/{suffix.capitalize()}" for alignment in ["dark", "hero", "neutral"]
+            for suffix in ["fly", "normal", "power", "run", "swim"]},
+            # Run types
+            **{f"{alignment}_run_3": "Run" for alignment in ["dark", "hero", "neutral"]},
+            **{f"{alignment}_run_{suffix}_4": f"Run/{suffix.capitalize()}" for alignment in ["dark", "hero", "neutral"]
+            for suffix in ["fly", "normal", "power", "run", "swim"]},
+            # Swim types
+            **{f"{alignment}_swim_3": "Swim" for alignment in ["dark", "hero", "neutral"]},
+            **{f"{alignment}_swim_{suffix}_4": f"Swim/{suffix.capitalize()}" for alignment in ["dark", "hero", "neutral"]
+            for suffix in ["fly", "normal", "power", "run", "swim"]},
+        }
 
+        # Retrieve the display type from the mapping
+        chao_type_display = type_mapping.get(chao_type, "Unknown")
+
+        # Retrieve alignment from the database
         alignment_label = chao_stats.get('Alignment', 'Neutral').capitalize()
 
+        # Paths for the generated images
         stats_image_paths = {
             1: os.path.join(chao_dir, f"{chao_name}_stats_page_1.png"),
             2: os.path.join(chao_dir, f"{chao_name}_stats_page_2.png"),
         }
         thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
 
+        # Levels and ticks
         power_level = int(chao_stats.get("power_level", 0))
         swim_level = int(chao_stats.get("swim_level", 0))
         fly_level = int(chao_stats.get("fly_level", 0))
@@ -858,7 +943,7 @@ class Chao(commands.Cog):
             "current_page": 1
         })
 
-        await ctx.send(
+        await ctx.reply(
             files=[
                 discord.File(stats_image_paths[1], "stats_page.png"),
                 discord.File(self.ICON_PATH, filename="Stats.png"),
@@ -868,11 +953,13 @@ class Chao(commands.Cog):
             view=view
         )
 
+
+
     async def give_egg(self, ctx):
         """Give the user a Chao Egg (if they don't already have one)."""
         p, i, d = self.data_utils.get_path, self.data_utils.load_inventory, self.data_utils.save_inventory
         u, g = str(ctx.author.id), str(ctx.guild.id)
-        c, e = ctx.send, discord.Embed(
+        c, e = ctx.reply, discord.Embed(
             title="🎉 Congratulations!",
             description="**You received a Chao Egg!**",
             color=self.embed_color
@@ -895,6 +982,49 @@ class Chao(commands.Cog):
             file=discord.File(w, "ChaoEgg.png"),
             embed=e.set_thumbnail(url="attachment://ChaoEgg.png")
         ) if os.path.exists(w) else await c(embed=e)
+
+    
+    @commands.command(name="view_grades")
+    async def view_grades(self, ctx, *, chao_name: str):
+        """
+        Command to display the stat grades of a specific Chao.
+        """
+        guild_id = str(ctx.guild.id)
+        guild_name = ctx.guild.name
+        user = ctx.author
+
+        # Locate Chao stats file
+        chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
+        chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
+
+        if not os.path.exists(chao_stats_path):
+            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
+
+        # Load Chao stats
+        chao_df = self.data_utils.load_chao_stats(chao_stats_path)
+        chao_stats = chao_df.iloc[-1].to_dict()
+
+        # Retrieve stat grades
+        grades = {
+            "Swim": chao_stats.get("swim_grade", "Unknown"),
+            "Fly": chao_stats.get("fly_grade", "Unknown"),
+            "Run": chao_stats.get("run_grade", "Unknown"),
+            "Power": chao_stats.get("power_grade", "Unknown"),
+            "Stamina": chao_stats.get("stamina_grade", "Unknown"),
+        }
+
+        # Create an embed message
+        embed = discord.Embed(
+            title=f"{chao_name}'s Stat Grades",
+            color=self.embed_color
+        )
+        for stat, grade in grades.items():
+            embed.add_field(name=stat, value=f"Grade: {grade}", inline=True)
+
+        embed.set_footer(text="Grades range from F to X.")
+
+        # Send the embed
+        await ctx.reply(embed=embed)
 
     async def inventory(self, ctx):
         """Show the user their current inventory."""
@@ -930,7 +1060,7 @@ class Chao(commands.Cog):
                     inline=True
                 )
 
-        await ctx.send(embed=embed)
+        await ctx.reply(embed=embed)
 
     def calculate_exp_gain(self, grade: str) -> int:
         return {

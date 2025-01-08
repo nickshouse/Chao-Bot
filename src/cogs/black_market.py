@@ -200,63 +200,73 @@ class BlackMarket(commands.Cog):
 
     def send_embed(self, ctx, description, title="Chao Bot"):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
-        return ctx.send(embed=embed)
+        return ctx.reply(embed=embed)
+
 
     async def market(self, ctx, *, market_type: str = None):
-        if market_type and market_type.lower() == "fruits":
+        """
+        Opens the black market. Defaults to fruits market if no type is specified.
+        """
+        try:
+            # Default to fruits market
             page_1_output_path = "black_market_fruits_page_1_temp.png"
             page_2_output_path = "black_market_fruits_page_2_temp.png"
 
-            try:
-                self.image_utils.paste_black_market_prices_page1(
-                    self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
-                    page_1_output_path,
-                    self.fruit_prices
-                )
-                self.image_utils.paste_black_market_prices_page2(
-                    self.BLACK_MARKET_FRUITS_PAGE_2_PATH,
-                    page_2_output_path,
-                    self.fruit_prices
-                )
+            # Generate images for the fruit market
+            self.image_utils.paste_black_market_prices_page1(
+                self.BLACK_MARKET_FRUITS_PAGE_1_PATH,
+                page_1_output_path,
+                self.fruit_prices
+            )
+            self.image_utils.paste_black_market_prices_page2(
+                self.BLACK_MARKET_FRUITS_PAGE_2_PATH,
+                page_2_output_path,
+                self.fruit_prices
+            )
 
-                icon_file = discord.File(self.BLACK_MARKET_ICON_PATH, filename="Black_Market.png")
-                thumb_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
-                page_1_file = discord.File(page_1_output_path, filename="black_market_fruits_page_1.png")
+            # Create embed
+            icon_file = discord.File(self.BLACK_MARKET_ICON_PATH, filename="Black_Market.png")
+            thumb_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
+            page_1_file = discord.File(page_1_output_path, filename="black_market_fruits_page_1.png")
 
-                embed = discord.Embed(color=self.embed_color)
-                embed.set_author(name="Black Market", icon_url="attachment://Black_Market.png")
-                embed.description = "Buy somethin' will ya?"
-                embed.add_field(name="Shop Type", value="Fruits", inline=True)
-                embed.set_thumbnail(url="attachment://black_market.png")
-                embed.set_image(url="attachment://black_market_fruits_page_1.png")
-                embed.set_footer(text="Page 1 / 3")
+            embed = discord.Embed(color=self.embed_color)
+            embed.set_author(name="Black Market", icon_url="attachment://Black_Market.png")
+            embed.description = "Buy somethin' will ya?"
+            embed.add_field(name="Shop Type", value="Fruits", inline=True)
+            embed.set_thumbnail(url="attachment://black_market.png")
+            embed.set_image(url="attachment://black_market_fruits_page_1.png")
+            embed.set_footer(text="Page 1 / 3")
 
-                view = MarketView(
-                    embed=embed,
-                    icon_path=self.BLACK_MARKET_ICON_PATH,
-                    thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
-                    page_1_path=page_1_output_path,
-                    page_2_path=page_2_output_path,
-                    black_market_cog=self,
-                    total_pages=3
-                )
+            # Create the view for navigation
+            view = MarketView(
+                embed=embed,
+                icon_path=self.BLACK_MARKET_ICON_PATH,
+                thumbnail_path=self.BLACK_MARKET_THUMBNAIL_PATH,
+                page_1_path=page_1_output_path,
+                page_2_path=page_2_output_path,
+                black_market_cog=self,
+                total_pages=3
+            )
 
-                msg = await ctx.send(
-                    files=[icon_file, thumb_file, page_1_file],
-                    embed=embed,
-                    view=view
-                )
-                with open("market_message_id.txt", "w") as f:
-                    f.write(str(msg.id))
+            # Send the market embed and view
+            msg = await ctx.reply(
+                files=[icon_file, thumb_file, page_1_file],
+                embed=embed,
+                view=view
+            )
 
-                self.market_message_id = msg.id
-                self.bot.add_view(view, message_id=msg.id)
+            # Save the message ID for the market view
+            with open("market_message_id.txt", "w") as f:
+                f.write(str(msg.id))
 
-            except Exception as e:
-                print(f"[market] Failed to send market message: {e}")
-                await ctx.send("An error occurred while opening the market.")
-        else:
-            await self.send_embed(ctx, "Please specify a valid market type. For example: `$market fruits`")
+            self.market_message_id = msg.id
+            self.bot.add_view(view, message_id=msg.id)
+
+        except Exception as e:
+            print(f"[market] Failed to send market message: {e}")
+            await ctx.reply("An error occurred while opening the market.")
+
+
 
     async def buy(self, ctx, *, item_quantity: str):
         try:

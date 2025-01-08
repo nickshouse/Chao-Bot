@@ -61,35 +61,18 @@ class ImageUtils(commands.Cog):
         with Image.open(template_path) as template, \
                 Image.open(overlay_path).convert("RGBA") as overlay:
 
-            # ====================
-            # Debugging: Print Inputs
-            # ====================
-            print("DEBUG - Inputs to paste_page1_image:")
-            print(f"Power Ticks: {power_ticks}, Level: {power_level}, EXP: {power_exp}")
-            print(f"Swim Ticks: {swim_ticks}, Level: {swim_level}, EXP: {swim_exp}")
-            print(f"Fly Ticks: {fly_ticks}, Level: {fly_level}, EXP: {fly_exp}")
-            print(f"Run Ticks: {run_ticks}, Level: {run_level}, EXP: {run_exp}")
-            print(f"Stamina Ticks: {stamina_ticks}, Level: {stamina_level}, EXP: {stamina_exp}")
-
-            # ====================
             # Paste Ticks
-            # ====================
             for pos, ticks in zip(tick_positions, [power_ticks, swim_ticks, fly_ticks, run_ticks, stamina_ticks]):
                 for i in range(int(ticks)):
                     tick_pos = (pos[0] + i * self.TICK_SPACING, pos[1])
                     template.paste(overlay, tick_pos, overlay)
 
-            # ====================
             # Paste Levels
-            # ====================
             for pos, level in zip(tick_positions, [power_level, swim_level, fly_level, run_level, stamina_level]):
                 level = int(level)  # Ensure the level is an integer
                 tens = level // 10  # Extract tens digit
                 ones = level % 10   # Extract ones digit
                 x_offset, y_offset = self.LEVEL_POSITION_OFFSET
-
-                # Debugging: Log digits being pasted
-                print(f"Level {level}: Tens = {tens}, Ones = {ones}")
 
                 # Paste tens digit
                 template.paste(
@@ -104,9 +87,7 @@ class ImageUtils(commands.Cog):
                     self.num_images.get(str(ones), self.num_images['0'])
                 )
 
-            # ====================
             # Paste EXP
-            # ====================
             for stat, exp in zip(["swim", "fly", "run", "power", "stamina"], 
                                 [swim_exp, fly_exp, run_exp, power_exp, stamina_exp]):
                 exp_str = f"{int(exp):04d}"  # Convert EXP to a zero-padded 4-digit string
@@ -117,11 +98,8 @@ class ImageUtils(commands.Cog):
                         self.num_images.get(digit, self.num_images['0'])
                     )
 
-            # ====================
             # Save the Final Image
-            # ====================
             template.save(output_path)
-            print(f"DEBUG - Page 1 stats image saved to: {output_path}")
 
     def paste_page2_image(
             self, template_path, overlay_path, output_path,
