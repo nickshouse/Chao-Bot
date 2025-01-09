@@ -252,7 +252,6 @@ class Chao(commands.Cog):
                 "**Chao Bot** is a W.I.P. bot that allows you to hatch, raise, and train your own Chao!\n\n"
                 "Below is a quick reference of some helpful commands to get you started. "
                 "Have fun raising your Chao!\n\n"
-                "**Example Commands**:\n\n"
                 "**$help** - View a full list of commands.\n"
                 "**$market** - Access the Black Market.\n"
                 "**$feed** - Feed a fruit to your Chao.\n"
@@ -273,7 +272,6 @@ class Chao(commands.Cog):
         # Add welcome_message.png at the bottom
         welcome_image_path = r"C:\Users\You\Documents\GitHub\Chao-Bot\assets\graphics\misc\welcome_message.png"
         embed.set_image(url="attachment://welcome_message.png")
-        embed.set_footer(text=f"Source Code: https://github.com/nickshouse/Chao-Bot")
         await ctx.reply(
             files=[
                 discord.File(egg_thumbnail_path, filename="egg_background.png"),
