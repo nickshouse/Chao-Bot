@@ -213,17 +213,17 @@ class DataUtils(commands.Cog):
     async def restore(self, ctx, *, args: str):
         parts = args.split()
         if len(parts) != 2 or parts[0].lower() != 'inventory':
-            return await ctx.send(f"{ctx.author.mention}, please use the command in the format: `$restore inventory YYYY-MM-DD`")
+            return await ctx.reply(f"{ctx.author.mention}, please use the command in the format: `$restore inventory YYYY-MM-DD`")
         date_str = parts[1]
         guild_id, user = ctx.guild.id, ctx.author
         file_path = self.get_path(guild_id, ctx.guild.name, user, 'user_data', 'inventory.parquet')
         try:
             datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError:
-            return await ctx.send(f"{ctx.author.mention}, please provide the date in YYYY-MM-DD format.")
+            return await ctx.reply(f"{ctx.author.mention}, please provide the date in YYYY-MM-DD format.")
         inventory_df = self.load_inventory(file_path)
         if date_str not in inventory_df['date'].values:
-            return await ctx.send(f"{ctx.author.mention}, no inventory data found for {date_str}.")
+            return await ctx.reply(f"{ctx.author.mention}, no inventory data found for {date_str}.")
         restored_inventory = inventory_df[inventory_df['date'] == date_str].iloc[0].to_dict()
         restored_inventory['date'] = datetime.now().date().strftime("%Y-%m-%d")
         columns = ['date'] + [col for col in restored_inventory if col != 'date']
@@ -233,7 +233,7 @@ class DataUtils(commands.Cog):
         else:
             inventory_df = pd.concat([inventory_df, new_entry_df], ignore_index=True).fillna(0)
         inventory_df.to_parquet(file_path, index=False)
-        await ctx.send(f"{ctx.author.mention}, your inventory has been restored to the state from {date_str}.")
+        await ctx.reply(f"{ctx.author.mention}, your inventory has been restored to the state from {date_str}.")
 
 async def setup(bot):
     await bot.add_cog(DataUtils(bot))

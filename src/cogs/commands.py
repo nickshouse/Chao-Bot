@@ -124,7 +124,7 @@ class Commands(commands.Cog):
 
     @commands.command(name='rename', help="Rename your Chao.")
     @ensure_user_initialized
-    async def rename(self, ctx, *, chao_name_and_new_name: str):
+    async def rename(self, ctx, *, chao_name_and_new_name: str = None):
         await self.chao_cog.rename(ctx, chao_name_and_new_name=chao_name_and_new_name)
 
     @commands.command(name='help', help="Show all available commands.")

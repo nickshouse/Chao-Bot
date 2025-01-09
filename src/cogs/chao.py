@@ -242,7 +242,7 @@ class Chao(commands.Cog):
         self.data_utils.save_inventory(
             inventory_path,
             self.data_utils.load_inventory(inventory_path),
-            {'rings': 500, 'Chao Egg': 1, 'Garden Fruit': 5}
+            {'rings': 500, 'Chao Egg': 1, 'Garden Nut': 5}
         )
 
         embed = discord.Embed(
@@ -1186,7 +1186,31 @@ class Chao(commands.Cog):
 
 
 
-    async def rename(self, ctx, *, chao_name_and_new_name: str):
+
+    async def rename(self, ctx, *, chao_name_and_new_name: str = None):
+        """
+        Rename a Chao or show usage information if no parameters are provided.
+        """
+        if not chao_name_and_new_name:
+            # No parameters provided, display usage information
+            embed = discord.Embed(
+                title="Rename Command",
+                description=(
+                    "The `$rename` command allows you to change the name of one of your Chao.\n\n"
+                    "**Usage:**\n"
+                    "`$rename <current_name> <new_name>`\n\n"
+                    "**Example:**\n"
+                    "`$rename Chaoko Chaozilla`\n"
+                    "Renames a Chao named 'Chaoko' to 'Chaozilla'.\n\n"
+                    "**Notes:**\n"
+                    "- New name must be 15 characters or fewer.\n"
+                    "- New name can be a single word or two words separated by a space."
+                ),
+                color=discord.Color.blue(),
+            )
+            await ctx.reply(embed=embed)
+            return
+
         guild_id = str(ctx.guild.id)
 
         # Split the input into current_name and new_name
@@ -1196,9 +1220,10 @@ class Chao(commands.Cog):
                 f"{ctx.author.mention}, please provide both the current Chao name and the new name.\n"
                 f"Usage: `$rename <current_name> <new_name>`"
             )
+
         # Assume the first part(s) is the current name and the last part(s) is the new name
-        current_name = ' '.join(parts[:-2]) if len(parts) > 2 else parts[0]
-        new_name = ' '.join(parts[-2:]) if len(parts) > 2 else parts[1]
+        current_name = ' '.join(parts[:-1]) if len(parts) > 2 else parts[0]
+        new_name = parts[-1]
 
         # Validate the new name
         if len(new_name) > 15:
@@ -1316,7 +1341,7 @@ class Chao(commands.Cog):
                 # Display integer amounts with no decimals
                 embed.add_field(
                     name=item,
-                    value=f"x {int(amount)}",
+                    value=f"Quantity: {int(amount)}",
                     inline=True
                 )
 
