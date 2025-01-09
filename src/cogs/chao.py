@@ -229,6 +229,7 @@ class Chao(commands.Cog):
             color=0x00FF00
         ))
 
+
     async def chao(self, ctx):
         """Initialize a user in the Chao system if not done already."""
         guild_id = str(ctx.guild.id)
@@ -248,14 +249,15 @@ class Chao(commands.Cog):
         embed = discord.Embed(
             title="Welcome to Chao Bot!",
             description=(
-                "**Chao Bot** is a fun bot that allows you to hatch, raise, and train your own Chao!\n\n"
+                "**Chao Bot** is a W.I.P. bot that allows you to hatch, raise, and train your own Chao!\n\n"
                 "Below is a quick reference of some helpful commands to get you started. "
                 "Have fun raising your Chao!\n\n"
-                "**Example Commands**:\n"
-                "`$feed [Chao name] [item]` - Feed your Chao.\n"
-                "`$race [Chao name]` - Enter your Chao in a race.\n"
-                "`$train [Chao name] [stat]` - Train your Chao in a specific stat.\n"
-                "`$stats [Chao name]` - View your Chao's stats.\n\n"
+                "**Example Commands**:\n\n"
+                "**$help** - View a full list of commands.\n"
+                "**$market** - Access the Black Market.\n"
+                "**$feed** - Feed a fruit to your Chao.\n"
+                "**$egg** - Receive a new Chao egg. Only 1 at a time.\n"
+                "**$hatch** - Hatch a new Chao egg.\n\n"
                 "**You Receive:**\n"
                 "- `1x Chao Egg`\n"
                 "- `500x Rings`\n"
@@ -263,31 +265,23 @@ class Chao(commands.Cog):
             ),
             color=self.embed_color
         )
+
+        # Use egg_background.png as the thumbnail
+        egg_thumbnail_path = r"C:\Users\You\Documents\GitHub\Chao-Bot\assets\graphics\thumbnails\egg_background.png"
+        embed.set_thumbnail(url="attachment://egg_background.png")
+
+        # Add welcome_message.png at the bottom
         welcome_image_path = r"C:\Users\You\Documents\GitHub\Chao-Bot\assets\graphics\misc\welcome_message.png"
         embed.set_image(url="attachment://welcome_message.png")
-
+        embed.set_footer(text=f"Source Code: https://github.com/nickshouse/Chao-Bot")
         await ctx.reply(
-            file=discord.File(welcome_image_path, filename="welcome_message.png"),
+            files=[
+                discord.File(egg_thumbnail_path, filename="egg_background.png"),
+                discord.File(welcome_image_path, filename="welcome_message.png")
+            ],
             embed=embed
         )
 
-    async def initialize_inventory(self, ctx, guild_id, user_id, embed_title, embed_desc):
-        """Initialize the user's inventory with default items."""
-        if self.data_utils.is_user_initialized(guild_id, user_id):
-            return await ctx.reply(f"{ctx.author.mention}, you have already started using the Chao Bot.")
-
-        inventory_path = self.data_utils.get_path(guild_id, user_id, 'user_data', 'inventory.parquet')
-        self.data_utils.save_inventory(
-            inventory_path,
-            self.data_utils.load_inventory(inventory_path),
-            {'rings': 500, 'Chao Egg': 1, 'Garden Fruit': 5}
-        )
-
-        await ctx.reply(
-            file=discord.File(self.NEUTRAL_PATH, filename="neutral_normal_1.png"),
-            embed=discord.Embed(title=embed_title, description=embed_desc, color=self.embed_color)
-            .set_image(url="attachment://neutral_normal_1.png")
-        )
 
     async def give_rings(self, ctx):
         """Give the user 10,000 rings."""
@@ -1358,8 +1352,6 @@ class Chao(commands.Cog):
 
 
 class StatsView(View):
-    """Two-page stats display with next/prev buttons."""
-
     def __init__(
         self,
         bot: commands.Bot,
