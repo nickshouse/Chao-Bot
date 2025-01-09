@@ -733,7 +733,7 @@ class Chao(commands.Cog):
                 title="Goodbye Command",
                 description=(
                     "The `$goodbye` command allows you to send one of your Chao to live happily "
-                    "in a faraway forest. 🌳\n\n"
+                    "in a faraway forest. 🌲\n\n"
                     "**Usage:**\n"
                     "`$goodbye Chaoko`\n\n"
                     "If you use this command, the specified Chao will be removed from your ownership, "
