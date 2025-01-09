@@ -1,4 +1,5 @@
 import os
+import json
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -7,10 +8,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Initialize bot with all intents
-bot = commands.Bot(command_prefix='$', help_command=None, intents=discord.Intents.all())
+bot = commands.Bot(command_prefix='%', help_command=None, intents=discord.Intents.all())
 
-# Global variable to store the restricted channel ID
-restricted_channel_id = None
+# Path to store the restrict settings
+RESTRICT_FILE = "restricted_channels.json"
+
+# Load the restricted channels data
+if os.path.exists(RESTRICT_FILE):
+    with open(RESTRICT_FILE, "r") as f:
+        restricted_channels = json.load(f)
+else:
+    restricted_channels = {}
 
 @bot.event
 async def on_ready():
@@ -25,7 +33,6 @@ async def on_ready():
             print(f'Failed to load {cog}: {e}')
     print(f'Connected as {bot.user.name}')
 
-
 @bot.command(name="restrict")
 @commands.has_permissions(administrator=True)  # Admin-only command
 async def restrict(ctx, channel_id: int = None):
@@ -33,7 +40,7 @@ async def restrict(ctx, channel_id: int = None):
     Restrict the bot to post messages only in a specific channel.
     If no channel ID is provided, it removes the restriction.
     """
-    global restricted_channel_id
+    guild_id = str(ctx.guild.id)
 
     if channel_id:
         # Validate the channel exists in the guild
@@ -43,26 +50,49 @@ async def restrict(ctx, channel_id: int = None):
             return
 
         # Set the restricted channel ID
-        restricted_channel_id = channel_id
+        restricted_channels[guild_id] = channel_id
+        save_restricted_channels()
         await ctx.reply(f"The bot is now restricted to post messages only in <#{channel_id}>.")
     else:
         # Remove the restriction
-        restricted_channel_id = None
+        restricted_channels.pop(guild_id, None)
+        save_restricted_channels()
         await ctx.reply("The bot can now post messages in all channels.")
-
 
 @bot.event
 async def on_message(message):
     """
     Event triggered for every message the bot can see.
-    Adds 10 rings to a user's inventory on each message and respects channel restrictions for bot replies.
+    Ensures that messages are processed only if they are in the restricted channel, if set.
     """
-    global restricted_channel_id
-
     # Ignore bot messages and messages outside of guilds
     if message.author.bot or not message.guild:
         return
 
+    guild_id = str(message.guild.id)
+    channel_id = restricted_channels.get(guild_id)
+
+    # If a restriction is set and the message is not in the allowed channel, process commands only
+    if channel_id and message.channel.id != channel_id:
+        # Still add 10 rings for the user
+        add_rings_for_user(message)
+        return
+
+    # Add rings for the user and process commands
+    add_rings_for_user(message)
+    await bot.process_commands(message)
+
+def save_restricted_channels():
+    """
+    Save the restricted channels data to a file.
+    """
+    with open(RESTRICT_FILE, "w") as f:
+        json.dump(restricted_channels, f, indent=4)
+
+def add_rings_for_user(message):
+    """
+    Add 10 rings to the user's inventory when they send a message.
+    """
     guild_id = str(message.guild.id)
     guild_name = message.guild.name
     user = message.author
@@ -73,8 +103,10 @@ async def on_message(message):
         print("DataUtils cog is not loaded.")
         return
 
-    # Add 10 rings to the user's inventory
-    if data_utils.is_user_initialized(guild_id, guild_name, user):
+    # Check if the user is initialized in the Chao system
+    if not data_utils.is_user_initialized(guild_id, guild_name, user):
+        print(f"User {user.name} is not initialized in the Chao system.")
+    else:
         try:
             # Get the inventory file path
             inventory_path = data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
@@ -95,15 +127,8 @@ async def on_message(message):
             data_utils.save_inventory(inventory_path, inventory_df, current_inventory)
 
         except Exception as e:
+            # Log any exceptions for debugging
             print(f"Error adding rings for {user.name}: {str(e)}")
-
-    # If the bot is restricted, ignore messages outside the restricted channel for its replies
-    if restricted_channel_id and message.channel.id != restricted_channel_id:
-        return
-
-    # Ensure other commands still work
-    await bot.process_commands(message)
-
 
 # Run the bot
 bot.run(os.getenv('DISCORD_TOKEN'))
