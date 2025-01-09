@@ -49,7 +49,7 @@ class Commands(commands.Cog):
     @commands.command(name='grades', help="View a Chao's grades.")
     @ensure_user_initialized
     async def grades(self, ctx, *, chao_name: str):
-        await self.chao_cog.show_grades(ctx, chao_name=chao_name)
+        await self.chao_cog.grades(ctx, chao_name=chao_name)
 
     @commands.command(name='market', help="Access the Chao black market.")
     @ensure_user_initialized
@@ -65,7 +65,6 @@ class Commands(commands.Cog):
     @ensure_user_initialized
     async def pet(self, ctx, *, chao_name: str):
         await self.chao_cog.pet(ctx, chao_name=chao_name)
-
 
     @commands.command(name='inventory', help="View your current inventory.")
     @ensure_user_initialized
@@ -118,6 +117,51 @@ class Commands(commands.Cog):
     async def rename(self, ctx, *, chao_name_and_new_name: str):
         await self.chao_cog.rename(ctx, chao_name_and_new_name=chao_name_and_new_name)
 
+    @commands.command(name='help', help="Show all available commands.")
+    async def help(self, ctx):
+        help_text = "**Available Commands:**\n\n"
+        help_text += "`$chao` - Start using Chao Bot.\nExample: `$chao`\n\n"
+        help_text += "`$plans` - View upcoming features and plans for the Chao Bot.\nExample: `$plans`\n\n"
+        help_text += "`$hatch` - Hatch a new Chao egg.\nExample: `$hatch`\n\n"
+        help_text += "`$grades` - View a Chao's grades.\nExample: `$grades Chaozart`\n\n"
+        help_text += "`$market` - Access the Black Market.\nExample: `$market`\n\n"
+        help_text += "`$buy` - Buy items from the Chao black market.\nExample: `$buy garden nut 3`\n\n"
+        help_text += "`$pet` - Pet your Chao to make it happy.\nExample: `$pet Chaowser`\n\n"
+        help_text += "`$throw` - Throw your chao. Not recommended.\nExample: `$throw Chaocolate`\n\n"
+        help_text += "`$inventory` - View your current inventory.\nExample: `$inventory`\n\n"
+        help_text += "`$restore` - Restore your Chao data. USE WITH CAUTION. \nExample: `$restore Chaozilla 2025-07-22`\n\n"
+        help_text += "`$stats` - View a Chao's stats.\nExample: `$stats Chaolin`\n\n"
+        help_text += "`$feed` - Feed a fruit to your Chao.\nExample: `$feed Chaoko Run Fruit`\n\n"
+        help_text += "`$rename` - Rename your Chao. 15 character limit.\nExample: `$rename Chaozhu BetterChaozhu`\n"
+
+        embed = discord.Embed(title="Chao Bot Help", description=help_text, color=discord.Color.blue())
+        await ctx.reply(embed=embed)
+
+    @commands.command(name='plans', help="View upcoming features and plans for the Chao Bot.")
+    async def plans(self, ctx):
+        """
+        Displays a list of upcoming features and plans for the Chao Bot.
+        """
+        plans_text = (
+            "Here are the upcoming features and plans for the Chao Bot:\n\n"
+            "- Dynamic emoticon ball\n"
+            "- Chaos drives\n"
+            "- Colored Chao\n"
+            "- Purchasable eggs\n"
+            "- Sell to Black Market\n"
+            "- Trade requests between users\n"
+            "- Chao Graveyard\n"
+            "- Chao Mating\n"
+            "- Purchasable background colors for stat cards\n"
+            "- X rank\n"
+            "- Chao export tool\n"
+            "- Chao forest\n"
+            "- Daily drops\n"
+            "- Chao fishing\n"
+            "- Chao Racing collab?\n"
+        )
+        embed = discord.Embed(title="Upcoming Features", description=plans_text, color=discord.Color.green())
+        await ctx.reply(embed=embed)
 
 async def setup(bot): 
     await bot.add_cog(Commands(bot))
