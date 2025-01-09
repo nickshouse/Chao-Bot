@@ -61,6 +61,12 @@ class Commands(commands.Cog):
     async def buy(self, ctx, *, item_quantity: str):
         await self.black_market_cog.buy(ctx, item_quantity=item_quantity)
 
+    @commands.command(name='pet', help="Pet your Chao to make it happy!")
+    @ensure_user_initialized
+    async def pet(self, ctx, *, chao_name: str):
+        await self.chao_cog.pet(ctx, chao_name=chao_name)
+
+
     @commands.command(name='inventory', help="View your current inventory.")
     @ensure_user_initialized
     async def inventory(self, ctx):
@@ -106,6 +112,12 @@ class Commands(commands.Cog):
     @ensure_user_initialized
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         await self.chao_cog.feed(ctx, chao_name_and_fruit=chao_name_and_fruit)
+
+    @commands.command(name='rename', help="Rename your Chao.")
+    @ensure_user_initialized
+    async def rename(self, ctx, *, chao_name_and_new_name: str):
+        await self.chao_cog.rename(ctx, chao_name_and_new_name=chao_name_and_new_name)
+
 
 async def setup(bot): 
     await bot.add_cog(Commands(bot))

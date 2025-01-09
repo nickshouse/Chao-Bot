@@ -41,10 +41,10 @@ class Chao(commands.Cog):
             "purple fruit": {"swim": -2, "fly": 3, "run": 3, "power": -2, "stamina": 1},
             "yellow fruit": {"swim": -3, "fly": 4, "run": -3, "power": 4, "stamina": 2},
             "red fruit": {"swim": 3, "fly": 1, "run": 3, "power": 2, "stamina": -5},
-            "power fruit": {"power": 4},
-            "swim fruit": {"swim": 4},
-            "run fruit": {"run": 4},
-            "fly fruit": {"fly": 8},
+            "power fruit": {"power": (8), "run_power": 1},
+            "swim fruit": {"swim": (8), "swim_fly": -1},
+            "run fruit": {"run": (8), "run_power": -1},
+            "fly fruit": {"fly": (8), "swim_fly": 1},
             "strange mushroom": {},  # Add custom logic for randomizing ticks
         }
 
@@ -355,6 +355,12 @@ class Chao(commands.Cog):
         await ctx.reply(embed=embed, file=file)
 
 
+    def get_random_grade(self):
+        """Select a random grade based on weighted probabilities."""
+        grades = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
+        probabilities = [4, 20, 25, 25, 20, 5, 1]  # Probabilities for each grade
+        return random.choices(grades, probabilities, k=1)[0]
+
     async def hatch(self, ctx):
         """
         Command to hatch a Chao Egg. Initializes the Chao's stats
@@ -420,24 +426,24 @@ class Chao(commands.Cog):
             'energy_ticks': random.randint(3, 10),
             'hp_ticks': 10,
             'swim_exp': 0,
-            'swim_grade': 'D',
+            'swim_grade': self.get_random_grade(),
             'swim_level': 0,
             'swim_fly': 0,
             'fly_exp': 0,
-            'fly_grade': 'D',
+            'fly_grade': self.get_random_grade(),
             'fly_level': 0,
             'fly_ticks': 0,
             'power_exp': 0,
-            'power_grade': 'D',
+            'power_grade': self.get_random_grade(),
             'power_level': 0,
             'power_ticks': 0,
             'run_exp': 0,
-            'run_grade': 'D',
+            'run_grade': self.get_random_grade(),
             'run_level': 0,
             'run_power': 0,
             'run_ticks': 0,
             'stamina_exp': 0,
-            'stamina_grade': 'D',
+            'stamina_grade': self.get_random_grade(),
             'stamina_level': 0,
             'stamina_ticks': 0
         }
@@ -476,6 +482,7 @@ class Chao(commands.Cog):
             file=discord.File(thumbnail_path, filename=f"{chao_name.replace(' ', '_')}_thumbnail.png"),
             embed=embed
         )
+
 
     def update_chao_type_and_thumbnail(
         self,
@@ -532,7 +539,11 @@ class Chao(commands.Cog):
             suffix = determine_suffix(run_power, swim_fly)
             chao_type = latest_stats.get("Type", f"{alignment}_normal_1")  # Default type for Form 1
 
-            # Evolution logic
+            # Update type for Form 1 based on alignment
+            if current_form == "1":
+                chao_type = f"{alignment}_normal_1"
+
+            # Evolution logic for Forms 2, 3, and 4
             if current_form == "1" and max_level >= self.FORM_LEVEL_2:
                 suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
                 current_form = "2"
@@ -643,7 +654,6 @@ class Chao(commands.Cog):
         }
         return random.randint(*grade_ranges.get(grade.upper(), (8, 12)))
 
-
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         """
         Feed a particular fruit to a Chao, applying its effects and updating stats.
@@ -688,6 +698,11 @@ class Chao(commands.Cog):
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         latest_stats = chao_df.iloc[-1].to_dict()
 
+        # Update hp_ticks and belly_ticks
+        max_ticks = 9
+        latest_stats['hp_ticks'] = min(latest_stats.get('hp_ticks', 0) + 1, max_ticks)
+        latest_stats['belly_ticks'] = min(latest_stats.get('belly_ticks', 0) + 1, max_ticks)
+
         # Update belly and date
         days_elapsed = (datetime.now() - datetime.strptime(latest_stats.get('date', datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d")).days
         latest_stats['belly'] = max(0, latest_stats.get('belly', 0) - days_elapsed)
@@ -695,70 +710,68 @@ class Chao(commands.Cog):
         latest_stats['date'] = datetime.now().strftime("%Y-%m-%d")
 
         # Stats before feeding
-        print(f"Feeding {chao_name} a {fruit_name.title()}")
+        print(f"\nFeeding {chao_name} a {fruit_name.title()}")
         print("Stats before feeding:")
-        print(f"run level: {latest_stats.get('run_level', 0)}")
-        print(f"run ticks: {latest_stats.get('run_ticks', 0)}")
-        print(f"run_power: {latest_stats.get('run_power', 0)}")
-        print(f"swim level: {latest_stats.get('swim_level', 0)}")
-        print(f"swim ticks: {latest_stats.get('swim_ticks', 0)}")
-        print(f"fly level: {latest_stats.get('fly_level', 0)}")
-        print(f"fly ticks: {latest_stats.get('fly_ticks', 0)}")
-        print(f"power level: {latest_stats.get('power_level', 0)}")
-        print(f"power ticks: {latest_stats.get('power_ticks', 0)}")
-        print(f"swim_fly: {latest_stats.get('swim_fly', 0)}")
-        print(f"Form: {latest_stats.get('Form', 'Unknown')}")
-        print(f"Type: {latest_stats.get('Type', 'Unknown')}" + "\n")
+        for key, value in latest_stats.items():
+            print(f"{key}: {value}")
 
         # Apply fruit effects
-        fruit_to_stat = {
-            "run fruit": "run",
-            "power fruit": "power",
-            "swim fruit": "swim",
-            "fly fruit": "fly"
-        }
+        if fruit_name.lower() == "strange mushroom":
+            for stat in ['stamina', 'power', 'run', 'fly', 'swim']:
+                latest_stats[f"{stat}_ticks"] = random.randint(0, max_ticks)
+        else:
+            adjustments = self.fruit_stats_adjustments.get(fruit_name.lower(), {})
+            for stat, adjustment in adjustments.items():
+                if isinstance(adjustment, tuple):
+                    # Range-based adjustment
+                    increment = random.randint(*adjustment)
+                else:
+                    # Fixed adjustment
+                    increment = adjustment
 
-        stat = fruit_to_stat.get(fruit_name.lower())
-        if stat:
-            ticks_key = f"{stat}_ticks"
-            level_key = f"{stat}_level"
-            exp_key = f"{stat}_exp"
-            grade_key = f"{stat}_grade"
+                if stat in ["run_power", "swim_fly"]:
+                    # Adjust stat and move the opposing stat closer to 0
+                    latest_stats[stat] = max(-5, min(5, latest_stats.get(stat, 0) + increment))
+                    opposing_stat = "swim_fly" if stat == "run_power" else "run_power"
+                    if latest_stats[opposing_stat] > 0:
+                        latest_stats[opposing_stat] -= 1
+                    elif latest_stats[opposing_stat] < 0:
+                        latest_stats[opposing_stat] += 1
 
-            current_ticks = latest_stats.get(ticks_key, 0)
-            tick_increment = 8  # All fruits add 8 ticks now
-            new_ticks = current_ticks + tick_increment
+                    # Change type immediately when run_power or swim_fly reach ±5
+                    if latest_stats["Form"] == "2":
+                        if latest_stats["run_power"] == 5:
+                            latest_stats["Type"] = "neutral_normal_power_2"
+                        elif latest_stats["run_power"] == -5:
+                            latest_stats["Type"] = "neutral_normal_run_2"
+                        elif latest_stats["swim_fly"] == 5:
+                            latest_stats["Type"] = "neutral_normal_fly_2"
+                        elif latest_stats["swim_fly"] == -5:
+                            latest_stats["Type"] = "neutral_normal_swim_2"
+                elif stat.endswith("_hero"):
+                    # Handle alignment stats
+                    latest_stats[stat] = max(-5, min(5, latest_stats.get(stat, 0) + increment))
+                else:
+                    # Normal stat adjustments
+                    ticks_key = f"{stat}_ticks"
+                    level_key = f"{stat}_level"
+                    exp_key = f"{stat}_exp"
+                    grade_key = f"{stat}_grade"
 
-            # Update level if ticks reach 10
-            if new_ticks >= 10:
-                latest_stats[ticks_key] = new_ticks - 10
-                latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
+                    current_ticks = latest_stats.get(ticks_key, 0)
+                    current_level = latest_stats.get(level_key, 0)
+                    current_exp = latest_stats.get(exp_key, 0)
+                    grade = latest_stats.get(grade_key, 'F')
 
-                # Determine stat gain based on grade
-                grade = latest_stats.get(grade_key, 'F')
-                stat_gain = self.get_stat_increment(grade)
-                latest_stats[exp_key] = latest_stats.get(exp_key, 0) + stat_gain
-            else:
-                latest_stats[ticks_key] = new_ticks
-
-            # Adjust run_power or swim_fly and counter-adjust the other stat
-            if stat in {"run", "power"}:
-                latest_stats["run_power"] = max(-5, min(5, latest_stats.get("run_power", 0) + (1 if stat == "power" else -1)))
-                latest_stats["swim_fly"] += 1 if latest_stats["swim_fly"] < 0 else -1 if latest_stats["swim_fly"] > 0 else 0
-            elif stat in {"swim", "fly"}:
-                latest_stats["swim_fly"] = max(-5, min(5, latest_stats.get("swim_fly", 0) + (1 if stat == "fly" else -1)))
-                latest_stats["run_power"] += 1 if latest_stats["run_power"] < 0 else -1 if latest_stats["run_power"] > 0 else 0
-
-            # Change type instantly if run_power or swim_fly reaches ±5
-            if latest_stats.get("Form") == "2":
-                if latest_stats["run_power"] == 5:
-                    latest_stats["Type"] = "neutral_normal_power_2"
-                elif latest_stats["run_power"] == -5:
-                    latest_stats["Type"] = "neutral_normal_run_2"
-                elif latest_stats["swim_fly"] == 5:
-                    latest_stats["Type"] = "neutral_normal_fly_2"
-                elif latest_stats["swim_fly"] == -5:
-                    latest_stats["Type"] = "neutral_normal_swim_2"
+                    # Update ticks and check for level-up
+                    new_ticks = current_ticks + increment
+                    if new_ticks >= 10:
+                        latest_stats[ticks_key] = new_ticks - 10
+                        latest_stats[level_key] = current_level + 1
+                        stat_gain = self.get_stat_increment(grade)
+                        latest_stats[exp_key] = current_exp + stat_gain
+                    else:
+                        latest_stats[ticks_key] = new_ticks
 
         # Deduct fruit
         normalized_inventory[fruit_name] -= 1
@@ -777,19 +790,9 @@ class Chao(commands.Cog):
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
 
         # Stats after feeding
-        print("Stats after feeding:")
-        print(f"run level: {latest_stats.get('run_level', 0)}")
-        print(f"run ticks: {latest_stats.get('run_ticks', 0)}")
-        print(f"run_power: {latest_stats.get('run_power', 0)}")
-        print(f"swim level: {latest_stats.get('swim_level', 0)}")
-        print(f"swim ticks: {latest_stats.get('swim_ticks', 0)}")
-        print(f"fly level: {latest_stats.get('fly_level', 0)}")
-        print(f"fly ticks: {latest_stats.get('fly_ticks', 0)}")
-        print(f"power level: {latest_stats.get('power_level', 0)}")
-        print(f"power ticks: {latest_stats.get('power_ticks', 0)}")
-        print(f"swim_fly: {latest_stats.get('swim_fly', 0)}")
-        print(f"Form: {latest_stats.get('Form', 'Unknown')}")
-        print(f"Type: {latest_stats.get('Type', 'Unknown')}")
+        print("\nStats after feeding:")
+        for key, value in latest_stats.items():
+            print(f"{key}: {value}")
 
         # Build embed
         description = f"{chao_name} ate a {fruit_name.title()}!\n\n"
@@ -803,6 +806,7 @@ class Chao(commands.Cog):
             ),
             embed=embed
         )
+
 
 
     async def stats(self, ctx, *, chao_name: str):
@@ -959,10 +963,9 @@ class Chao(commands.Cog):
             view=view
         )
 
-    @commands.command(name="pet")
-    async def pet(self, ctx, *, chao_name: str):
+    async def pet(self, ctx, chao_name: str):
         """
-        Command to pet a Chao, increase its happiness, and display it with happy expressions.
+        Handles the logic for the pet command, increasing a Chao's happiness and updating its display.
         """
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
@@ -981,8 +984,22 @@ class Chao(commands.Cog):
         # Increase happiness
         latest_stats['happiness_ticks'] = min(latest_stats.get('happiness_ticks', 0) + 1, 10)
 
-        # Get Chao type
+        # Get Chao type and form
         chao_type = latest_stats.get("Type", "neutral_normal_1")
+        chao_form = latest_stats.get("Form", "1")
+        chao_alignment = latest_stats.get("Alignment", "neutral")
+
+        # Determine the background path based on form and alignment
+        if chao_form in ["3", "4"]:  # Form 3 or greater uses alignment-based backgrounds
+            background_path = (
+                self.HERO_BG_PATH if chao_alignment == "hero" else
+                self.DARK_BG_PATH if chao_alignment == "dark" else
+                self.NEUTRAL_BG_PATH
+            )
+        else:  # Forms 1 and 2 use a neutral background
+            background_path = os.path.join(self.assets_dir, "graphics/thumbnails/neutral_background.png")
+
+        # Get Chao image path
         chao_image_path = os.path.join(
             self.assets_dir,
             "chao",
@@ -1002,7 +1019,7 @@ class Chao(commands.Cog):
 
         # Generate the happy thumbnail using combine_images_with_face
         self.image_utils.combine_images_with_face(
-            background_path=os.path.join(self.assets_dir, "graphics/thumbnails/neutral_background.png"),  # Neutral background
+            background_path=background_path,  # Background determined by form and alignment
             chao_image_path=chao_image_path,
             eyes_image_path=os.path.join(self.EYES_DIR, "neutral_happy.png"),
             mouth_image_path=os.path.join(self.MOUTH_DIR, "happy.png"),
@@ -1012,7 +1029,7 @@ class Chao(commands.Cog):
         # Create embed with the happy thumbnail
         embed = discord.Embed(
             title=f"You pet {chao_name}!",
-            description=f"{chao_name} looks so happy! Happiness increased by 1.",
+            description=f"{chao_name} looks so happy! \nHappiness increased by 10%.",
             color=self.embed_color
         )
         embed.set_image(url=f"attachment://{chao_name}_thumbnail_happy.png")
@@ -1021,6 +1038,56 @@ class Chao(commands.Cog):
         await ctx.reply(
             file=discord.File(happy_thumbnail_path, filename=f"{chao_name}_thumbnail_happy.png"),
             embed=embed
+        )
+
+    async def rename(self, ctx, *, chao_name_and_new_name: str):
+        """
+        Renames a Chao by updating all instances of its name in the database, files, and folders.
+        Usage: $name <current_name> <new_name>
+        """
+        guild_id = str(ctx.guild.id)
+        user_id = str(ctx.author.id)
+
+        # Parse the current Chao name and the new name
+        parts = chao_name_and_new_name.split()
+        if len(parts) < 2:
+            return await ctx.reply(
+                f"{ctx.author.mention}, please provide both the current Chao name and the new name.\n"
+                f"Usage: `$name <current_name> <new_name>`"
+            )
+        current_name = ' '.join(parts[:-1]).strip()
+        new_name = parts[-1].strip()
+
+        # Paths for Chao data
+        chao_dir = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'chao_data', current_name)
+        new_chao_dir = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'chao_data', new_name)
+
+        if not os.path.exists(chao_dir):
+            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{current_name}** exists.")
+
+        if os.path.exists(new_chao_dir):
+            return await ctx.reply(f"{ctx.author.mention}, a Chao named **{new_name}** already exists.")
+
+        # Rename the Chao directory
+        os.rename(chao_dir, new_chao_dir)
+
+        # Update stats file
+        stats_file = os.path.join(new_chao_dir, f"{current_name}_stats.parquet")
+        new_stats_file = os.path.join(new_chao_dir, f"{new_name}_stats.parquet")
+        if os.path.exists(stats_file):
+            os.rename(stats_file, new_stats_file)
+
+        # Rename all relevant image files in the Chao directory
+        for filename in os.listdir(new_chao_dir):
+            if current_name in filename:
+                old_file_path = os.path.join(new_chao_dir, filename)
+                new_file_path = old_file_path.replace(current_name, new_name)
+                os.rename(old_file_path, new_file_path)
+
+        # No changes to the database entries are made; only filenames are updated.
+        # Confirmation message
+        await ctx.reply(
+            f"{ctx.author.mention}, your Chao has been successfully renamed from **{current_name}** to **{new_name}**!"
         )
 
 
@@ -1111,7 +1178,11 @@ class Chao(commands.Cog):
         if not inventory_df.empty and current_date_str in inventory_df['date'].values:
             current_inventory = inventory_df[inventory_df['date'] == current_date_str].iloc[-1].to_dict()
         else:
-            current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {'rings': 0}
+            current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {'Rings': 0}
+
+        # Ensure 'Rings' key is capitalized
+        if 'rings' in current_inventory:
+            current_inventory['Rings'] = current_inventory.pop('rings')
 
         embed = discord.Embed(
             title="Your Inventory",
@@ -1123,13 +1194,18 @@ class Chao(commands.Cog):
             if item == 'date':
                 continue
             if amount > 0:
+                # Display integer amounts with no decimals
                 embed.add_field(
                     name=item,
-                    value=f"Quantity: {amount}",
+                    value=f"Quantity: {int(amount)}",
                     inline=True
                 )
 
+        # Add footer
+        embed.set_footer(text="Graphics Pending...")
+
         await ctx.reply(embed=embed)
+
 
     def calculate_exp_gain(self, grade: str) -> int:
         return {
@@ -1139,6 +1215,7 @@ class Chao(commands.Cog):
 
 class StatsView(View):
     """Two-page stats display with next/prev buttons."""
+
     def __init__(
         self,
         bot: commands.Bot,
@@ -1187,12 +1264,12 @@ class StatsView(View):
         self.total_pages = total_pages
         self.state_file = state_file
 
-        # Load saved state for current page
-        self.current_page = self.load_state(current_page)
+        # Load and validate the initial page state
+        self.current_page = self.load_state(default_page=current_page)
+        self.save_state()  # Ensure the state is immediately persisted
 
         # Add navigation buttons
-        self.add_item(self.create_button("⬅️", "previous_page", f"{guild_id}_{user_id}_{chao_name}_prev"))
-        self.add_item(self.create_button("➡️", "next_page", f"{guild_id}_{user_id}_{chao_name}_next"))
+        self.add_navigation_buttons()
 
     def save_state(self):
         """Save the current page to the persistent views file."""
@@ -1223,10 +1300,17 @@ class StatsView(View):
                 try:
                     data = json.load(f)
                     key = f"{self.guild_id}_{self.user_id}_{self.chao_name}"
-                    return data.get(key, {}).get("current_page", default_page)
+                    page = data.get(key, {}).get("current_page", default_page)
+                    return page if 1 <= page <= self.total_pages else default_page
                 except json.JSONDecodeError:
                     pass  # Return default if JSON is corrupted
         return default_page
+
+    def add_navigation_buttons(self):
+        """Add navigation buttons to the view."""
+        self.clear_items()
+        self.add_item(self.create_button("⬅️", "previous_page", f"{self.guild_id}_{self.user_id}_{self.chao_name}_prev"))
+        self.add_item(self.create_button("➡️", "next_page", f"{self.guild_id}_{self.user_id}_{self.chao_name}_next"))
 
     def create_button(self, emoji: str, callback_name: str, custom_id: str) -> Button:
         button = Button(style=discord.ButtonStyle.primary, emoji=emoji, custom_id=custom_id)
@@ -1234,17 +1318,19 @@ class StatsView(View):
         return button
 
     async def previous_page(self, interaction: discord.Interaction):
+        """Navigate to the previous page."""
         self.current_page = self.total_pages if self.current_page == 1 else self.current_page - 1
         self.save_state()
         await self.update_stats(interaction)
 
     async def next_page(self, interaction: discord.Interaction):
+        """Navigate to the next page."""
         self.current_page = 1 if self.current_page == self.total_pages else self.current_page + 1
         self.save_state()
         await self.update_stats(interaction)
 
     async def update_stats(self, interaction: discord.Interaction):
-        """Switch between page1 and page2 stat images."""
+        """Update the stats display based on the current page."""
         guild = self.bot.get_guild(int(self.guild_id))
         if not guild:
             return await interaction.response.send_message("Error: Could not find the guild.", ephemeral=True)
@@ -1308,8 +1394,6 @@ class StatsView(View):
             ],
             view=self
         )
-
-
 
     @classmethod
     def from_data(cls, view_data: Dict, cog):

@@ -20,7 +20,7 @@ class MarketView(View):
         self.total_pages = total_pages
         self.state_file = state_file
 
-        # Load the last saved state
+        # Load or initialize state
         self.current_page = self.load_state()
 
         self.add_item(self.previous_button())
@@ -29,18 +29,23 @@ class MarketView(View):
     def save_state(self):
         """Save the current page to a file."""
         state = {"current_page": self.current_page}
-        with open(self.state_file, "w") as f:
-            json.dump(state, f)
+        try:
+            with open(self.state_file, "w") as f:
+                json.dump(state, f)
+        except Exception as e:
+            print(f"[MarketView] Failed to save state: {e}")
 
     def load_state(self):
-        """Load the current page from a file."""
+        """Load the current page from a file, ensuring it is within valid bounds."""
         if os.path.exists(self.state_file):
-            with open(self.state_file, "r") as f:
-                try:
+            try:
+                with open(self.state_file, "r") as f:
                     state = json.load(f)
-                    return state.get("current_page", 1)
-                except json.JSONDecodeError:
-                    return 1
+                    page = state.get("current_page", 1)
+                    if 1 <= page <= self.total_pages:
+                        return page
+            except Exception as e:
+                print(f"[MarketView] Failed to load state: {e}")
         return 1
 
     def previous_button(self) -> Button:
@@ -54,21 +59,20 @@ class MarketView(View):
         return button
 
     async def previous_page(self, interaction: discord.Interaction):
+        """Navigate to the previous page and update the state."""
         self.current_page = self.current_page - 1 if self.current_page > 1 else self.total_pages
-        self.save_state()  # Save the updated state
+        self.save_state()
         await self.update_market(interaction)
 
     async def next_page(self, interaction: discord.Interaction):
+        """Navigate to the next page and update the state."""
         self.current_page = self.current_page + 1 if self.current_page < self.total_pages else 1
-        self.save_state()  # Save the updated state
+        self.save_state()
         await self.update_market(interaction)
 
     async def update_market(self, interaction: discord.Interaction):
         """
-        3 pages total:
-        Page 1: image 1
-        Page 2: image 2
-        Page 3: no image, special text
+        Updates the market page display based on the current page.
         """
         fruit_prices = self.black_market_cog.load_fruit_prices()
 
@@ -116,18 +120,22 @@ class MarketView(View):
                 self.embed.set_footer(text=f"Page {self.current_page} / {self.total_pages}")
 
             else:
-                # Page 3 logic
+                # Page 3 logic with synced prices
                 self.embed.clear_fields()
                 self.embed.set_image(url=None)
 
-                new_items = [
+                # Dynamic prices for Page 3 items
+                page_3_items = [
                     "Swim Fruit", "Fly Fruit", "Run Fruit",
                     "Power Fruit", "Garden Nut", "Strange Mushroom"
                 ]
-                cost_text = "\n".join(f"- **{item}** (10 rings)" for item in new_items)
+                cost_text = "\n".join(
+                    f"- **{item}** ({fruit_prices[item]} rings)"
+                    for item in page_3_items
+                )
 
                 self.embed.description = (
-                    "Main items for unique chao evolution:\n\n"
+                    "Main items for unique Chao evolution:\n\n"
                     "**Shop Type**\nFruits\n\n"
                     f"{cost_text}\n"
                 )
@@ -146,6 +154,7 @@ class MarketView(View):
             )
 
 
+
 class BlackMarket(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -160,7 +169,8 @@ class BlackMarket(commands.Cog):
             "Tasty Fruit": 30, "Heart Fruit": 30, "Chao Fruit": 55,
             "Orange Fruit": 35, "Yellow Fruit": 50, "Green Fruit": 50,
             "Red Fruit": 60, "Blue Fruit": 40, "Pink Fruit": 55, "Purple Fruit": 45,
-            "Swim Fruit": 15, "Fly Fruit": 15, "Run Fruit": 15, "Power Fruit": 15
+            "Swim Fruit": 15, "Fly Fruit": 15, "Run Fruit": 15, "Power Fruit": 15,
+            "Garden Nut": 10, "Strange Mushroom": 10
         }
 
         self.fruit_prices = self.load_fruit_prices()
