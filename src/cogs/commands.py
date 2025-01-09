@@ -144,6 +144,7 @@ class Commands(commands.Cog):
         help_text += "**$stats** - View a Chao's stats.\nExample: `$stats Chaolin`\n\n"
         help_text += "**$feed** - Feed a fruit to your Chao.\nExample: `$feed Chaoko Run Fruit`\n\n"
         help_text += "**$rename** - Rename your Chao. 15 character limit.\nExample: `$rename Chaozhu BetterChaozhu`\n\n"
+        help_text += "**$listchao** - See a list of your Chao.\nExample: `$listchao`\n\n"
         help_text += "**Source Code** - `https://github.com/nickshouse/Chao-Bot`\n"
 
         embed = discord.Embed(title="Chao Bot Help", description=help_text, color=discord.Color.blue())
