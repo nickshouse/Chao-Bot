@@ -136,12 +136,18 @@ class Chao(commands.Cog):
                     "chao_name", "guild_id", "user_id",
                     "chao_type_display", "alignment_label", "total_pages"
                 }
+
+                # Add missing defaults
                 if not required_keys.issubset(view_data.keys()):
-                    print(f"[load_persistent_views] Skipping key={key} due to missing required fields.")
-                    continue
+                    print(f"[load_persistent_views] Key={key} is missing fields. Adding defaults.")
+                    view_data.setdefault("chao_type_display", "Unknown")
+                    view_data.setdefault("alignment_label", "Neutral")
+                    view_data.setdefault("total_pages", 2)
+                    view_data.setdefault("current_page", 1)
 
                 view = StatsView.from_data(view_data, self)
                 self.bot.add_view(view)
+
 
     def send_embed(self, ctx, description: str, title: str = "Chao Bot"):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
@@ -334,7 +340,7 @@ class Chao(commands.Cog):
 
         # Add grades as a list
         grade_list = "\n".join([f"**{stat.capitalize()}**: {grade}" for stat, grade in grades.items()])
-        embed.add_field(name="Grades", value=grade_list, inline=False)
+        embed.add_field(name="", value=grade_list, inline=False)
 
         # Add thumbnail if it exists
         if os.path.exists(thumbnail_path):
@@ -342,7 +348,7 @@ class Chao(commands.Cog):
             embed.set_thumbnail(url=file_url)
 
         # Add footer
-        embed.set_footer(text="Graphics Pending")
+        embed.set_footer(text="Graphics Pending...")
 
         # Send the embed as a reply
         file = discord.File(thumbnail_path, filename=os.path.basename(thumbnail_path)) if os.path.exists(thumbnail_path) else None
@@ -399,7 +405,7 @@ class Chao(commands.Cog):
             'date': datetime.now().strftime("%Y-%m-%d"),
             'birth_date': datetime.now().strftime("%Y-%m-%d"),
             'Form': '1',
-            'Type': 'Normal',
+            'Type': 'neutral_normal_1',
             'hatched': 1,
             'evolved': 0,
             'dead': 0,
@@ -408,10 +414,10 @@ class Chao(commands.Cog):
             'eyes': random.choice(self.eye_types),
             'mouth': random.choice(self.mouth_types),
             'dark_hero': 0,
-            'belly_ticks': 5,
-            'happiness_ticks': 10,
+            'belly_ticks': random.randint(3, 10),
+            'happiness_ticks': random.randint(3, 10),
             'illness_ticks': 0,
-            'energy_ticks': 10,
+            'energy_ticks': random.randint(3, 10),
             'hp_ticks': 10,
             'swim_exp': 0,
             'swim_grade': 'D',
@@ -953,6 +959,69 @@ class Chao(commands.Cog):
             view=view
         )
 
+    @commands.command(name="pet")
+    async def pet(self, ctx, *, chao_name: str):
+        """
+        Command to pet a Chao, increase its happiness, and display it with happy expressions.
+        """
+        guild_id = str(ctx.guild.id)
+        user_id = str(ctx.author.id)
+
+        # Locate Chao stats
+        chao_dir = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'chao_data', chao_name)
+        chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
+
+        if not os.path.exists(chao_stats_path):
+            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
+
+        # Load Chao stats
+        chao_df = self.data_utils.load_chao_stats(chao_stats_path)
+        latest_stats = chao_df.iloc[-1].to_dict()
+
+        # Increase happiness
+        latest_stats['happiness_ticks'] = min(latest_stats.get('happiness_ticks', 0) + 1, 10)
+
+        # Get Chao type
+        chao_type = latest_stats.get("Type", "neutral_normal_1")
+        chao_image_path = os.path.join(
+            self.assets_dir,
+            "chao",
+            chao_type.split("_")[1],  # Base type folder (e.g., fly, normal, power, etc.)
+            chao_type.split("_")[0],  # Alignment folder (e.g., hero, dark, neutral)
+            f"{chao_type}.png"
+        )
+
+        if not os.path.exists(chao_image_path):
+            chao_image_path = os.path.join(self.assets_dir, "chao", "chao_missing.png")  # Fallback
+
+        # Save updated stats
+        self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
+
+        # Ensure the happy thumbnail path
+        happy_thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail_happy.png")
+
+        # Generate the happy thumbnail using combine_images_with_face
+        self.image_utils.combine_images_with_face(
+            background_path=os.path.join(self.assets_dir, "graphics/thumbnails/neutral_background.png"),  # Neutral background
+            chao_image_path=chao_image_path,
+            eyes_image_path=os.path.join(self.EYES_DIR, "neutral_happy.png"),
+            mouth_image_path=os.path.join(self.MOUTH_DIR, "happy.png"),
+            output_path=happy_thumbnail_path
+        )
+
+        # Create embed with the happy thumbnail
+        embed = discord.Embed(
+            title=f"You pet {chao_name}!",
+            description=f"{chao_name} looks so happy! Happiness increased by 1.",
+            color=self.embed_color
+        )
+        embed.set_image(url=f"attachment://{chao_name}_thumbnail_happy.png")
+
+        # Send the embed with the updated thumbnail
+        await ctx.reply(
+            file=discord.File(happy_thumbnail_path, filename=f"{chao_name}_thumbnail_happy.png"),
+            embed=embed
+        )
 
 
     async def give_egg(self, ctx):
@@ -1092,7 +1161,8 @@ class StatsView(View):
         image_utils,
         data_utils,
         total_pages: int = 2,
-        current_page: int = 1
+        current_page: int = 1,
+        state_file: str = PERSISTENT_VIEWS_FILE
     ):
         super().__init__(timeout=None)
         self.bot = bot
@@ -1115,12 +1185,48 @@ class StatsView(View):
         self.image_utils = image_utils
         self.data_utils = data_utils
         self.total_pages = total_pages
-        self.current_page = current_page
-        self.sanitized_chao_name = chao_name.replace(" ", "_")
+        self.state_file = state_file
+
+        # Load saved state for current page
+        self.current_page = self.load_state(current_page)
 
         # Add navigation buttons
         self.add_item(self.create_button("⬅️", "previous_page", f"{guild_id}_{user_id}_{chao_name}_prev"))
         self.add_item(self.create_button("➡️", "next_page", f"{guild_id}_{user_id}_{chao_name}_next"))
+
+    def save_state(self):
+        """Save the current page to the persistent views file."""
+        try:
+            with open(self.state_file, "r") as f:
+                data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            data = {}
+
+        key = f"{self.guild_id}_{self.user_id}_{self.chao_name}"
+        data[key] = {
+            "chao_name": self.chao_name,
+            "guild_id": self.guild_id,
+            "user_id": self.user_id,
+            "chao_type_display": self.chao_type_display or "Unknown",
+            "alignment_label": self.alignment_label or "Neutral",
+            "total_pages": self.total_pages,
+            "current_page": self.current_page,
+        }
+
+        with open(self.state_file, "w") as f:
+            json.dump(data, f)
+
+    def load_state(self, default_page: int = 1) -> int:
+        """Load the saved current page from the persistent views file."""
+        if os.path.exists(self.state_file):
+            with open(self.state_file, "r") as f:
+                try:
+                    data = json.load(f)
+                    key = f"{self.guild_id}_{self.user_id}_{self.chao_name}"
+                    return data.get(key, {}).get("current_page", default_page)
+                except json.JSONDecodeError:
+                    pass  # Return default if JSON is corrupted
+        return default_page
 
     def create_button(self, emoji: str, callback_name: str, custom_id: str) -> Button:
         button = Button(style=discord.ButtonStyle.primary, emoji=emoji, custom_id=custom_id)
@@ -1128,15 +1234,13 @@ class StatsView(View):
         return button
 
     async def previous_page(self, interaction: discord.Interaction):
-        if interaction.user.id != int(self.user_id):
-            return await interaction.response.send_message("You cannot interact with this view.", ephemeral=True)
         self.current_page = self.total_pages if self.current_page == 1 else self.current_page - 1
+        self.save_state()
         await self.update_stats(interaction)
 
     async def next_page(self, interaction: discord.Interaction):
-        if interaction.user.id != int(self.user_id):
-            return await interaction.response.send_message("You cannot interact with this view.", ephemeral=True)
         self.current_page = 1 if self.current_page == self.total_pages else self.current_page + 1
+        self.save_state()
         await self.update_stats(interaction)
 
     async def update_stats(self, interaction: discord.Interaction):
@@ -1195,7 +1299,6 @@ class StatsView(View):
             .set_footer(text=f"Page {self.current_page} / {self.total_pages}")
         )
 
-        # Edit the message with new attachments
         await interaction.response.edit_message(
             embed=embed,
             attachments=[
@@ -1205,6 +1308,8 @@ class StatsView(View):
             ],
             view=self
         )
+
+
 
     @classmethod
     def from_data(cls, view_data: Dict, cog):

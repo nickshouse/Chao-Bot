@@ -9,7 +9,7 @@ import json
 
 class MarketView(View):
     def __init__(self, embed: discord.Embed, icon_path: str, thumbnail_path: str,
-                 page_1_path: str, page_2_path: str, black_market_cog, total_pages=3):
+                 page_1_path: str, page_2_path: str, black_market_cog, total_pages=3, state_file="market_state.json"):
         super().__init__(timeout=None)
         self.embed = embed
         self.icon_path = icon_path
@@ -17,11 +17,31 @@ class MarketView(View):
         self.page_1_path = page_1_path
         self.page_2_path = page_2_path
         self.black_market_cog = black_market_cog
-        self.current_page = 1
         self.total_pages = total_pages
+        self.state_file = state_file
+
+        # Load the last saved state
+        self.current_page = self.load_state()
 
         self.add_item(self.previous_button())
         self.add_item(self.next_button())
+
+    def save_state(self):
+        """Save the current page to a file."""
+        state = {"current_page": self.current_page}
+        with open(self.state_file, "w") as f:
+            json.dump(state, f)
+
+    def load_state(self):
+        """Load the current page from a file."""
+        if os.path.exists(self.state_file):
+            with open(self.state_file, "r") as f:
+                try:
+                    state = json.load(f)
+                    return state.get("current_page", 1)
+                except json.JSONDecodeError:
+                    return 1
+        return 1
 
     def previous_button(self) -> Button:
         button = Button(style=discord.ButtonStyle.primary, emoji="⬅️", custom_id="market_previous")
@@ -35,18 +55,20 @@ class MarketView(View):
 
     async def previous_page(self, interaction: discord.Interaction):
         self.current_page = self.current_page - 1 if self.current_page > 1 else self.total_pages
+        self.save_state()  # Save the updated state
         await self.update_market(interaction)
 
     async def next_page(self, interaction: discord.Interaction):
         self.current_page = self.current_page + 1 if self.current_page < self.total_pages else 1
+        self.save_state()  # Save the updated state
         await self.update_market(interaction)
 
     async def update_market(self, interaction: discord.Interaction):
         """
         3 pages total:
-          Page 1: image 1
-          Page 2: image 2
-          Page 3: no image, special text
+        Page 1: image 1
+        Page 2: image 2
+        Page 3: no image, special text
         """
         fruit_prices = self.black_market_cog.load_fruit_prices()
 
@@ -62,7 +84,7 @@ class MarketView(View):
 
         try:
             if self.current_page == 1:
-                # (A) PAGE 1
+                # Page 1 logic
                 self.black_market_cog.image_utils.paste_black_market_prices_page1(
                     self.black_market_cog.BLACK_MARKET_FRUITS_PAGE_1_PATH,
                     page_1_output_path,
@@ -71,16 +93,14 @@ class MarketView(View):
                 image_filename = "black_market_fruits_page_1.png"
                 attachments.append(discord.File(page_1_output_path, filename=image_filename))
 
-                # Clear any leftover fields/text from page 3
                 self.embed.clear_fields()
-                # Reset the description to what you want on page 1
                 self.embed.description = "Buy somethin' will ya?"
-                # Show the updated image
+                self.embed.add_field(name="Shop Type", value="Fruits", inline=True)
                 self.embed.set_image(url=f"attachment://{image_filename}")
                 self.embed.set_footer(text=f"Page {self.current_page} / {self.total_pages}")
 
             elif self.current_page == 2:
-                # (B) PAGE 2
+                # Page 2 logic
                 self.black_market_cog.image_utils.paste_black_market_prices_page2(
                     self.black_market_cog.BLACK_MARKET_FRUITS_PAGE_2_PATH,
                     page_2_output_path,
@@ -89,18 +109,16 @@ class MarketView(View):
                 image_filename = "black_market_fruits_page_2.png"
                 attachments.append(discord.File(page_2_output_path, filename=image_filename))
 
-                # Clear leftover fields/text from page 3
                 self.embed.clear_fields()
-                # Maybe a short description if you want
                 self.embed.description = "More fruits are available on this page!"
+                self.embed.add_field(name="Shop Type", value="Fruits", inline=True)
                 self.embed.set_image(url=f"attachment://{image_filename}")
                 self.embed.set_footer(text=f"Page {self.current_page} / {self.total_pages}")
 
             else:
-                # (C) PAGE 3 => no image, new items for 10 rings
+                # Page 3 logic
                 self.embed.clear_fields()
                 self.embed.set_image(url=None)
-                self.embed.set_footer(text=f"Page {self.current_page} / {self.total_pages}")
 
                 new_items = [
                     "Swim Fruit", "Fly Fruit", "Run Fruit",
@@ -109,10 +127,11 @@ class MarketView(View):
                 cost_text = "\n".join(f"- **{item}** (10 rings)" for item in new_items)
 
                 self.embed.description = (
-                    "New items available (no image for this page):\n\n"
+                    "Main items for unique chao evolution:\n\n"
+                    "**Shop Type**\nFruits\n\n"
                     f"{cost_text}\n"
-                    "Each costs **10 rings**."
                 )
+                self.embed.set_footer(text=f"Page {self.current_page} / {self.total_pages} | Graphics Pending...")
 
             await interaction.response.edit_message(
                 embed=self.embed,
