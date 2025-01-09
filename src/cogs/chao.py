@@ -51,7 +51,7 @@ class Chao(commands.Cog):
 
         # Eye and mouth variations
         self.eye_types = ['normal', 'happy', 'angry', 'tired']
-        self.mouth_types = ['happy', 'unhappy', 'evil', 'none']
+        self.mouth_types = ['happy', 'unhappy', 'grumble', 'evil', 'none']
 
         # Example chao names
         self.chao_names = [
