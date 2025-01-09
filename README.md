@@ -11,9 +11,8 @@ Chao Bot is a feature-rich Discord bot designed for fans of the Chao universe! W
 - Feed your Chao various fruits to train its stats and influence its evolution.
 - Pet your Chao to increase its happiness.
 
-### Train and Compete
+### Train
 - Train your Chao in specific stats like **Run**, **Swim**, **Fly**, **Power**, and **Stamina**.
-- Enter your Chao in competitions or engage in special events.
 
 ### Customize and Interact
 - Rename your Chao and personalize them.
@@ -22,14 +21,13 @@ Chao Bot is a feature-rich Discord bot designed for fans of the Chao universe! W
 
 ### Inventory Management
 - Collect rings and items to enhance your Chao's abilities.
-- Buy and sell items in the **Chao Black Market**.
+- Buy items in the **Black Market**.
 
 ### Social Engagement
 - Compete with other users to raise the best Chao.
 - Trade items or Chao with your server members (upcoming feature).
 
 ### Additional Features
-- Set up a **Chao Forest** where Chao can retire happily.
 - Earn rings just by chatting in the server.
 - Restrict bot activity to specific channels for better management.
 
