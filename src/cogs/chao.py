@@ -42,10 +42,10 @@ class Chao(commands.Cog):
             "purple fruit": {       "swim_ticks": -2,             "fly_ticks": 3,           "run_ticks": 3,       "power_ticks": -2,    "stamina_ticks": 1,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "yellow fruit": {       "swim_ticks": -3,             "fly_ticks": 4,           "run_ticks": -3,      "power_ticks": 4,     "stamina_ticks": 2,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "red fruit": {          "swim_ticks": 3,              "fly_ticks": 1,           "run_ticks": 3,       "power_ticks": 2,     "stamina_ticks": -5,        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "power fruit": {        "power_ticks": (8),           "run_power": 1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "swim fruit": {         "swim_ticks": (8),            "swim_fly": -1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "run fruit": {          "run_ticks": (8),             "run_power": -1,                                                                                  "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "fly fruit": {          "fly_ticks": (8),             "swim_fly": 1,                                                                                    "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "power fruit": {        "power_ticks": (1, 4),           "run_power": 1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "swim fruit": {         "swim_ticks": (1, 4),            "swim_fly": -1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "run fruit": {          "run_ticks": (1, 4),             "run_power": -1,                                                                                  "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "fly fruit": {          "fly_ticks": (1, 4),             "swim_fly": 1,                                                                                    "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "strange mushroom": {},  # Add custom logic for randomizing ticks
         }
 
