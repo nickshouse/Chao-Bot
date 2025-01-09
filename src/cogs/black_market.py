@@ -114,7 +114,7 @@ class MarketView(View):
                 attachments.append(discord.File(page_2_output_path, filename=image_filename))
 
                 self.embed.clear_fields()
-                self.embed.description = "More fruits are available on this page!"
+                self.embed.description = "These ones are a bit more expensive:"
                 self.embed.add_field(name="Shop Type", value="Fruits", inline=True)
                 self.embed.set_image(url=f"attachment://{image_filename}")
                 self.embed.set_footer(text=f"Page {self.current_page} / {self.total_pages}")
@@ -158,7 +158,7 @@ class MarketView(View):
 class BlackMarket(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.embed_color = discord.Color.blue()
+        self.embed_color = discord.Color.yellow()
         self.image_utils = self.data_utils = None
         self.market_message_id = None
 

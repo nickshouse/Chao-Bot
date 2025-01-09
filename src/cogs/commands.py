@@ -76,11 +76,15 @@ class Commands(commands.Cog):
     async def restore(self, ctx, *, args: str):
         await self.data_utils.restore(ctx, args=args)
 
-    @commands.command(name='give_egg', help="(Admin only) Give yourself a Chao egg.")
+    @commands.command(name='egg', help="Give yourself a Chao egg.")
     @ensure_user_initialized
-    @commands.has_permissions(administrator=True)  # Restrict to admins
-    async def give_egg(self, ctx):
-        await self.chao_cog.give_egg(ctx)
+    async def egg(self, ctx):
+        await self.chao_cog.egg(ctx)
+
+    @commands.command(name='goodbye', help="Send Chao away to the faraway Chao Forest.")
+    @ensure_user_initialized
+    async def goodbye(self, ctx, *, chao_name: str = None):
+        await self.chao_cog.goodbye(ctx, chao_name=chao_name)
 
     @commands.command(name='give_rings', help="(Admin only) Add rings to your account.")
     @ensure_user_initialized
@@ -88,7 +92,7 @@ class Commands(commands.Cog):
     async def give_rings(self, ctx):
         await self.chao_cog.give_rings(ctx)
 
-    @commands.command(name='force_life_check', help="Force a Chao life check.")
+    @commands.command(name='force_life_check', help="(Admin only) Force a Chao life check.")
     @ensure_user_initialized
     @commands.has_permissions(administrator=True)
     async def force_life_check(self, ctx, *, chao_name: str):
@@ -112,6 +116,12 @@ class Commands(commands.Cog):
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         await self.chao_cog.feed(ctx, chao_name_and_fruit=chao_name_and_fruit)
 
+    @commands.command(name='listchao', help='List all the Chao you own.')
+    @ensure_user_initialized
+    async def list_chao(self, ctx):
+        await self.chao_cog.list_chao(ctx)
+
+
     @commands.command(name='rename', help="Rename your Chao.")
     @ensure_user_initialized
     async def rename(self, ctx, *, chao_name_and_new_name: str):
@@ -120,19 +130,20 @@ class Commands(commands.Cog):
     @commands.command(name='help', help="Show all available commands.")
     async def help(self, ctx):
         help_text = "**Available Commands:**\n\n"
-        help_text += "`$chao` - Start using Chao Bot.\nExample: `$chao`\n\n"
-        help_text += "`$plans` - View upcoming features and plans for the Chao Bot.\nExample: `$plans`\n\n"
-        help_text += "`$hatch` - Hatch a new Chao egg.\nExample: `$hatch`\n\n"
-        help_text += "`$grades` - View a Chao's grades.\nExample: `$grades Chaozart`\n\n"
-        help_text += "`$market` - Access the Black Market.\nExample: `$market`\n\n"
-        help_text += "`$buy` - Buy items from the Chao black market.\nExample: `$buy garden nut 3`\n\n"
-        help_text += "`$pet` - Pet your Chao to make it happy.\nExample: `$pet Chaowser`\n\n"
-        help_text += "`$throw` - Throw your chao. Not recommended.\nExample: `$throw Chaocolate`\n\n"
-        help_text += "`$inventory` - View your current inventory.\nExample: `$inventory`\n\n"
-        help_text += "`$restore` - Restore your Chao data. USE WITH CAUTION. \nExample: `$restore Chaozilla 2025-07-22`\n\n"
-        help_text += "`$stats` - View a Chao's stats.\nExample: `$stats Chaolin`\n\n"
-        help_text += "`$feed` - Feed a fruit to your Chao.\nExample: `$feed Chaoko Run Fruit`\n\n"
-        help_text += "`$rename` - Rename your Chao. 15 character limit.\nExample: `$rename Chaozhu BetterChaozhu`\n"
+        help_text += "**$chao** - Start using Chao Bot.\nExample: `$chao`\n\n"
+        help_text += "**$plans** - View upcoming features and plans for the Chao Bot.\nExample: `$plans`\n\n"
+        help_text += "**$hatch** - Hatch a new Chao egg.\nExample: `$hatch`\n\n"
+        help_text += "**$egg** - Receive a new Chao egg. Only 1 at a time.\nExample: `$egg`\n\n"
+        help_text += "**$goodbye** - Read about the goodbye command.\nExample: `$goodbye`\n\n"
+        help_text += "**$grades** - View a Chao's grades.\nExample: `$grades Chaozart`\n\n"
+        help_text += "**$market** - Access the Black Market.\nExample: `$market`\n\n"
+        help_text += "**$buy** - Buy items from the Chao black market.\nExample: `$buy garden nut 3`\n\n"
+        help_text += "**$pet** - Pet your Chao to make it happy.\nExample: `$pet Chaowser`\n\n"
+        help_text += "**$inventory** - View your current inventory.\nExample: `$inventory`\n\n"
+        help_text += "**$restore** - Restore your Chao's data to an earlier date. USE WITH CAUTION. \nExample: `$restore Chaozilla 2024-07-22`\n\n"
+        help_text += "**$stats** - View a Chao's stats.\nExample: `$stats Chaolin`\n\n"
+        help_text += "**$feed** - Feed a fruit to your Chao.\nExample: `$feed Chaoko Run Fruit`\n\n"
+        help_text += "**$rename** - Rename your Chao. 15 character limit.\nExample: `$rename Chaozhu BetterChaozhu`\n"
 
         embed = discord.Embed(title="Chao Bot Help", description=help_text, color=discord.Color.blue())
         await ctx.reply(embed=embed)
@@ -145,13 +156,16 @@ class Commands(commands.Cog):
         plans_text = (
             "Here are the upcoming features and plans for the Chao Bot:\n\n"
             "- Dynamic emoticon ball\n"
+            "- Dizzy eyes\n"
             "- Chaos drives\n"
-            "- Colored Chao\n"
+            "- Shiny Chao\n"
+            "- Monotone Chao\n"
             "- Purchasable eggs\n"
             "- Sell to Black Market\n"
             "- Trade requests between users\n"
             "- Chao Graveyard\n"
             "- Chao Mating\n"
+            "- Throw your Chao (at your own risk)\n"
             "- Purchasable background colors for stat cards\n"
             "- X rank\n"
             "- Chao export tool\n"
@@ -160,7 +174,7 @@ class Commands(commands.Cog):
             "- Chao fishing\n"
             "- Chao Racing collab?\n"
         )
-        embed = discord.Embed(title="Upcoming Features", description=plans_text, color=discord.Color.green())
+        embed = discord.Embed(title="Upcoming Features and Plans", description=plans_text, color=discord.Color.green())
         await ctx.reply(embed=embed)
 
 async def setup(bot): 
