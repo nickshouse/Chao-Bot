@@ -373,7 +373,7 @@ class Chao(commands.Cog):
             else:
                 embed.add_field(name=chao_name, value="No stats available", inline=False)
 
-        embed.set_footer(text=f"Total Chao: {len(chao_list)}")
+        embed.set_footer(text=f"Total Chao: {len(chao_list)} | Graphics Pending...")
         await ctx.reply(embed=embed)
 
 
