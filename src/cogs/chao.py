@@ -42,10 +42,10 @@ class Chao(commands.Cog):
             "purple fruit": {       "swim_ticks": -2,             "fly_ticks": 3,           "run_ticks": 3,       "power_ticks": -2,    "stamina_ticks": 1,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "yellow fruit": {       "swim_ticks": -3,             "fly_ticks": 4,           "run_ticks": -3,      "power_ticks": 4,     "stamina_ticks": 2,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "red fruit": {          "swim_ticks": 3,              "fly_ticks": 1,           "run_ticks": 3,       "power_ticks": 2,     "stamina_ticks": -5,        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "power fruit": {        "power_ticks": (1, 4),           "run_power": 1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "swim fruit": {         "swim_ticks": (1, 4),            "swim_fly": -1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "run fruit": {          "run_ticks": (1, 4),             "run_power": -1,                                                                                  "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "fly fruit": {          "fly_ticks": (1, 4),             "swim_fly": 1,                                                                                    "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "power fruit": {        "power_ticks": (1,4),           "run_power": 1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "swim fruit": {         "swim_ticks": (1,4),            "swim_fly": -1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "run fruit": {          "run_ticks": (1,4),             "run_power": -1,                                                                                  "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "fly fruit": {          "fly_ticks": (1,4),             "swim_fly": 1,                                                                                    "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "strange mushroom": {},  # Add custom logic for randomizing ticks
         }
 
@@ -429,7 +429,7 @@ class Chao(commands.Cog):
     def get_random_grade(self):
         """Select a random grade based on weighted probabilities."""
         grades = ['F', 'E', 'D', 'C', 'B', 'A', 'S']
-        probabilities = [4, 20, 25, 25, 20, 5, 1]  # Probabilities for each grade
+        probabilities = [4, 20, 25, 35, 10, 5, 1]  # Probabilities for each grade
         return random.choices(grades, probabilities, k=1)[0]
 
     async def hatch(self, ctx):
@@ -847,64 +847,60 @@ class Chao(commands.Cog):
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         latest_stats = chao_df.iloc[-1].to_dict()
 
-        # Update hp_ticks and belly_ticks
-        max_ticks = 9
-        latest_stats['hp_ticks'] = min(latest_stats.get('hp_ticks', 0) + 1, max_ticks)
-        latest_stats['belly_ticks'] = min(latest_stats.get('belly_ticks', 0) + 1, 10)  # Cap at 10
-
-        # Update belly and date
-        days_elapsed = (datetime.now() - datetime.strptime(latest_stats.get('date', datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d")).days
-        latest_stats['belly'] = max(0, latest_stats.get('belly', 0) - days_elapsed)
-        latest_stats['belly'] = min(10, latest_stats['belly'] + 2)
-        latest_stats['date'] = datetime.now().strftime("%Y-%m-%d")
+        # Prepare message details
+        message_details = []
+        level_up_details = []
 
         # Apply fruit effects
-        if matched_fruit.lower() == "strange mushroom":
-            # Randomize the ticks for power, run, swim, fly, and stamina
-            for stat in ['power_ticks', 'run_ticks', 'swim_ticks', 'fly_ticks', 'stamina_ticks']:
-                latest_stats[stat] = random.randint(0, max_ticks)
-        else:
-            adjustments = self.fruit_stats_adjustments.get(matched_fruit.lower(), {})
-            for stat, adjustment in adjustments.items():
-                increment = random.randint(*adjustment) if isinstance(adjustment, tuple) else adjustment
+        adjustments = self.fruit_stats_adjustments.get(matched_fruit.lower(), {})
+        for stat, adjustment in adjustments.items():
+            increment = random.randint(*adjustment) if isinstance(adjustment, tuple) else adjustment
 
-                if stat in ["run_power", "swim_fly"]:
-                    latest_stats[stat] = max(-5, min(5, latest_stats.get(stat, 0) + increment))
-                    opposing_stat = "swim_fly" if stat == "run_power" else "run_power"
-                    if latest_stats[opposing_stat] > 0:
-                        latest_stats[opposing_stat] -= 1
-                    elif latest_stats[opposing_stat] < 0:
-                        latest_stats[opposing_stat] += 1
+            if stat in ["hp_ticks", "belly_ticks", "energy_ticks", "happiness_ticks", "illness_ticks"]:
+                # Cap these stats at 10 without resetting
+                current_value = latest_stats.get(stat, 0)
+                if current_value < 10:  # Only include if not maxed out
+                    new_value = min(current_value + increment, 10)
+                    latest_stats[stat] = new_value
+                    message_details.append(f"{stat.replace('_ticks', '').capitalize()} gained {new_value - current_value} ticks ({new_value}/10)")
+            elif stat.endswith("_ticks"):
+                # Handle trainable stats (range 0-9 with reset and level up)
+                current_value = latest_stats.get(stat, 0)
+                remaining_increment = increment
 
-                    if latest_stats["Form"] == "2":
-                        if latest_stats["run_power"] == 5:
-                            latest_stats["Type"] = "neutral_normal_power_2"
-                        elif latest_stats["run_power"] == -5:
-                            latest_stats["Type"] = "neutral_normal_run_2"
-                        elif latest_stats["swim_fly"] == 5:
-                            latest_stats["Type"] = "neutral_normal_fly_2"
-                        elif latest_stats["swim_fly"] == -5:
-                            latest_stats["Type"] = "neutral_normal_swim_2"
-                elif stat.endswith("_ticks"):
-                    # Ensure energy_ticks and belly_ticks do not reset at 10
-                    if stat in ["energy_ticks", "belly_ticks", "happiness_ticks", "illness_ticks", "hp_ticks"]:
-                        latest_stats[stat] = min(latest_stats.get(stat, 0) + increment, 10)
-                    else:  # For stats that reset
-                        current_value = latest_stats.get(stat, 0)
-                        new_value = current_value + increment
-                        if new_value >= 10:
-                            latest_stats[stat] = new_value - 10
-                            level_key = stat.replace("_ticks", "_level")
-                            grade_key = stat.replace("_ticks", "_grade")
-                            exp_key = stat.replace("_ticks", "_exp")
+                # Process the increment while handling level-ups
+                while remaining_increment > 0:
+                    available_ticks = 9 - current_value
+                    ticks_to_add = min(remaining_increment, available_ticks + 1)
 
-                            latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
-                            grade = latest_stats.get(grade_key, 'F')
-                            latest_stats[exp_key] = latest_stats.get(exp_key, 0) + self.get_stat_increment(grade)
-                        else:
-                            latest_stats[stat] = new_value
-                else:
-                    latest_stats[stat] = latest_stats.get(stat, 0) + increment
+                    current_value += ticks_to_add
+                    remaining_increment -= ticks_to_add
+
+                    # Handle level-up if needed
+                    if current_value > 9:
+                        level_key = stat.replace("_ticks", "_level")
+                        grade_key = stat.replace("_ticks", "_grade")
+                        exp_key = stat.replace("_ticks", "_exp")
+
+                        latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
+                        grade = latest_stats.get(grade_key, 'F')
+                        latest_stats[exp_key] = latest_stats.get(exp_key, 0) + self.get_stat_increment(grade)
+                        level_up_details.append(f"{stat.replace('_ticks', '').capitalize()} leveled up to {latest_stats[level_key]}")
+
+                        current_value = 0  # Reset ticks after level-up
+
+                    latest_stats[stat] = current_value
+
+                # Append the final progress once per stat increment
+                message_details.append(f"{stat.replace('_ticks', '').capitalize()} gained {increment} ticks ({current_value}/9)")
+            elif stat in ["run_power", "swim_fly"]:
+                # Handle alignment-changing stats (excluded from embed details)
+                current_value = latest_stats.get(stat, 0)
+                latest_stats[stat] = max(-5, min(5, current_value + increment))
+
+        # Debug: Print message details and level up details
+        print(f"DEBUG: Message Details: {message_details}")
+        print(f"DEBUG: Level Up Details: {level_up_details}")
 
         # Deduct fruit
         normalized_inventory[matched_fruit.lower()] -= 1
@@ -912,14 +908,30 @@ class Chao(commands.Cog):
         self.data_utils.save_inventory(inv_path, inv_df, updated_inventory)
 
         # Save updated stats
-        self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
-
-        # Possibly evolve and update thumbnail
+        previous_form = latest_stats.get("Form", "1")
         chao_type, form = self.update_chao_type_and_thumbnail(
             guild_id, guild_name, user, chao_name, latest_stats
         )
         latest_stats["Form"] = form
         latest_stats["Type"] = chao_type
+
+        # Handle evolution from Form 2 to Form 3
+        if previous_form == "2" and form == "3":
+            suffix = chao_type.split("_")[1]
+            stat_to_upgrade = {
+                "fly": "fly_grade",
+                "power": "power_grade",
+                "run": "run_grade",
+                "swim": "swim_grade"
+            }.get(suffix)
+            if stat_to_upgrade and stat_to_upgrade in latest_stats:
+                grades = self.GRADES
+                current_grade = latest_stats.get(stat_to_upgrade, 'F')
+                if current_grade in grades:
+                    new_grade_index = min(len(grades) - 1, grades.index(current_grade) + 1)  # Improve grade
+                    latest_stats[stat_to_upgrade] = grades[new_grade_index]
+                    level_up_details.append(f"{stat_to_upgrade.replace('_grade', '').capitalize()} grade improved to {grades[new_grade_index]}")
+
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
 
         # Ensure thumbnail file matches the expected format
@@ -932,7 +944,9 @@ class Chao(commands.Cog):
         attachment_filename = "chao_thumbnail.png"
 
         # Build embed
-        description = f"{chao_name} ate a {matched_fruit}!\n\n"
+        description = f"{chao_name} ate a {matched_fruit}!\n\n" + "\n".join(message_details)
+        if level_up_details:
+            description += "\n\n" + "\n".join(level_up_details)
         embed = discord.Embed(title="Chao Feed Success", description=description, color=self.embed_color)
         embed.set_thumbnail(url=f"attachment://{attachment_filename}")
 
