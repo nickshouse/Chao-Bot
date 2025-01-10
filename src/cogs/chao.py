@@ -868,7 +868,6 @@ class Chao(commands.Cog):
                 current_value = latest_stats.get(stat, 0)
                 remaining_increment = increment
 
-                # Process the increment while handling level-ups
                 while remaining_increment > 0:
                     available_ticks = 9 - current_value
                     ticks_to_add = min(remaining_increment, available_ticks + 1)
@@ -891,12 +890,15 @@ class Chao(commands.Cog):
 
                     latest_stats[stat] = current_value
 
-                # Append the final progress once per stat increment
                 message_details.append(f"{stat.replace('_ticks', '').capitalize()} gained {increment} ticks ({current_value}/9)")
-            elif stat in ["run_power", "swim_fly"]:
-                # Handle alignment-changing stats (excluded from embed details)
+            elif stat in ["run_power", "swim_fly", "dark_hero"]:
+                # Handle alignment-changing stats (e.g., dark_hero)
                 current_value = latest_stats.get(stat, 0)
-                latest_stats[stat] = max(-5, min(5, current_value + increment))
+                new_value = max(-5, min(5, current_value + increment))
+                latest_stats[stat] = new_value
+                if stat == "dark_hero":
+                    direction = "Hero alignment" if increment > 0 else "Dark alignment"
+                    message_details.append(f"{direction} changed by {abs(increment)} ({new_value}/5)")
 
         # Debug: Print message details and level up details
         print(f"DEBUG: Message Details: {message_details}")
