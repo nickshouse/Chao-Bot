@@ -575,19 +575,22 @@ class Chao(commands.Cog):
             thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
 
             # Current Stats
-            stat_levels = {s: latest_stats.get(f"{s}_level", 0) for s in ["power", "swim", "stamina", "fly", "run"]}
+            stat_levels = {
+                s: latest_stats.get(f"{s}_level", 0)
+                for s in ["power", "swim", "stamina", "fly", "run"]
+            }
             dark_hero = latest_stats.get("dark_hero", 0)
             run_power = latest_stats.get("run_power", 0)
             swim_fly = latest_stats.get("swim_fly", 0)
             current_form = str(latest_stats.get("Form", "1"))
             max_level = max(stat_levels.values())
 
-            # Cap thresholds for dark_hero, run_power, swim_fly
+            # 1) Clamp stats
             latest_stats["dark_hero"] = max(min(dark_hero, 5), -5)
             latest_stats["run_power"] = max(min(run_power, 5), -5)
             latest_stats["swim_fly"] = max(min(swim_fly, 5), -5)
 
-            # Determine alignment
+            # 2) Determine alignment from dark_hero
             alignment = (
                 "hero" if latest_stats["dark_hero"] == 5 else
                 "dark" if latest_stats["dark_hero"] == -5 else
@@ -595,7 +598,7 @@ class Chao(commands.Cog):
             )
             latest_stats["Alignment"] = alignment
 
-            # Helper function to determine suffix
+            # 3) Determine suffix from run_power & swim_fly
             def determine_suffix(rp: int, sf: int) -> str:
                 if rp == 5:
                     return "power"
@@ -607,50 +610,88 @@ class Chao(commands.Cog):
                     return "swim"
                 return "normal"
 
-            suffix = determine_suffix(run_power, swim_fly)
-            chao_type = latest_stats.get("Type", f"{alignment}_normal_1")  # Default type for Form 1
+            suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
 
-            # Update type for Form 1 based on alignment
+            # 4) Possibly evolve to the next form
+            #    Make sure you do this in ascending order (1->2->3->4).
+            #    If you're already at or beyond a certain form, only go up if you meet the requirement.
+            if current_form == "1" and max_level >= self.FORM_LEVEL_2:
+                current_form = "2"
+            if current_form == "2" and max_level >= self.FORM_LEVEL_3:
+                current_form = "3"
+            if current_form == "3" and max_level >= self.FORM_LEVEL_4:
+                current_form = "4"
+
+            # 5) Build the chao_type based on (alignment, form, suffix)
+            #    - Form 1 is always "alignment_normal_1"
+            #    - Form 2 is "alignment_normal_suffix_2"
+            #    - Form 3 is "alignment_suffix_3"
+            #    - Form 4 can be "alignment_basesuffix_suffix_4"
+            #      (special case if everything is "normal")
             if current_form == "1":
                 chao_type = f"{alignment}_normal_1"
-
-            # Evolution logic for Forms 2, 3, and 4
-            if current_form == "1" and max_level >= self.FORM_LEVEL_2:
-                suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
-                current_form = "2"
+            elif current_form == "2":
                 chao_type = f"{alignment}_normal_{suffix}_2"
-            elif current_form == "2" and max_level >= self.FORM_LEVEL_3:
-                suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
-                current_form = "3"
+            elif current_form == "3":
                 chao_type = f"{alignment}_{suffix}_3"
-            elif current_form == "3" and max_level >= self.FORM_LEVEL_4:
-                base_suffix = chao_type.split("_")[1] if chao_type.endswith("_3") else "normal"
-                suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
-                current_form = "4"
+            else:  # current_form == "4"
+                # For form 4, we split the *previous form 3 type* or default to normal.
+                # But often we can just do:
+                #   alignment_suffix_suffix_4
+                # E.g. "dark_run_run_4". 
+                # If you want a "double normal" edge case, handle that below:
+                base_suffix = suffix  # default is reusing the same suffix for "double"
+                
+                # If the user was in form 3 with something like "dark_fly_3", base_suffix = "fly"
+                # If you want to parse from the older type, you'd do it from latest_stats["Type"]
+                #   but be careful if that was out-of-date. Example approach:
+                old_type = latest_stats.get("Type", "neutral_normal_1")
+                if old_type.endswith("_3"):
+                    # The middle token = old_type.split("_")[1]
+                    base_suffix = old_type.split("_")[1]
+
                 chao_type = f"{alignment}_{base_suffix}_{suffix}_4"
 
-                # Handle special case for neutral/normal at Form 4
-                if suffix == "normal" and base_suffix == "normal":
+                # Special case if suffix == "normal" and base_suffix == "normal"
+                if base_suffix == "normal" and suffix == "normal":
                     chao_type = f"{alignment}_normal_normal_4"
 
-            # Save final form and type
+            # Debug prints
+            print(f"[DEBUG] alignment={alignment}, suffix={suffix}, form={current_form}, type={chao_type}")
+
+            # 6) Save final form & type in stats
             latest_stats["Form"] = current_form
             latest_stats["Type"] = chao_type
 
-            # Build sprite paths
+            # 7) Build sprite path
+            #    For form 2: "chao/normal/<alignment>/<alignment>_normal_<suffix>_2.png"
+            #    For form 3: "chao/<suffix>/<alignment>/<alignment>_<suffix>_3.png"
+            #    For form 4: "chao/<base_suffix>/<alignment>/<alignment>_<base_suffix>_<suffix>_4.png"
+            #    For form 1: "chao/normal/<alignment>/<alignment>_normal_1.png"
+            # The simplest approach is to always parse the second part of `chao_type` as the "base folder",
+            #   but that can be tricky for form 4. 
+            # If you want a quick fix, you can do:
+            subfolders = chao_type.split("_")
+            # subfolders[0] = alignment, subfolders[1] = "normal"/"run"/"fly"/"power"/"swim"/..., etc.
+            base_folder = subfolders[1] if len(subfolders) > 1 else "normal"
+
             sprite_path = os.path.join(
                 self.assets_dir,
                 "chao",
-                chao_type.split("_")[1],
-                alignment,
+                base_folder,       # e.g. "normal", "run", "fly", etc.
+                alignment,         # e.g. "dark", "hero", or "neutral"
                 f"{chao_type}.png"
             )
+            print(f"[DEBUG] Sprite path => {sprite_path}")
+
             if not os.path.exists(sprite_path):
+                print(f"[DEBUG] Sprite not found. Defaulting to chao_missing.png")
                 sprite_path = os.path.join(self.assets_dir, "chao", "chao_missing.png")
 
-            # Build eyes and mouth paths
+            # 8) Eyes & mouth
             eyes = latest_stats.get("eyes", "neutral")
             mouth = latest_stats.get("mouth", "happy")
+            # If you want forms 1 & 2 to have "neutral" eyes, 3 & 4 use alignment eyes:
             eyes_alignment = "neutral" if current_form in ["1", "2"] else alignment
 
             eyes_image_path = os.path.join(self.EYES_DIR, f"{eyes_alignment}_{eyes}.png")
@@ -661,7 +702,7 @@ class Chao(commands.Cog):
             if not os.path.exists(mouth_image_path):
                 mouth_image_path = os.path.join(self.MOUTH_DIR, "happy.png")
 
-            # Choose background
+            # 9) Background
             if current_form in ["3", "4"]:
                 bg_path = (
                     self.HERO_BG_PATH if alignment == "hero" else
@@ -671,7 +712,7 @@ class Chao(commands.Cog):
             else:
                 bg_path = self.BACKGROUND_PATH
 
-            # Generate thumbnail
+            # 10) Generate thumbnail
             self.image_utils.combine_images_with_face(
                 bg_path,
                 sprite_path,
@@ -685,6 +726,7 @@ class Chao(commands.Cog):
         except Exception as e:
             print(f"[update_chao_type_and_thumbnail] An error occurred: {e}")
             return "normal", "1"
+
 
 
     # Additional helper methods
@@ -801,16 +843,17 @@ class Chao(commands.Cog):
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         """
         Feed a particular fruit to a Chao, applying its effects and updating stats.
+        - Only allow the Chao to shift between different run/fly types while in Form 2.
+        - Form 3 or 4 won't revert or shift alignment once locked in.
         """
         guild_id = str(ctx.guild.id)
         guild_name = ctx.guild.name
         user = ctx.author
 
-        # Parsing Chao name and fruit
+        # --- 1) Parse the Chao name and fruit ---
         matched_fruit = None
         chao_name = None
 
-        # Match fruit dynamically
         for fruit in self.fruits:
             if chao_name_and_fruit.lower().endswith(f" {fruit.lower()}"):
                 matched_fruit = fruit
@@ -824,17 +867,16 @@ class Chao(commands.Cog):
                 f"Valid fruits: {', '.join(self.fruits)}"
             )
 
-        # Confirm Chao existence
+        # --- 2) Confirm the Chao exists ---
         chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
         chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
 
         if not os.path.exists(chao_dir):
             return await self.send_embed(ctx, f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
-
         if not os.path.exists(chao_stats_path):
             return await self.send_embed(ctx, f"{ctx.author.mention}, stats file is missing for **{chao_name}**.")
 
-        # Confirm user has fruit
+        # --- 3) Confirm the user has that fruit in inventory ---
         inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
         inv_df = self.data_utils.load_inventory(inv_path)
         current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
@@ -843,39 +885,40 @@ class Chao(commands.Cog):
         if normalized_inventory.get(matched_fruit.lower(), 0) <= 0:
             return await self.send_embed(ctx, f"{ctx.author.mention}, you have no **{matched_fruit}**.")
 
-        # Load Chao stats
+        # --- 4) Load the Chao's stats ---
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         latest_stats = chao_df.iloc[-1].to_dict()
 
-        # Prepare message details
         message_details = []
         level_up_details = []
 
-        # Apply fruit effects
+        # --- 5) Apply the standard fruit stat adjustments ---
         adjustments = self.fruit_stats_adjustments.get(matched_fruit.lower(), {})
         for stat, adjustment in adjustments.items():
             increment = random.randint(*adjustment) if isinstance(adjustment, tuple) else adjustment
 
+            # A) Cap stats at 10 (e.g. hp, belly, energy, happiness)
             if stat in ["hp_ticks", "belly_ticks", "energy_ticks", "happiness_ticks", "illness_ticks"]:
-                # Cap these stats at 10 without resetting
                 current_value = latest_stats.get(stat, 0)
-                if current_value < 10:  # Only include if not maxed out
+                if current_value < 10:
                     new_value = min(current_value + increment, 10)
                     latest_stats[stat] = new_value
-                    message_details.append(f"{stat.replace('_ticks', '').capitalize()} gained {new_value - current_value} ticks ({new_value}/10)")
+                    gained = new_value - current_value
+                    message_details.append(
+                        f"{stat.replace('_ticks', '').capitalize()} gained {gained} ticks ({new_value}/10)"
+                    )
+
+            # B) Trainable stats (like run_ticks, swim_ticks, etc.) range 0–9, level up at 10
             elif stat.endswith("_ticks"):
-                # Handle trainable stats (range 0-9 with reset and level up)
                 current_value = latest_stats.get(stat, 0)
                 remaining_increment = increment
 
                 while remaining_increment > 0:
                     available_ticks = 9 - current_value
                     ticks_to_add = min(remaining_increment, available_ticks + 1)
-
                     current_value += ticks_to_add
                     remaining_increment -= ticks_to_add
 
-                    # Handle level-up if needed
                     if current_value > 9:
                         level_key = stat.replace("_ticks", "_level")
                         grade_key = stat.replace("_ticks", "_grade")
@@ -884,15 +927,19 @@ class Chao(commands.Cog):
                         latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
                         grade = latest_stats.get(grade_key, 'F')
                         latest_stats[exp_key] = latest_stats.get(exp_key, 0) + self.get_stat_increment(grade)
-                        level_up_details.append(f"{stat.replace('_ticks', '').capitalize()} leveled up to {latest_stats[level_key]}")
-
-                        current_value = 0  # Reset ticks after level-up
+                        level_up_details.append(
+                            f"{stat.replace('_ticks', '').capitalize()} leveled up to {latest_stats[level_key]}"
+                        )
+                        current_value = 0
 
                     latest_stats[stat] = current_value
 
-                message_details.append(f"{stat.replace('_ticks', '').capitalize()} gained {increment} ticks ({current_value}/9)")
+                message_details.append(
+                    f"{stat.replace('_ticks', '').capitalize()} gained {increment} ticks ({current_value}/9)"
+                )
+
+            # C) Alignment stats (run_power, swim_fly, dark_hero)
             elif stat in ["run_power", "swim_fly", "dark_hero"]:
-                # Handle alignment-changing stats (e.g., dark_hero)
                 current_value = latest_stats.get(stat, 0)
                 new_value = max(-5, min(5, current_value + increment))
                 latest_stats[stat] = new_value
@@ -900,16 +947,48 @@ class Chao(commands.Cog):
                     direction = "Hero alignment" if increment > 0 else "Dark alignment"
                     message_details.append(f"{direction} changed by {abs(increment)} ({new_value}/5)")
 
-        # Debug: Print message details and level up details
-        print(f"DEBUG: Message Details: {message_details}")
-        print(f"DEBUG: Level Up Details: {level_up_details}")
+        # --- 6) If the Chao is in Form 2, move the *other* alignment stat closer to zero ---
+        current_form = latest_stats.get("Form", "1")
+        fruit_lower = matched_fruit.lower()
 
-        # Deduct fruit
+        if current_form == "2":
+            # If fruit is swim/fly => shift run_power toward 0
+            if fruit_lower in ["swim fruit", "blue fruit", "green fruit", "purple fruit", "pink fruit", "fly fruit"]:
+                old_rp = latest_stats.get("run_power", 0)
+                if old_rp < 0:
+                    new_rp = old_rp + 1
+                elif old_rp > 0:
+                    new_rp = old_rp - 1
+                else:
+                    new_rp = old_rp
+                # Clamp
+                new_rp = max(-5, min(5, new_rp))
+                if new_rp != old_rp:
+                    latest_stats["run_power"] = new_rp
+                    message_details.append(f"Run/Power alignment shifted closer to 0: {old_rp} → {new_rp}")
+
+            # If fruit is run/power => shift swim_fly toward 0
+            if fruit_lower in ["run fruit", "red fruit", "power fruit"]:
+                old_sf = latest_stats.get("swim_fly", 0)
+                if old_sf < 0:
+                    new_sf = old_sf + 1
+                elif old_sf > 0:
+                    new_sf = old_sf - 1
+                else:
+                    new_sf = old_sf
+                new_sf = max(-5, min(5, new_sf))
+                if new_sf != old_sf:
+                    latest_stats["swim_fly"] = new_sf
+                    message_details.append(f"Swim/Fly alignment shifted closer to 0: {old_sf} → {new_sf}")
+
+        # If the Chao is Form 3 or 4, we skip shifting the other stat.
+
+        # --- 7) Deduct fruit from inventory ---
         normalized_inventory[matched_fruit.lower()] -= 1
         updated_inventory = {k: normalized_inventory[k.lower()] for k in current_inv.keys()}
         self.data_utils.save_inventory(inv_path, inv_df, updated_inventory)
 
-        # Save updated stats
+        # --- 8) Save & update Chao stats (type, form, thumbnail) ---
         previous_form = latest_stats.get("Form", "1")
         chao_type, form = self.update_chao_type_and_thumbnail(
             guild_id, guild_name, user, chao_name, latest_stats
@@ -917,7 +996,7 @@ class Chao(commands.Cog):
         latest_stats["Form"] = form
         latest_stats["Type"] = chao_type
 
-        # Handle evolution from Form 2 to Form 3
+        # Evolve from Form 2 to Form 3 => improve relevant stat grade
         if previous_form == "2" and form == "3":
             suffix = chao_type.split("_")[1]
             stat_to_upgrade = {
@@ -930,29 +1009,31 @@ class Chao(commands.Cog):
                 grades = self.GRADES
                 current_grade = latest_stats.get(stat_to_upgrade, 'F')
                 if current_grade in grades:
-                    new_grade_index = min(len(grades) - 1, grades.index(current_grade) + 1)  # Improve grade
+                    new_grade_index = min(len(grades) - 1, grades.index(current_grade) + 1)
                     latest_stats[stat_to_upgrade] = grades[new_grade_index]
-                    level_up_details.append(f"{stat_to_upgrade.replace('_grade', '').capitalize()} grade improved to {grades[new_grade_index]}")
+                    level_up_details.append(
+                        f"{stat_to_upgrade.replace('_grade', '').capitalize()} grade improved to {grades[new_grade_index]}"
+                    )
 
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
 
-        # Ensure thumbnail file matches the expected format
+        # --- 9) Send the final message ---
         thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
-
         if not os.path.exists(thumbnail_path):
             return await self.send_embed(ctx, f"{ctx.author.mention}, thumbnail file is missing for **{chao_name}**.")
 
-        # Use a fixed filename for the attachment
         attachment_filename = "chao_thumbnail.png"
-
-        # Build embed
         description = f"{chao_name} ate a {matched_fruit}!\n\n" + "\n".join(message_details)
         if level_up_details:
             description += "\n\n" + "\n".join(level_up_details)
-        embed = discord.Embed(title="Chao Feed Success", description=description, color=self.embed_color)
+
+        embed = discord.Embed(
+            title="Chao Feed Success",
+            description=description,
+            color=self.embed_color
+        )
         embed.set_thumbnail(url=f"attachment://{attachment_filename}")
 
-        # Send the embed with the attached file
         with open(thumbnail_path, 'rb') as file:
             thumbnail = discord.File(file, filename=attachment_filename)
             await ctx.reply(embed=embed, file=thumbnail)
@@ -1197,82 +1278,128 @@ class Chao(commands.Cog):
 
     async def rename(self, ctx, *, chao_name_and_new_name: str = None):
         """
-        Rename a Chao or show usage information if no parameters are provided.
+        Rename a Chao.  
+        
+        - Allows: 
+            - 1-word → multi-word, e.g. $rename Chaoz Count Chaocula
+            - multi-word → 1-word, e.g. $rename Count Chaocula Chaoz
+          by guessing which tokens form the old name vs. the new name.
+          
+        - Called externally like:
+            await self.chao_cog.rename(ctx, chao_name_and_new_name="Chaoz Count Chaocula")
         """
+
+        # --- 1) Basic usage check ---
         if not chao_name_and_new_name:
-            # No parameters provided, display usage information
             embed = discord.Embed(
                 title="Rename Command",
                 description=(
-                    "The `$rename` command allows you to change the name of one of your Chao.\n\n"
-                    "**Usage:**\n"
-                    "`$rename <current_name> <new_name>`\n\n"
-                    "**Example:**\n"
-                    "`$rename Chaoko Chaozilla`\n"
-                    "Renames a Chao named 'Chaoko' to 'Chaozilla'.\n\n"
-                    "**Notes:**\n"
-                    "- New name must be 15 characters or fewer.\n"
-                    "- New name can be a single word or two words separated by a space."
+                    "Usage:\n"
+                    "`$rename <old_name> <new_name>`\n\n"
+                    "Examples:\n"
+                    "`$rename Chaoz Count Chaocula`\n"
+                    "  → Renames 'Chaoz' to 'Count Chaocula'\n\n"
+                    "`$rename Count Chaocula Chaoz`\n"
+                    "  → Renames 'Count Chaocula' to 'Chaoz'\n\n"
+                    "If your old name or new name has spaces and the bot guesses incorrectly, "
+                    "use quotes:\n"
+                    "`$rename \"Chaoz Count\" \"Chaocula Prime\"`"
                 ),
                 color=discord.Color.blue(),
             )
-            await ctx.reply(embed=embed)
-            return
+            return await ctx.reply(embed=embed)
 
-        guild_id = str(ctx.guild.id)
+        # Split the user-provided string into tokens
+        # e.g. "Chaoz Count Chaocula" -> ["Chaoz", "Count", "Chaocula"]
+        args = chao_name_and_new_name.split()
 
-        # Split the input into current_name and new_name
-        parts = chao_name_and_new_name.split()
-        if len(parts) < 2:
+        # We need at least 2 tokens to form an old name + new name
+        if len(args) < 2:
             return await ctx.reply(
-                f"{ctx.author.mention}, please provide both the current Chao name and the new name.\n"
-                f"Usage: `$rename <current_name> <new_name>`"
+                f"{ctx.author.mention}, please provide both the old Chao name and the new name.\n"
+                "Usage: `$rename <old_name> <new_name>`"
             )
 
-        # Assume the first part(s) is the current name and the last part(s) is the new name
-        current_name = ' '.join(parts[:-1]) if len(parts) > 2 else parts[0]
-        new_name = parts[-1]
+        # --- 2) Attempt #1: old=first token, new=rest ---
+        attempt1_old = args[0]                   # e.g. "Chaoz"
+        attempt1_new = " ".join(args[1:])        # e.g. "Count Chaocula"
 
-        # Validate the new name
+        # Path for attempt #1
+        user_folder = self.data_utils.get_user_folder(
+            self.data_utils.update_server_folder(ctx.guild), ctx.author
+        )
+        attempt1_old_path = os.path.join(user_folder, "chao_data", attempt1_old)
+
+        if os.path.exists(attempt1_old_path):
+            # If that folder exists, we assume attempt #1 is correct
+            old_name = attempt1_old
+            new_name = attempt1_new
+        else:
+            # --- 3) Attempt #2: old=all but last, new=last token ---
+            # e.g. ["Count", "Chaocula", "Chaoz"] => old="Count Chaocula", new="Chaoz"
+            attempt2_old = " ".join(args[:-1])
+            attempt2_new = args[-1]
+            attempt2_old_path = os.path.join(user_folder, "chao_data", attempt2_old)
+
+            if os.path.exists(attempt2_old_path):
+                old_name = attempt2_old
+                new_name = attempt2_new
+            else:
+                # Both guesses failed
+                return await ctx.reply(
+                    f"{ctx.author.mention}, I couldn't find a Chao folder matching "
+                    f"**{attempt1_old}** or **{attempt2_old}**.\n"
+                    "Please check your spelling or use quotes if the old name has spaces."
+                )
+
+        # --- 4) Now we have old_name and new_name properly determined ---
+
+        # Validate new_name length
         if len(new_name) > 15:
-            return await ctx.reply(f"{ctx.author.mention}, the new name **{new_name}** exceeds the 15-character limit.")
-        if not (new_name.isalnum() or (' ' in new_name and len(new_name.split()) == 2 and all(part.isalpha() for part in new_name.split()))):
             return await ctx.reply(
-                f"{ctx.author.mention}, the new name **{new_name}** must be either a single name with no spaces "
-                "or two words separated by one space. Example: `Chaozilla` or `Count Chaocula`."
+                f"{ctx.author.mention}, the new name **{new_name}** exceeds the 15-character limit."
             )
 
-        # Paths for Chao data
-        chao_dir = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'chao_data', current_name)
-        new_chao_dir = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'chao_data', new_name)
+        # Validate characters (letters, numbers, spaces)
+        if not new_name.replace(" ", "").isalnum():
+            return await ctx.reply(
+                f"{ctx.author.mention}, the new name **{new_name}** must be letters/numbers only, "
+                "with spaces allowed."
+            )
 
-        if not os.path.exists(chao_dir):
-            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{current_name}** exists.")
+        # Build final paths
+        old_path = os.path.join(user_folder, "chao_data", old_name)
+        new_path = os.path.join(user_folder, "chao_data", new_name)
 
-        if os.path.exists(new_chao_dir):
-            return await ctx.reply(f"{ctx.author.mention}, a Chao named **{new_name}** already exists.")
+        # Check if the new folder name already exists
+        if os.path.exists(new_path):
+            return await ctx.reply(
+                f"{ctx.author.mention}, a Chao named **{new_name}** already exists!"
+            )
 
-        # Rename the Chao directory
-        os.rename(chao_dir, new_chao_dir)
+        # Rename the main chao_data directory
+        os.rename(old_path, new_path)
 
-        # Update stats file
-        stats_file = os.path.join(new_chao_dir, f"{current_name}_stats.parquet")
-        new_stats_file = os.path.join(new_chao_dir, f"{new_name}_stats.parquet")
-        if os.path.exists(stats_file):
-            os.rename(stats_file, new_stats_file)
+        # Rename stats file (e.g. "Chaoz_stats.parquet" → "Count Chaocula_stats.parquet")
+        old_stats = os.path.join(new_path, f"{old_name}_stats.parquet")
+        new_stats = os.path.join(new_path, f"{new_name}_stats.parquet")
+        if os.path.exists(old_stats):
+            os.rename(old_stats, new_stats)
 
-        # Rename all relevant image files in the Chao directory
-        for filename in os.listdir(new_chao_dir):
-            if current_name in filename:
-                old_file_path = os.path.join(new_chao_dir, filename)
-                new_file_path = old_file_path.replace(current_name, new_name)
+        # Rename any other files containing the old name
+        for filename in os.listdir(new_path):
+            if old_name in filename:
+                old_file_path = os.path.join(new_path, filename)
+                new_file_path = os.path.join(
+                    new_path, filename.replace(old_name, new_name)
+                )
                 os.rename(old_file_path, new_file_path)
 
-        # Confirmation message
+        # Confirmation
         await ctx.reply(
-            f"{ctx.author.mention}, your Chao has been successfully renamed from **{current_name}** to **{new_name}**!"
+            f"{ctx.author.mention}, your Chao has been successfully renamed from "
+            f"**{old_name}** to **{new_name}**!"
         )
-
 
 
     async def egg(self, ctx):
