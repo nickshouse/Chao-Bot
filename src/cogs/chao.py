@@ -837,32 +837,65 @@ class Chao(commands.Cog):
 
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         """
-        Feed a particular fruit to a Chao, applying its effects and updating stats.
-        - Only allow the Chao to shift between different run/fly types while in Form 2.
-        - Form 3 or 4 won't revert or shift alignment once locked in.
+        Feed a particular fruit to a Chao multiple times in a single command.
+        Syntax:
+        $feed <chao_name> <fruit_name> [quantity]
+
+        Example:
+        $feed Chaolin power fruit 3
+            → Feeds "power fruit" to Chaolin 3 times.
+
+        Notes:
+        - If quantity is omitted, defaults to 1.
+        - We only allow multiple units of the SAME fruit in one command.
+        - Form 2 chao can shift alignment (run_power/swim_fly) on each feeding.
+        - Form 3/4 chao remain locked in advanced form alignment.
+        - We aggregate all increments into a single summary line per stat.
+        - Level-ups are reported as "Stamina leveled up to 4" instead of "4x (→ Level 4)".
+        - Dark/Hero alignment changes (dark_hero) are hidden in the final message.
         """
         guild_id = str(ctx.guild.id)
         guild_name = ctx.guild.name
         user = ctx.author
 
-        # --- 1) Parse the Chao name and fruit ---
-        matched_fruit = None
-        chao_name = None
+        # -------------------------------------------------------------------------
+        # 1) Parse user input to extract quantity, fruit name, and Chao name
+        # -------------------------------------------------------------------------
+        tokens = chao_name_and_fruit.split()
+        if not tokens:
+            return await ctx.reply("Please provide a Chao name and fruit.")
 
-        for fruit in self.fruits:
-            if chao_name_and_fruit.lower().endswith(f" {fruit.lower()}"):
-                matched_fruit = fruit
-                chao_name = chao_name_and_fruit[: -(len(fruit) + 1)].strip()
+        quantity = 1
+        if tokens[-1].isdigit():
+            quantity = int(tokens[-1])
+            tokens = tokens[:-1]
+
+        matched_fruit = None
+        chao_name_tokens = tokens[:]
+        for i in range(len(tokens), 0, -1):
+            candidate = " ".join(tokens[i - 1 :])
+            if candidate.lower() in [f.lower() for f in self.fruits]:
+                matched_fruit = candidate
+                chao_name_tokens = tokens[: i - 1]
                 break
 
-        if not chao_name or not matched_fruit:
+        if not matched_fruit:
+            valid_list = ", ".join(self.fruits)
             return await self.send_embed(
                 ctx,
                 f"{ctx.author.mention}, provide a valid Chao name and fruit.\n"
-                f"Valid fruits: {', '.join(self.fruits)}"
+                f"Valid fruits: {valid_list}"
             )
 
-        # --- 2) Confirm the Chao exists ---
+        chao_name = " ".join(chao_name_tokens).strip()
+        if not chao_name:
+            return await ctx.reply("Please specify which Chao you want to feed.")
+
+        matched_fruit_lower = matched_fruit.lower()
+
+        # -------------------------------------------------------------------------
+        # 2) Confirm that the Chao exists
+        # -------------------------------------------------------------------------
         chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
         chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
 
@@ -871,128 +904,151 @@ class Chao(commands.Cog):
         if not os.path.exists(chao_stats_path):
             return await self.send_embed(ctx, f"{ctx.author.mention}, stats file is missing for **{chao_name}**.")
 
-        # --- 3) Confirm the user has that fruit in inventory ---
+        # -------------------------------------------------------------------------
+        # 3) Confirm user has enough of that fruit in inventory
+        # -------------------------------------------------------------------------
         inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
         inv_df = self.data_utils.load_inventory(inv_path)
         current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
 
         normalized_inventory = {k.lower(): v for k, v in current_inv.items()}
-        if normalized_inventory.get(matched_fruit.lower(), 0) <= 0:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, you have no **{matched_fruit}**.")
+        have_amount = normalized_inventory.get(matched_fruit_lower, 0)
+        if have_amount < quantity:
+            return await self.send_embed(
+                ctx,
+                f"{ctx.author.mention}, you only have **{have_amount}** {matched_fruit}, "
+                f"but you tried to feed {quantity}."
+            )
 
-        # --- 4) Load the Chao's stats ---
+        # -------------------------------------------------------------------------
+        # 4) Load the Chao's stats
+        # -------------------------------------------------------------------------
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         latest_stats = chao_df.iloc[-1].to_dict()
 
-        message_details = []
-        level_up_details = []
+        # -------------------------------------------------------------------------
+        # 5) We'll track all changes in aggregated form
+        # -------------------------------------------------------------------------
+        import collections
+        ticks_changes = collections.defaultdict(int)     # e.g. stamina_ticks → +5
+        alignment_changes = collections.defaultdict(int) # e.g. run_power → -2, dark_hero → +1
+        levels_gained = collections.defaultdict(int)     # e.g. stamina_level → 2 times
+        final_stat_values = {}
 
-        # --- 5) Apply the standard fruit stat adjustments ---
-        adjustments = self.fruit_stats_adjustments.get(matched_fruit.lower(), {})
-        for stat, adjustment in adjustments.items():
-            increment = random.randint(*adjustment) if isinstance(adjustment, tuple) else adjustment
+        def clamp(value, lo, hi):
+            return max(lo, min(value, hi))
 
-            # A) Cap stats at 10 (e.g. hp, belly, energy, happiness)
-            if stat in ["hp_ticks", "belly_ticks", "energy_ticks", "happiness_ticks", "illness_ticks"]:
-                current_value = latest_stats.get(stat, 0)
-                if current_value < 10:
-                    new_value = min(current_value + increment, 10)
-                    latest_stats[stat] = new_value
-                    gained = new_value - current_value
-                    message_details.append(
-                        f"{stat.replace('_ticks', '').capitalize()} gained {gained} ticks ({new_value}/10)"
-                    )
+        # -------------------------------------------------------------------------
+        # 6) Single feed application (random increments, accumulate results)
+        # -------------------------------------------------------------------------
+        def apply_fruit_once():
+            nonlocal latest_stats
 
-            # B) Trainable stats (like run_ticks, swim_ticks, etc.) range 0–9, level up at 10
-            elif stat.endswith("_ticks"):
-                current_value = latest_stats.get(stat, 0)
-                remaining_increment = increment
+            adjustments = self.fruit_stats_adjustments.get(matched_fruit_lower, {})
+            for stat, adjustment in adjustments.items():
+                increment = random.randint(*adjustment) if isinstance(adjustment, tuple) else adjustment
 
-                while remaining_increment > 0:
-                    available_ticks = 9 - current_value
-                    ticks_to_add = min(remaining_increment, available_ticks + 1)
-                    current_value += ticks_to_add
-                    remaining_increment -= ticks_to_add
+                # A) Stats capped at 10 (hp/belly/energy/happiness/illness)
+                if stat in ["hp_ticks", "belly_ticks", "energy_ticks", "happiness_ticks", "illness_ticks"]:
+                    old_val = latest_stats.get(stat, 0)
+                    if old_val < 10:
+                        new_val = clamp(old_val + increment, 0, 10)
+                        net_gain = new_val - old_val
+                        if net_gain > 0:
+                            ticks_changes[stat] += net_gain
+                            latest_stats[stat] = new_val
 
-                    if current_value > 9:
-                        level_key = stat.replace("_ticks", "_level")
-                        grade_key = stat.replace("_ticks", "_grade")
-                        exp_key = stat.replace("_ticks", "_exp")
+                # B) Trainable ticks (0–9, reset at 10 => level up)
+                elif stat.endswith("_ticks"):
+                    remaining = increment
+                    while remaining > 0:
+                        old_val = latest_stats.get(stat, 0)
+                        space_until_level = 9 - old_val
+                        to_add = min(remaining, space_until_level + 1)
+                        new_val = old_val + to_add
+                        remaining -= to_add
 
-                        latest_stats[level_key] = latest_stats.get(level_key, 0) + 1
-                        grade = latest_stats.get(grade_key, 'F')
-                        latest_stats[exp_key] = latest_stats.get(exp_key, 0) + self.get_stat_increment(grade)
-                        level_up_details.append(
-                            f"{stat.replace('_ticks', '').capitalize()} leveled up to {latest_stats[level_key]}"
-                        )
-                        current_value = 0
+                        if new_val > 9:
+                            # Level up
+                            level_key = stat.replace("_ticks", "_level")
+                            grade_key = stat.replace("_ticks", "_grade")
+                            exp_key = stat.replace("_ticks", "_exp")
 
-                    latest_stats[stat] = current_value
+                            old_level = latest_stats.get(level_key, 0)
+                            latest_stats[level_key] = old_level + 1
+                            levels_gained[level_key] += 1
 
-                message_details.append(
-                    f"{stat.replace('_ticks', '').capitalize()} gained {increment} ticks ({current_value}/9)"
-                )
+                            # Add exp based on grade
+                            grade = latest_stats.get(grade_key, 'F')
+                            old_exp = latest_stats.get(exp_key, 0)
+                            latest_stats[exp_key] = old_exp + self.get_stat_increment(grade)
+                            latest_stats[stat] = 0
+                        else:
+                            net_gain = new_val - old_val
+                            ticks_changes[stat] += net_gain
+                            latest_stats[stat] = new_val
 
-            # C) Alignment stats (run_power, swim_fly, dark_hero)
-            elif stat in ["run_power", "swim_fly", "dark_hero"]:
-                current_value = latest_stats.get(stat, 0)
-                new_value = max(-5, min(5, current_value + increment))
-                latest_stats[stat] = new_value
-                if stat == "dark_hero":
-                    direction = "Hero alignment" if increment > 0 else "Dark alignment"
-                    message_details.append(f"{direction} changed by {abs(increment)} ({new_value}/5)")
+                # C) Alignment (run_power, swim_fly, dark_hero)
+                elif stat in ["run_power", "swim_fly", "dark_hero"]:
+                    old_val = latest_stats.get(stat, 0)
+                    new_val = clamp(old_val + increment, -5, 5)
+                    net_gain = new_val - old_val
+                    if net_gain != 0:
+                        alignment_changes[stat] += net_gain
+                    latest_stats[stat] = new_val
 
-        # --- 6) If the Chao is in Form 2, move the *other* alignment stat closer to zero ---
-        current_form = latest_stats.get("Form", "1")
-        fruit_lower = matched_fruit.lower()
-
-        if current_form == "2":
-            # If fruit is swim/fly => shift run_power toward 0
-            if fruit_lower in ["swim fruit", "blue fruit", "green fruit", "purple fruit", "pink fruit", "fly fruit"]:
-                old_rp = latest_stats.get("run_power", 0)
-                if old_rp < 0:
-                    new_rp = old_rp + 1
-                elif old_rp > 0:
-                    new_rp = old_rp - 1
-                else:
+            # D) If Form 2, shift the *other* alignment stat one step toward 0
+            current_form = str(latest_stats.get("Form", "1"))
+            if current_form == "2":
+                if matched_fruit_lower in ["swim fruit", "blue fruit", "green fruit", "purple fruit", "pink fruit", "fly fruit"]:
+                    old_rp = latest_stats.get("run_power", 0)
                     new_rp = old_rp
-                # Clamp
-                new_rp = max(-5, min(5, new_rp))
-                if new_rp != old_rp:
-                    latest_stats["run_power"] = new_rp
-                    message_details.append(f"Run/Power alignment shifted closer to 0: {old_rp} → {new_rp}")
+                    if old_rp < 0:
+                        new_rp = old_rp + 1
+                    elif old_rp > 0:
+                        new_rp = old_rp - 1
+                    new_rp = clamp(new_rp, -5, 5)
+                    if new_rp != old_rp:
+                        alignment_changes["run_power"] += (new_rp - old_rp)
+                        latest_stats["run_power"] = new_rp
 
-            # If fruit is run/power => shift swim_fly toward 0
-            if fruit_lower in ["run fruit", "red fruit", "power fruit"]:
-                old_sf = latest_stats.get("swim_fly", 0)
-                if old_sf < 0:
-                    new_sf = old_sf + 1
-                elif old_sf > 0:
-                    new_sf = old_sf - 1
-                else:
+                if matched_fruit_lower in ["run fruit", "red fruit", "power fruit"]:
+                    old_sf = latest_stats.get("swim_fly", 0)
                     new_sf = old_sf
-                new_sf = max(-5, min(5, new_sf))
-                if new_sf != old_sf:
-                    latest_stats["swim_fly"] = new_sf
-                    message_details.append(f"Swim/Fly alignment shifted closer to 0: {old_sf} → {new_sf}")
+                    if old_sf < 0:
+                        new_sf = old_sf + 1
+                    elif old_sf > 0:
+                        new_sf = old_sf - 1
+                    new_sf = clamp(new_sf, -5, 5)
+                    if new_sf != old_sf:
+                        alignment_changes["swim_fly"] += (new_sf - old_sf)
+                        latest_stats["swim_fly"] = new_sf
 
-        # If the Chao is Form 3 or 4, we skip shifting the other stat.
+        # -------------------------------------------------------------------------
+        # 7) Feed the fruit quantity times, accumulate changes
+        # -------------------------------------------------------------------------
+        for _ in range(quantity):
+            apply_fruit_once()
 
-        # --- 7) Deduct fruit from inventory ---
-        normalized_inventory[matched_fruit.lower()] -= 1
+        # -------------------------------------------------------------------------
+        # 8) Deduct fruit from inventory in one go
+        # -------------------------------------------------------------------------
+        normalized_inventory[matched_fruit_lower] = have_amount - quantity
         updated_inventory = {k: normalized_inventory[k.lower()] for k in current_inv.keys()}
         self.data_utils.save_inventory(inv_path, inv_df, updated_inventory)
 
-        # --- 8) Save & update Chao stats (type, form, thumbnail) ---
-        previous_form = latest_stats.get("Form", "1")
+        # -------------------------------------------------------------------------
+        # 9) Update form & thumbnail after all feeding
+        # -------------------------------------------------------------------------
+        prev_form = str(latest_stats.get("Form", "1"))
         chao_type, form = self.update_chao_type_and_thumbnail(
             guild_id, guild_name, user, chao_name, latest_stats
         )
         latest_stats["Form"] = form
         latest_stats["Type"] = chao_type
 
-        # Evolve from Form 2 to Form 3 => improve relevant stat grade
-        if previous_form == "2" and form == "3":
+        # If evolving from Form 2 → 3, check stat_to_upgrade
+        if prev_form == "2" and form == "3":
             suffix = chao_type.split("_")[1]
             stat_to_upgrade = {
                 "fly": "fly_grade",
@@ -1006,31 +1062,73 @@ class Chao(commands.Cog):
                 if current_grade in grades:
                     new_grade_index = min(len(grades) - 1, grades.index(current_grade) + 1)
                     latest_stats[stat_to_upgrade] = grades[new_grade_index]
-                    level_up_details.append(
-                        f"{stat_to_upgrade.replace('_grade', '').capitalize()} grade improved to {grades[new_grade_index]}"
-                    )
+                    levels_gained[stat_to_upgrade] += 1
 
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
 
-        # --- 9) Send the final message ---
+        # -------------------------------------------------------------------------
+        # 10) Build final embed text, skipping dark_hero lines & simplifying level-ups
+        # -------------------------------------------------------------------------
+        # Example: "Chaolin ate 3 Power Fruit!"
+        feed_summary = f"{chao_name} ate {quantity} {matched_fruit}!"
+        if quantity == 1:
+            feed_summary = f"{chao_name} ate a {matched_fruit}!"
+
+        stat_lines = []
+
+        # (A) Summarize tick changes, e.g. "Stamina +6 (6/9)"
+        for stat, net_gain in ticks_changes.items():
+            base_name = stat.replace("_ticks", "").capitalize()
+            final_val = latest_stats.get(stat, 0)
+            cap = 10 if stat in ["hp_ticks", "belly_ticks", "energy_ticks", "happiness_ticks", "illness_ticks"] else 9
+            sign = "+" if net_gain > 0 else ""
+            stat_lines.append(f"{base_name} {sign}{net_gain} ({final_val}/{cap})")
+
+        # (B) Summarize alignment changes (skip dark_hero)
+        for a_stat, net_align in alignment_changes.items():
+            if a_stat == "dark_hero":
+                # Hide any info about dark/hero alignment changes
+                continue
+            sign = "+" if net_align > 0 else ""
+            final_val = latest_stats.get(a_stat, 0)
+            base = a_stat.replace("_", "/").capitalize()  # e.g. run_power -> "Run/power"
+            stat_lines.append(f"{base} {sign}{net_align} (→ {final_val}/5)")
+
+        # (C) Summarize level-ups
+        #  - Instead of "Stamina leveled up 4x (→ Level 4)"
+        #  - we want "Stamina leveled up to 4"
+        for lvl_key, times_gained in levels_gained.items():
+            # If it's a _level stat (e.g. "stamina_level")
+            if lvl_key.endswith("_level"):
+                short_name = lvl_key.replace("_level", "").capitalize()  # "Stamina"
+                new_level = latest_stats.get(lvl_key, 0)
+                stat_lines.append(f"{short_name} leveled up to {new_level}")
+            # If it's e.g. a "power_grade" from stat_to_upgrade
+            elif lvl_key.endswith("_grade"):
+                short_name = lvl_key.replace("_grade", "").capitalize()
+                new_grade = latest_stats.get(lvl_key, "F")
+                stat_lines.append(f"{short_name} grade improved to {new_grade}")
+
+        # -------------------------------------------------------------------------
+        # 11) Combine into final embed
+        # -------------------------------------------------------------------------
         thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
         if not os.path.exists(thumbnail_path):
             return await self.send_embed(ctx, f"{ctx.author.mention}, thumbnail file is missing for **{chao_name}**.")
 
-        attachment_filename = "chao_thumbnail.png"
-        description = f"{chao_name} ate a {matched_fruit}!\n\n" + "\n".join(message_details)
-        if level_up_details:
-            description += "\n\n" + "\n".join(level_up_details)
+        description = feed_summary
+        if stat_lines:
+            description += "\n\n" + "\n".join(stat_lines)
 
         embed = discord.Embed(
             title="Chao Feed Success",
             description=description,
             color=self.embed_color
         )
-        embed.set_thumbnail(url=f"attachment://{attachment_filename}")
+        embed.set_thumbnail(url="attachment://chao_thumbnail.png")
 
         with open(thumbnail_path, 'rb') as file:
-            thumbnail = discord.File(file, filename=attachment_filename)
+            thumbnail = discord.File(file, filename="chao_thumbnail.png")
             await ctx.reply(embed=embed, file=thumbnail)
 
 
