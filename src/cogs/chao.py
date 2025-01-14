@@ -566,6 +566,8 @@ class Chao(commands.Cog):
         """
         Updates the Chao type and form based on current stats and evolution rules.
         Generates the updated thumbnail for the Chao.
+        Once the Chao reaches Form 3, alignment & suffix won't change unless it
+        meets the level threshold for Form 4.
         """
         try:
             if not self.assets_dir:
@@ -598,7 +600,7 @@ class Chao(commands.Cog):
             )
             latest_stats["Alignment"] = alignment
 
-            # 3) Determine suffix from run_power & swim_fly
+            # 3) Function to determine suffix from run_power & swim_fly
             def determine_suffix(rp: int, sf: int) -> str:
                 if rp == 5:
                     return "power"
@@ -610,11 +612,30 @@ class Chao(commands.Cog):
                     return "swim"
                 return "normal"
 
+            # ----------------------------------------------------------------------
+            # SHORT-CIRCUIT IF THE CHAO IS ALREADY FORM 3 (OR 4) AND NOT EVOLVING
+            # ----------------------------------------------------------------------
+            old_type = latest_stats.get("Type", "neutral_normal_1")
+            old_form = str(latest_stats.get("Form", "1"))
+            
+            # If the Chao is in Form 3, only evolve to 4 if it meets FORM_LEVEL_4.
+            # Otherwise, skip re-calculating alignment/suffix and keep old_type exactly.
+            if old_form == "3" and max_level < self.FORM_LEVEL_4:
+                # Keep old type & form: no re-alignment or suffix changes in Form 3
+                return old_type, old_form
+
+            # If the Chao is already Form 4, there's nowhere else to go,
+            # so skip re-calc as well:
+            if old_form == "4":
+                return old_type, old_form
+
+            # ----------------------------------------------------------------------
+            # Otherwise, we are Form 1 or 2, or possibly 3 with enough level for 4.
+            # We recalc alignment/suffix & possibly evolve.
+            # ----------------------------------------------------------------------
             suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
 
-            # 4) Possibly evolve to the next form
-            #    Make sure you do this in ascending order (1->2->3->4).
-            #    If you're already at or beyond a certain form, only go up if you meet the requirement.
+            # 4) Possibly evolve to the next form in ascending order
             if current_form == "1" and max_level >= self.FORM_LEVEL_2:
                 current_form = "2"
             if current_form == "2" and max_level >= self.FORM_LEVEL_3:
@@ -622,12 +643,7 @@ class Chao(commands.Cog):
             if current_form == "3" and max_level >= self.FORM_LEVEL_4:
                 current_form = "4"
 
-            # 5) Build the chao_type based on (alignment, form, suffix)
-            #    - Form 1 is always "alignment_normal_1"
-            #    - Form 2 is "alignment_normal_suffix_2"
-            #    - Form 3 is "alignment_suffix_3"
-            #    - Form 4 can be "alignment_basesuffix_suffix_4"
-            #      (special case if everything is "normal")
+            # 5) Build chao_type based on (alignment, form, suffix)
             if current_form == "1":
                 chao_type = f"{alignment}_normal_1"
             elif current_form == "2":
@@ -635,51 +651,31 @@ class Chao(commands.Cog):
             elif current_form == "3":
                 chao_type = f"{alignment}_{suffix}_3"
             else:  # current_form == "4"
-                # For form 4, we split the *previous form 3 type* or default to normal.
-                # But often we can just do:
-                #   alignment_suffix_suffix_4
-                # E.g. "dark_run_run_4". 
-                # If you want a "double normal" edge case, handle that below:
-                base_suffix = suffix  # default is reusing the same suffix for "double"
-                
-                # If the user was in form 3 with something like "dark_fly_3", base_suffix = "fly"
-                # If you want to parse from the older type, you'd do it from latest_stats["Type"]
-                #   but be careful if that was out-of-date. Example approach:
-                old_type = latest_stats.get("Type", "neutral_normal_1")
+                # Use the old form-3 type's middle token as base_suffix
+                base_suffix = suffix
                 if old_type.endswith("_3"):
-                    # The middle token = old_type.split("_")[1]
-                    base_suffix = old_type.split("_")[1]
-
+                    base_suffix = old_type.split("_")[1]  # e.g. "fly" in "dark_fly_3"
                 chao_type = f"{alignment}_{base_suffix}_{suffix}_4"
 
-                # Special case if suffix == "normal" and base_suffix == "normal"
+                # Special case: "alignment_normal_normal_4"
                 if base_suffix == "normal" and suffix == "normal":
                     chao_type = f"{alignment}_normal_normal_4"
 
-            # Debug prints
             print(f"[DEBUG] alignment={alignment}, suffix={suffix}, form={current_form}, type={chao_type}")
 
-            # 6) Save final form & type in stats
+            # 6) Save final form & type
             latest_stats["Form"] = current_form
             latest_stats["Type"] = chao_type
 
             # 7) Build sprite path
-            #    For form 2: "chao/normal/<alignment>/<alignment>_normal_<suffix>_2.png"
-            #    For form 3: "chao/<suffix>/<alignment>/<alignment>_<suffix>_3.png"
-            #    For form 4: "chao/<base_suffix>/<alignment>/<alignment>_<base_suffix>_<suffix>_4.png"
-            #    For form 1: "chao/normal/<alignment>/<alignment>_normal_1.png"
-            # The simplest approach is to always parse the second part of `chao_type` as the "base folder",
-            #   but that can be tricky for form 4. 
-            # If you want a quick fix, you can do:
             subfolders = chao_type.split("_")
-            # subfolders[0] = alignment, subfolders[1] = "normal"/"run"/"fly"/"power"/"swim"/..., etc.
             base_folder = subfolders[1] if len(subfolders) > 1 else "normal"
 
             sprite_path = os.path.join(
                 self.assets_dir,
                 "chao",
-                base_folder,       # e.g. "normal", "run", "fly", etc.
-                alignment,         # e.g. "dark", "hero", or "neutral"
+                base_folder,
+                alignment,
                 f"{chao_type}.png"
             )
             print(f"[DEBUG] Sprite path => {sprite_path}")
@@ -691,7 +687,6 @@ class Chao(commands.Cog):
             # 8) Eyes & mouth
             eyes = latest_stats.get("eyes", "neutral")
             mouth = latest_stats.get("mouth", "happy")
-            # If you want forms 1 & 2 to have "neutral" eyes, 3 & 4 use alignment eyes:
             eyes_alignment = "neutral" if current_form in ["1", "2"] else alignment
 
             eyes_image_path = os.path.join(self.EYES_DIR, f"{eyes_alignment}_{eyes}.png")
@@ -702,7 +697,7 @@ class Chao(commands.Cog):
             if not os.path.exists(mouth_image_path):
                 mouth_image_path = os.path.join(self.MOUTH_DIR, "happy.png")
 
-            # 9) Background
+            # 9) Choose background
             if current_form in ["3", "4"]:
                 bg_path = (
                     self.HERO_BG_PATH if alignment == "hero" else
@@ -1037,7 +1032,6 @@ class Chao(commands.Cog):
         with open(thumbnail_path, 'rb') as file:
             thumbnail = discord.File(file, filename=attachment_filename)
             await ctx.reply(embed=embed, file=thumbnail)
-
 
 
     async def stats(self, ctx, *, chao_name: str):
