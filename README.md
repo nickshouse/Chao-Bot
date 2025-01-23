@@ -53,13 +53,6 @@ Here are some of the available commands:
 * `$restrict <Channel ID>` \- Restrict bot activity to a specific channel \(Admin only\)\.
 * `$goodbye <Chao Name>` \- Send your Chao to live in the Chao Forest\.
 
-## Installation
+## Credits
 
-To set up Chao Bot, follow these steps:
-
-1. Clone the repository:
-
-``` bash
-git clone https://github.com/nickshouse/chao-bot.git
-cd chao-bot
-```
+Still working on it! Sorry!
