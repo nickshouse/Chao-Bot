@@ -881,7 +881,7 @@ class ChaoHelper(commands.Cog):
         user_id = str(ctx.author.id)
         guild_name = ctx.guild.name
 
-        chao_dir = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'chao_data', chao_name)
+        chao_dir = self.data_utils.get_path(guild_id, guild_name, ctx.author, 'chao_data', chao_name)
         chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
 
         if not os.path.exists(chao_stats_path):
@@ -993,21 +993,8 @@ class ChaoHelper(commands.Cog):
         embed.set_image(url="attachment://stats_page.png")
         embed.set_footer(text="Page 1 / 2")
 
-        # Create StatsView
-        view = StatsView.from_data(
-            {
-                "chao_name": chao_name,
-                "guild_id": guild_id,
-                "user_id": user_id,
-                "chao_type_display": chao_type_display,
-                "alignment_label": alignment_label,
-                "total_pages": 2,
-                "current_page": 1
-            },
-            self
-        )
-
-        self.save_persistent_view({
+        # CREATE THE VIEW. If this is a fresh command, we might assume page=1
+        view_data = {
             "chao_name": chao_name,
             "guild_id": guild_id,
             "user_id": user_id,
@@ -1015,7 +1002,50 @@ class ChaoHelper(commands.Cog):
             "alignment_label": alignment_label,
             "total_pages": 2,
             "current_page": 1
-        })
+        }
+
+        view = StatsView.from_data(view_data, self)
+
+
+
+        def save_persistent_view(self, view_data: Dict):
+            """Example function that saves the view to JSON, so we can restore on startup."""
+            try:
+                with open(PERSISTENT_VIEWS_FILE, "r") as f:
+                    data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                data = {}
+
+            key = f"{view_data['guild_id']}_{view_data['user_id']}_{view_data['chao_name']}"
+            data[key] = view_data
+
+            with open(PERSISTENT_VIEWS_FILE, "w") as f:
+                json.dump(data, f)
+
+        def load_persistent_views(self):
+            """
+            On bot startup, we read from JSON for each old view, call `StatsView.from_data` once,
+            and then do `self.bot.add_view(...)` so it can handle button clicks for that old view.
+            """
+            if os.path.exists(PERSISTENT_VIEWS_FILE):
+                with open(PERSISTENT_VIEWS_FILE, "r") as f:
+                    try:
+                        data = json.load(f)
+                    except json.JSONDecodeError:
+                        return
+
+                for key, view_data in data.items():
+                    # Check required keys, etc.
+                    if not all(k in view_data for k in ("chao_name", "guild_id", "user_id", "chao_type_display", "alignment_label", "total_pages", "current_page")):
+                        continue
+
+                    # If the user left the view on page2, we see "current_page": 2
+                    view = StatsView.from_data(view_data, self)
+                    self.bot.add_view(view)
+
+
+        # Optionally, save so that if the bot restarts, we can restore
+        self.save_persistent_view(view_data)
 
         await ctx.reply(
             files=[
@@ -1076,15 +1106,22 @@ class StatsView(View):
         self.total_pages = total_pages
         self.state_file = state_file
 
-        # Load and validate the initial page state
-        self.current_page = self.load_state(default_page=current_page)
-        self.save_state()  # Ensure the state is immediately persisted
+        # IMPORTANT:
+        # Instead of overwriting self.current_page with whatever's in the JSON,
+        # we trust the constructor argument if we are building a brand-new View:
+        self.current_page = current_page
 
-        # Add navigation buttons
+        # We can still do a one-time save if we want:
+        self.save_state()
+
+        # Add navigation
         self.add_navigation_buttons()
 
     def save_state(self):
-        """Save the current page to the persistent views file."""
+        """
+        Only call *once* or on changes. Do *not* re-load again in the same button click,
+        or you'll revert to old JSON data.
+        """
         try:
             with open(self.state_file, "r") as f:
                 data = json.load(f)
@@ -1106,23 +1143,29 @@ class StatsView(View):
             json.dump(data, f)
 
     def load_state(self, default_page: int = 1) -> int:
-        """Load the saved current page from the persistent views file."""
+        """
+        If we do want to restore from disk, do so only once at init if needed.
+        But typically you won't re-call this inside the same button press,
+        because it overwrites the new page change.
+        """
         if os.path.exists(self.state_file):
             with open(self.state_file, "r") as f:
                 try:
                     data = json.load(f)
                     key = f"{self.guild_id}_{self.user_id}_{self.chao_name}"
-                    page = data.get(key, {}).get("current_page", default_page)
-                    return max(1, min(page, self.total_pages))
+                    return data.get(key, {}).get("current_page", default_page)
                 except json.JSONDecodeError:
-                    pass  # Return default if JSON is corrupted
+                    pass
         return default_page
 
     def add_navigation_buttons(self):
-        """Add navigation buttons to the view."""
         self.clear_items()
-        self.add_item(self.create_button("⬅️", "previous_page", f"{self.guild_id}_{self.user_id}_{self.chao_name}_prev"))
-        self.add_item(self.create_button("➡️", "next_page", f"{self.guild_id}_{self.user_id}_{self.chao_name}_next"))
+        self.add_item(
+            self.create_button("⬅️", "previous_page", f"{self.guild_id}_{self.user_id}_{self.chao_name}_prev")
+        )
+        self.add_item(
+            self.create_button("➡️", "next_page", f"{self.guild_id}_{self.user_id}_{self.chao_name}_next")
+        )
 
     def create_button(self, emoji: str, callback_name: str, custom_id: str) -> Button:
         button = Button(style=discord.ButtonStyle.primary, emoji=emoji, custom_id=custom_id)
@@ -1130,19 +1173,20 @@ class StatsView(View):
         return button
 
     async def previous_page(self, interaction: discord.Interaction):
-        """Navigate to the previous page."""
+        # Decrement in memory
         self.current_page = self.total_pages if self.current_page == 1 else self.current_page - 1
+        # Save to JSON so if the bot restarts, we pick up here
         self.save_state()
         await self.update_stats(interaction)
 
     async def next_page(self, interaction: discord.Interaction):
-        """Navigate to the next page."""
+        # Increment in memory
         self.current_page = 1 if self.current_page == self.total_pages else self.current_page + 1
         self.save_state()
         await self.update_stats(interaction)
 
     async def update_stats(self, interaction: discord.Interaction):
-        """Update the stats display based on the current page."""
+        """Just re-draw using the in-memory page (self.current_page)."""
         guild = self.bot.get_guild(int(self.guild_id))
         if not guild:
             return await interaction.response.send_message("Error: Could not find the guild.", ephemeral=True)
@@ -1153,16 +1197,19 @@ class StatsView(View):
 
         chao_dir = self.data_utils.get_path(self.guild_id, guild.name, member, 'chao_data', self.chao_name)
         chao_stats_path = os.path.join(chao_dir, f'{self.chao_name}_stats.parquet')
-        chao_df = self.data_utils.load_chao_stats(chao_stats_path)
 
+        chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         if chao_df.empty:
             return await interaction.response.send_message("No stats data available for this Chao.", ephemeral=True)
 
         chao_to_view = chao_df.iloc[-1].to_dict()
+
+        # Build the page image name based on self.current_page
         page_image_filename = f'{self.chao_name}_stats_page_{self.current_page}.png'
         image_path = os.path.join(chao_dir, page_image_filename)
 
         if self.current_page == 1:
+            # Generate page 1
             await asyncio.to_thread(
                 self.image_utils.paste_page1_image,
                 self.template_path,
@@ -1174,6 +1221,7 @@ class StatsView(View):
                 *[chao_to_view.get(f"{stat}_exp", 0) for stat in ['power', 'swim', 'fly', 'run', 'stamina']]
             )
         else:
+            # Generate page 2
             stats_values_page2 = {
                 stat: chao_to_view.get(f"{stat}_ticks", 0)
                 for stat in self.page2_tick_positions
@@ -1187,15 +1235,13 @@ class StatsView(View):
                 stats_values_page2
             )
 
-        embed = (
-            discord.Embed(color=discord.Color.blue())
-            .set_author(name=f"{self.chao_name}'s Stats", icon_url="attachment://Stats.png")
-            .add_field(name="Type", value=self.chao_type_display, inline=True)
-            .add_field(name="Alignment", value=self.alignment_label, inline=True)
-            .set_thumbnail(url="attachment://chao_thumbnail.png")
-            .set_image(url="attachment://stats_page.png")
-            .set_footer(text=f"Page {self.current_page} / {self.total_pages}")
-        )
+        embed = discord.Embed(color=discord.Color.blue())
+        embed.set_author(name=f"{self.chao_name}'s Stats", icon_url="attachment://Stats.png")
+        embed.add_field(name="Type", value=self.chao_type_display, inline=True)
+        embed.add_field(name="Alignment", value=self.alignment_label, inline=True)
+        embed.set_thumbnail(url="attachment://chao_thumbnail.png")
+        embed.set_image(url="attachment://stats_page.png")
+        embed.set_footer(text=f"Page {self.current_page} / {self.total_pages}")
 
         await interaction.response.edit_message(
             embed=embed,
@@ -1207,11 +1253,15 @@ class StatsView(View):
             view=self
         )
 
-
-
     @classmethod
     def from_data(cls, view_data: Dict, cog):
-        """Recreate a StatsView from stored data."""
+        """
+        If we want to restore from disk, we do it once here.
+        But once the user is actively paging, do not keep re-calling from_data.
+        """
+        # If we want to use the JSON-saved 'current_page' from the dictionary, we can do so directly:
+        current_page = view_data.get("current_page", 1)
+
         return cls(
             bot=cog.bot,
             chao_name=view_data["chao_name"],
@@ -1233,7 +1283,8 @@ class StatsView(View):
             image_utils=cog.image_utils,
             data_utils=cog.data_utils,
             total_pages=view_data["total_pages"],
-            current_page=view_data.get("current_page", 1)
+            current_page=current_page,  # <-- keep it
+            state_file=PERSISTENT_VIEWS_FILE
         )
 
 
