@@ -1,5 +1,5 @@
 {
-    "FORM_LEVELS": [5, 20, 50],
+    "FORM_LEVELS": [5, 20, 60],
     "ALIGNMENTS": {"hero": 5, "dark": -5, "neutral": 0},
     "FRUIT_TICKS_RANGE": [6, 8],
     "FRUIT_STATS": {

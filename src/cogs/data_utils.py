@@ -168,6 +168,7 @@ class DataUtils(commands.Cog):
     def save_chao_stats(self, chao_stats_path, chao_df, chao_stats):
         """
         Saves Chao stats for the current date, ensuring zero-padded date.
+        Also forces any 'last_*_update' columns to be strings to avoid ArrowInvalid.
         """
         current_date_str = datetime.now().strftime("%Y-%m-%d")
         new_entry = {**chao_stats, 'date': current_date_str}
@@ -183,9 +184,13 @@ class DataUtils(commands.Cog):
         if 'Alignment' in chao_df.columns:
             chao_df['Alignment'] = chao_df['Alignment'].astype(str)
 
+        # Force all 'last_*_update' columns to string
+        for col in chao_df.columns:
+            if col.startswith("last_") and col.endswith("_update"):
+                chao_df[col] = chao_df[col].astype(str)
+
         chao_df.to_parquet(chao_stats_path, index=False)
 
-    # load/save inventory, load/save chao stats, etc. same as before...
     def load_chao_stats(self, chao_stats_path):
         if os.path.exists(chao_stats_path):
             df = pd.read_parquet(chao_stats_path).fillna(0)
@@ -195,7 +200,6 @@ class DataUtils(commands.Cog):
         else:
             return pd.DataFrame(columns=['date'])
 
-    # The unified restore helper
     def _restore_parquet_data(self, df: pd.DataFrame, old_date: str) -> pd.DataFrame:
         if old_date not in df['date'].values:
             raise ValueError(f"No data found for {old_date}")
@@ -212,7 +216,6 @@ class DataUtils(commands.Cog):
         else:
             df = pd.concat([df, new_entry_df], ignore_index=True).fillna(0)
         return df
-
 
     async def restore(self, ctx, *, args: str):
         """

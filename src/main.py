@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Initialize bot with all intents
-bot = commands.Bot(command_prefix='$', help_command=None, intents=discord.Intents.all())
+bot = commands.Bot(command_prefix='%', help_command=None, intents=discord.Intents.all())
 
 # Path to store the restrict settings
 RESTRICT_FILE = "restricted_channels.json"
@@ -25,7 +25,7 @@ async def on_ready():
     """
     Event triggered when the bot is ready and connected to Discord.
     """
-    for cog in ['cogs.image_utils', 'cogs.data_utils', 'cogs.chao', 'cogs.black_market', 'cogs.commands']:
+    for cog in ['cogs.image_utils', 'cogs.data_utils', 'cogs.chao_helper', 'cogs.chao', 'cogs.black_market', 'cogs.commands']:
         try:
             await bot.load_extension(cog)
             print(f'Loaded {cog}')
@@ -121,7 +121,7 @@ def add_rings_for_user(message):
                 current_inventory = inventory_df.iloc[-1].to_dict()
 
             # Add 10 rings
-            current_inventory['rings'] = current_inventory.get('rings', 0) + 10
+            current_inventory['rings'] = current_inventory.get('rings', 0) + 5
 
             # Save the updated inventory
             data_utils.save_inventory(inventory_path, inventory_df, current_inventory)

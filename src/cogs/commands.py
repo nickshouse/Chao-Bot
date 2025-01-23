@@ -11,6 +11,7 @@ class Commands(commands.Cog):
 
     def cog_load(self):
         self.chao_cog = self.bot.get_cog('Chao')
+        self.chao_helper_cog = self.bot.get_cog('ChaoHelper')
         self.data_utils = self.bot.get_cog('DataUtils')
         self.black_market_cog = self.bot.get_cog('BlackMarket')
         if not self.chao_cog:
@@ -92,6 +93,26 @@ class Commands(commands.Cog):
     async def give_rings(self, ctx):
         await self.chao_cog.give_rings(ctx)
 
+    @commands.command(name='force_belly_decay', help="(Admin) Adjust how often belly is reduced.")
+    @commands.has_permissions(administrator=True)
+    async def force_belly_decay(self, ctx, ticks: int, minutes: int):
+        await self.chao_helper_cog.force_belly_decay(ctx, ticks=ticks, minutes=minutes)
+
+    @commands.command(name='force_energy_decay', help="(Admin) Adjust how often energy is reduced.")
+    @commands.has_permissions(administrator=True)
+    async def force_energy_decay(self, ctx, ticks: int, minutes: int):
+        await self.chao_helper_cog.force_energy_decay(ctx, ticks=ticks, minutes=minutes)
+
+    @commands.command(name='force_happiness_decay', help="(Admin) Adjust how often happiness is reduced.")
+    @commands.has_permissions(administrator=True)
+    async def force_happiness_decay(self, ctx, ticks: int, minutes: int):
+        await self.chao_helper_cog.force_happiness_decay(ctx, ticks=ticks, minutes=minutes)
+
+    @commands.command(name='force_hp_decay', help="(Admin) Adjust how often hp is reduced.")
+    @commands.has_permissions(administrator=True)
+    async def force_hp_decay(self, ctx, ticks: int, minutes: int):
+        await self.chao_helper_cog.force_hp_decay(ctx, ticks=ticks, minutes=minutes)
+
     @commands.command(name='force_life_check', help="(Admin only) Force a Chao life check.")
     @ensure_user_initialized
     @commands.has_permissions(administrator=True)
@@ -109,18 +130,20 @@ class Commands(commands.Cog):
     @commands.command(name='stats', help="View a Chao's stats.")
     @ensure_user_initialized
     async def stats(self, ctx, *, chao_name: str):
-        await self.chao_cog.stats(ctx, chao_name=chao_name)
+        await self.chao_helper_cog.stats(ctx, chao_name=chao_name)
 
     @commands.command(name='feed', help="Feed a fruit to your Chao.")
     @ensure_user_initialized
     async def feed(self, ctx, *, chao_name_and_fruit: str):
-        await self.chao_cog.feed(ctx, chao_name_and_fruit=chao_name_and_fruit)
+        chao_helper_cog = self.bot.get_cog("ChaoHelper")
+        if not chao_helper_cog:
+            return await ctx.reply("ChaoHelper cog not loaded.")
+        await chao_helper_cog.feed(ctx, chao_name_and_fruit=chao_name_and_fruit)
 
     @commands.command(name='listchao', help='List all the Chao you own.')
     @ensure_user_initialized
     async def list_chao(self, ctx):
         await self.chao_cog.list_chao(ctx)
-
 
     @commands.command(name='rename', help="Rename your Chao.")
     @ensure_user_initialized
