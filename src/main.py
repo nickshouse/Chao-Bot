@@ -15,7 +15,7 @@ recent_user_messages = {}
 load_dotenv()
 
 # Initialize bot with all intents
-bot = commands.Bot(command_prefix='%', help_command=None, intents=discord.Intents.all())
+bot = commands.Bot(command_prefix='$', help_command=None, intents=discord.Intents.all())
 
 # Path to store the restrict settings
 RESTRICT_FILE = "restricted_channels.json"

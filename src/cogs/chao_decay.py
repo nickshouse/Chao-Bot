@@ -342,21 +342,6 @@ class ChaoDecay(commands.Cog):
         except ValueError:
             return  # Unable to parse user ID
 
-        if new_hp == 0 and old_hp > 0:
-            await user.send(
-                f"**Oh no!** Your chao **{chao_name}** has reached **0 HP**.\n"
-                "This means your chao may have died (or is effectively at no health)."
-            )
-        elif new_hp == 1 and old_hp > 1:
-            await user.send(
-                f"**ALERT:** Your chao **{chao_name}** is at **1 HP** and is dangerously low.\n"
-                "Please restore its health soon, or it may die!"
-            )
-        elif new_hp == 3 and old_hp > 3:
-            await user.send(
-                f"**Warning:** Your chao **{chao_name}** is at only **3 HP** and is in low health!"
-            )
-
     async def force_hp_decay(self, ctx, ticks: int, minutes: int):
         """
         Admin command to update HP decay settings.
