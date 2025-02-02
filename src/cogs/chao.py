@@ -84,80 +84,6 @@ class Chao(commands.Cog):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
         return ctx.reply(embed=embed)
 
-    def check_life_cycle(self, c: Dict) -> str:
-        """Check if a Chao is older than 60 days and decide if it reincarnates or dies."""
-        if (datetime.now() - datetime.strptime(c['birth_date'], "%Y-%m-%d")).days < 60:
-            return "alive"
-        return (
-            "reincarnated"
-            if c.get('happiness_ticks', 0) > 5 and not c.update({
-                k: 0 for k in [
-                    f"{x}_{y}"
-                    for x in ['swim', 'fly', 'run', 'power', 'stamina']
-                    for y in ['ticks', 'level', 'exp']
-                ]
-            } | {
-                'reincarnations': c.get('reincarnations', 0) + 1,
-                'happiness_ticks': 10,
-                'birth_date': datetime.now().strftime("%Y-%m-%d")
-            })
-            else c.update({'dead': 1}) or "died"
-        )
-
-    async def force_life_check(self, ctx, *, chao_name: str):
-        """Force check a chao's life cycle: either reincarnate or die if older than 60 days."""
-        g, u = str(ctx.guild.id), str(ctx.author.id)
-        p, l, s, o, t, e = self.data_utils.get_path, self.data_utils.load_chao_stats, \
-                           self.data_utils.save_chao_stats, os.path, datetime.now, discord.Embed
-
-        f = o.join(p(g, u, 'chao_data', chao_name), f'{chao_name}_stats.parquet')
-        if not o.exists(f):
-            return await ctx.reply(embed=e(description=f"{ctx.author.mention}, no Chao named **{chao_name}** exists.", color=0xFF0000))
-
-        c, d = l(f), l(f).iloc[-1].to_dict()
-        m = (
-            f"✨ **{chao_name} has reincarnated! A fresh start begins!**"
-            if d.get('happiness_ticks', 0) > 5
-            else f"😢 **{chao_name} has passed away due to low happiness.**"
-        )
-
-        if d.get('happiness_ticks', 0) > 5:
-            new_data = {
-                "reincarnations": d.get('reincarnations', 0) + 1,
-                "happiness_ticks": 10,
-                "birth_date": t().strftime("%Y-%m-%d"),
-                **{
-                    f"{x}_{y}": 0
-                    for x in ['swim', 'fly', 'run', 'power', 'stamina']
-                    for y in ['ticks', 'level', 'exp']
-                }
-            }
-        else:
-            new_data = {**d, "dead": 1}
-
-        s(f, c, new_data)
-        color_val = 0x00FF00 if "reincarnated" in m else 0x8B0000
-        await ctx.reply(embed=e(description=m, color=color_val))
-
-    async def force_happiness(self, ctx, *, chao_name: str, happiness_value: int):
-        """Set a chao's happiness to a specific value."""
-        g, u = str(ctx.guild.id), str(ctx.author.id)
-        p, l, s, o, e = self.data_utils.get_path, self.data_utils.load_chao_stats, \
-                        self.data_utils.save_chao_stats, os.path, discord.Embed
-
-        f = o.join(p(g, u, 'chao_data', chao_name), f"{chao_name}_stats.parquet")
-        if not o.exists(f):
-            return await ctx.reply(embed=e(description=f"{ctx.author.mention}, no Chao named **{chao_name}** exists.", color=0xFF0000))
-
-        c = l(f)
-        d = c.iloc[-1].to_dict()
-        d['happiness_ticks'] = happiness_value
-        s(f, c, d)
-
-        await ctx.reply(embed=e(
-            description=f"✅ **{chao_name}'s happiness has been set to {happiness_value}.**",
-            color=0x00FF00
-        ))
 
     async def chao(self, ctx):
         """Initialize a user in the Chao system if not done already."""
@@ -344,15 +270,18 @@ class Chao(commands.Cog):
 
         # Add thumbnail if it exists
         if os.path.exists(thumbnail_path):
-            file_url = f"attachment://{os.path.basename(thumbnail_path)}"
-            embed.set_thumbnail(url=file_url)
+            # Replace spaces with underscores in the filename
+            safe_filename = os.path.basename(thumbnail_path).replace(" ", "_")
+            embed.set_thumbnail(url=f"attachment://{safe_filename}")
+            file = discord.File(thumbnail_path, filename=safe_filename)
+        else:
+            file = None
 
         # Add footer
         embed.set_footer(text="Graphics Pending...")
 
         # Send the embed as a reply
-        file = discord.File(thumbnail_path, filename=os.path.basename(thumbnail_path)) if os.path.exists(thumbnail_path) else None
-        await ctx.reply(embed=embed, file=file)
+        await ctx.reply(embed=embed, file=file if file else None)
 
 
     def get_random_grade(self):
@@ -682,6 +611,112 @@ class Chao(commands.Cog):
             thumbnail = discord.File(file, filename=attachment_filename)
             await ctx.reply(embed=embed, file=thumbnail)
 
+
+    async def throw_chao(self, ctx, chao_name: str):
+        """
+        Throw a Chao, doing the opposite of 'pet':
+        - Decreases happiness (down to a minimum of 0).
+        - Decreases HP (down to a minimum of 0).
+        - Shows the Chao with a "grumble" mouth and "pain" (or "angry") eyes.
+        """
+        guild_id = str(ctx.guild.id)
+        user_id = str(ctx.author.id)
+
+        # Locate Chao stats
+        chao_dir = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'chao_data', chao_name)
+        chao_stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
+
+        if not os.path.exists(chao_stats_path):
+            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
+
+        # Load Chao stats
+        chao_df = self.data_utils.load_chao_stats(chao_stats_path)
+        latest_stats = chao_df.iloc[-1].to_dict()
+
+        # Decrease happiness by 1 (min 0)
+        old_happiness = latest_stats.get('happiness_ticks', 0)
+        new_happiness = max(0, old_happiness - 1)
+        latest_stats['happiness_ticks'] = new_happiness
+
+        # Decrease HP by 1 (min 0)
+        old_hp = latest_stats.get('hp_ticks', 0)
+        new_hp = max(0, old_hp - 1)
+        latest_stats['hp_ticks'] = new_hp
+
+        # Get Chao type and form
+        chao_type = latest_stats.get("Type", "neutral_normal_1")
+        chao_form = latest_stats.get("Form", "1")
+        chao_alignment = latest_stats.get("Alignment", "neutral")
+
+        # Determine the background path based on form and alignment
+        if chao_form in ["3", "4"]:
+            background_path = (
+                self.HERO_BG_PATH if chao_alignment == "hero" else
+                self.DARK_BG_PATH if chao_alignment == "dark" else
+                self.NEUTRAL_BG_PATH
+            )
+        else:
+            background_path = os.path.join(self.assets_dir, "graphics/thumbnails/neutral_background.png")
+
+        # Get Chao image path
+        chao_image_path = os.path.join(
+            self.assets_dir,
+            "chao",
+            chao_type.split("_")[1],  # e.g. 'fly', 'normal', 'power', etc.
+            chao_type.split("_")[0],  # e.g. 'hero', 'dark', 'neutral'
+            f"{chao_type}.png"
+        )
+
+        if not os.path.exists(chao_image_path):
+            chao_image_path = os.path.join(self.assets_dir, "chao", "chao_missing.png")  # fallback
+
+        # Save updated stats
+        self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
+
+        # Ensure the "unhappy" thumbnail path
+        throw_thumbnail_path = os.path.join(chao_dir, f"{chao_name}_thumbnail_throw.png")
+
+        # Face images for "throw" scenario:
+        #   eyes = "pain.png" if it exists, else "angry.png"
+        #   mouth = "grumble.png"
+        eyes_path = os.path.join(self.EYES_DIR, "neutral_pain.png")
+        if not os.path.exists(eyes_path):
+            # fallback to "angry"
+            eyes_path = os.path.join(self.EYES_DIR, "neutral_angry.png")
+            if not os.path.exists(eyes_path):
+                # fallback to default neutral
+                eyes_path = os.path.join(self.EYES_DIR, "neutral.png")
+
+        mouth_path = os.path.join(self.MOUTH_DIR, "grumble.png")
+        if not os.path.exists(mouth_path):
+            # fallback to "unhappy"
+            mouth_path = os.path.join(self.MOUTH_DIR, "unhappy.png")
+
+        # Generate the "throw" thumbnail
+        self.image_utils.combine_images_with_face(
+            background_path=background_path,
+            chao_image_path=chao_image_path,
+            eyes_image_path=eyes_path,
+            mouth_image_path=mouth_path,
+            output_path=throw_thumbnail_path
+        )
+
+        # Send embed
+        attachment_filename = "throw_thumbnail.png"
+        embed = discord.Embed(
+            title=f"You threw {chao_name}!",
+            description=(
+                f"{chao_name} looks hurt! \n"
+                f"Happiness decreased by 1 (now {new_happiness}).\n"
+                f"HP decreased by 1 (now {new_hp})."
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_thumbnail(url=f"attachment://{attachment_filename}")
+
+        with open(throw_thumbnail_path, 'rb') as file:
+            thumbnail = discord.File(file, filename=attachment_filename)
+            await ctx.reply(embed=embed, file=thumbnail)
 
 
     async def rename(self, ctx, *, chao_name_and_new_name: str = None):

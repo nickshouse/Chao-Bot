@@ -81,39 +81,20 @@ class DataUtils(commands.Cog):
 
     def is_user_initialized(self, guild_id, guild_name, user):
         """
-        Checks if a user is initialized by verifying the existence of their folder and database files
-        with valid content (e.g., inventory).
+        Checks if a user is initialized by verifying the existence of their folder
+        and the presence of 'inventory.parquet' (with or without items).
         """
+        # Make sure we have a valid guild and user folder
         guild_folder = self.update_server_folder(self.bot.get_guild(int(guild_id)))
-
-        # Ensure user is a Member or User object
-        if isinstance(user, str):
-            guild = self.bot.get_guild(int(guild_id))
-            user = guild.get_member(int(user)) if guild else None
-
-        if not user or not hasattr(user, "name") or not hasattr(user, "display_name"):
-            raise ValueError(f"Invalid user object or ID: {user}")
-
-        # Check user folder
         user_folder = self.get_user_folder(guild_folder, user)
+        
         if not os.path.exists(user_folder):
             return False
 
-        # Check for meaningful inventory data
+        # Now just check if inventory.parquet exists
         inventory_path = os.path.join(user_folder, 'user_data', 'inventory.parquet')
-        if not os.path.exists(inventory_path):
-            return False
+        return os.path.exists(inventory_path)
 
-        inventory_df = self.load_inventory(inventory_path)
-        if inventory_df.empty:
-            return False
-
-        latest_inventory = inventory_df.iloc[-1].to_dict()
-        # If neither rings nor a Chao Egg is present, not initialized
-        if not latest_inventory.get('rings') and not latest_inventory.get('Chao Egg'):
-            return False
-
-        return True
 
     def get_path(self, guild_id, guild_name, user, folder, filename):
         """Returns a path under server_folder -> user_folder -> folder -> filename."""

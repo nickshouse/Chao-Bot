@@ -15,23 +15,6 @@ class ChaoHelper(commands.Cog):
         self.image_utils = None
         self.assets_dir = None  # Will be set in cog_load
 
-        # Default belly: 2 ticks per block, every 180 min (3h)
-        self.belly_decay_amount = 2
-        self.belly_decay_minutes = 180
-
-        # Default happiness: 1 tick per block, every 240 min (4h)
-        self.happiness_decay_amount = 1
-        self.happiness_decay_minutes = 240
-
-        # Default energy: 2 ticks per block, every 240 min (4h)
-        self.energy_decay_amount = 2
-        self.energy_decay_minutes = 240
-
-        # NEW: HP decays by 1 tick per block, every 720 minutes (12h)
-        # *only* if belly=0, energy=0, and happiness=0
-        self.hp_decay_amount = 1
-        self.hp_decay_minutes = 720
-
         # Attempt to load config
         try:
             with open('config.json', 'r') as f:
@@ -56,43 +39,29 @@ class ChaoHelper(commands.Cog):
             self.DARK_ALIGNMENT = "dark"
             self.FRUIT_TICKS_MIN, self.FRUIT_TICKS_MAX = 5, 15
 
-        # Start decay loops (1 min checks)
-        self.force_belly_decay_loop.change_interval(minutes=1)
-        self.force_belly_decay_loop.start()
-
-        self.force_happiness_decay_loop.change_interval(minutes=1)
-        self.force_happiness_decay_loop.start()
-
-        self.force_energy_decay_loop.change_interval(minutes=1)
-        self.force_energy_decay_loop.start()
-
-        # NEW: Start HP decay loop (only triggers if belly=0, energy=0, happiness=0)
-        self.force_hp_decay_loop.change_interval(minutes=1)
-        self.force_hp_decay_loop.start()
-
         # Define fruit stats adjustments
         self.fruit_stats_adjustments = {
-            "round fruit": {        "stamina_ticks": (1, 3),                                                                                                        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "triangle fruit": {     "stamina_ticks": (1, 3),                                                                                                        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "square fruit": {       "stamina_ticks": (1, 3),                                                                                                        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "round fruit": {        "stamina_ticks": (1, 3),                                                                                                        "belly_ticks": (1, 3), "hp_ticks": 1, "energy_ticks": 1},
+            "triangle fruit": {     "stamina_ticks": (1, 3),                                                                                                        "belly_ticks": (1, 3), "hp_ticks": 1, "energy_ticks": 1},
+            "square fruit": {       "stamina_ticks": (1, 3),                                                                                                        "belly_ticks": (1, 3), "hp_ticks": 1, "energy_ticks": 1},
             "hero fruit": {         "stamina_ticks": (1, 3),      "dark_hero": 1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "dark fruit": {         "stamina_ticks": (1, 3),      "dark_hero": -1,                                                                                  "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "chao fruit": {         "swim_ticks": 4,              "fly_ticks": 4,           "run_ticks": 4,       "power_ticks": 4,     "stamina_ticks": 4,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "strong fruit": {       "stamina_ticks": 2,                                                                                                             "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "tasty fruit": {        "stamina_ticks": (3, 6),                                                                                                        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "heart fruit": {        "stamina_ticks": (1, 2),                                                                                                        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "strong fruit": {       "stamina_ticks": 2,                                                                                                             "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 3},
+            "tasty fruit": {        "stamina_ticks": (3, 6),                                                                                                        "belly_ticks": (2, 3), "hp_ticks": (2, 3), "energy_ticks": 1},
+            "heart fruit": {        "stamina_ticks": 1,                                                                                                             "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "garden nut": {         "stamina_ticks": (1, 3),                                                                                                        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "orange fruit": {       "swim_ticks": 3,              "fly_ticks": -2,          "run_ticks": -2,      "power_ticks": 3,     "stamina_ticks": 1,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "blue fruit": {         "swim_ticks": 2,              "fly_ticks": 5,           "run_ticks": -1,      "power_ticks": -1,    "stamina_ticks": 3,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "pink fruit": {         "swim_ticks": 4,              "fly_ticks": -3,          "run_ticks": 4,       "power_ticks": -3,    "stamina_ticks": 2,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "green fruit": {        "swim_ticks": 0,              "fly_ticks": -1,          "run_ticks": 3,       "power_ticks": 4,     "stamina_ticks": 2,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "purple fruit": {       "swim_ticks": -2,             "fly_ticks": 3,           "run_ticks": 3,       "power_ticks": -2,    "stamina_ticks": 1,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "yellow fruit": {       "swim_ticks": -3,             "fly_ticks": 4,           "run_ticks": -3,      "power_ticks": 4,     "stamina_ticks": 2,         "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "red fruit": {          "swim_ticks": 3,              "fly_ticks": 1,           "run_ticks": 3,       "power_ticks": 2,     "stamina_ticks": -5,        "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "power fruit": {        "power_ticks": (1,4),           "run_power": 1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "swim fruit": {         "swim_ticks": (1,4),            "swim_fly": -1,                                                                                   "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "run fruit": {          "run_ticks": (1,4),             "run_power": -1,                                                                                  "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
-            "fly fruit": {          "fly_ticks": (1,4),             "swim_fly": 1,                                                                                    "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "orange fruit": {       "swim_ticks": 3,              "fly_ticks": -2,          "run_ticks": -2,      "power_ticks": 3,     "stamina_ticks": 1,         "belly_ticks": (1, 2), "hp_ticks": (1, 2), "energy_ticks": (1, 2)},
+            "blue fruit": {         "swim_ticks": 2,              "fly_ticks": 5,           "run_ticks": -1,      "power_ticks": -1,    "stamina_ticks": 3,         "belly_ticks": (1, 2), "hp_ticks": (1, 2), "energy_ticks": (1, 2)},
+            "pink fruit": {         "swim_ticks": 4,              "fly_ticks": -3,          "run_ticks": 4,       "power_ticks": -3,    "stamina_ticks": 2,         "belly_ticks": (1, 2), "hp_ticks": (1, 2), "energy_ticks": (1, 2)},
+            "green fruit": {        "swim_ticks": 0,              "fly_ticks": -1,          "run_ticks": 3,       "power_ticks": 4,     "stamina_ticks": 2,         "belly_ticks": (1, 2), "hp_ticks": (1, 2), "energy_ticks": (1, 2)},
+            "purple fruit": {       "swim_ticks": -2,             "fly_ticks": 3,           "run_ticks": 3,       "power_ticks": -2,    "stamina_ticks": 1,         "belly_ticks": (1, 2), "hp_ticks": (1, 2), "energy_ticks": (1, 2)},
+            "yellow fruit": {       "swim_ticks": -3,             "fly_ticks": 4,           "run_ticks": -3,      "power_ticks": 4,     "stamina_ticks": 2,         "belly_ticks": (1, 2), "hp_ticks": (1, 2), "energy_ticks": (1, 2)},
+            "red fruit": {          "swim_ticks": 3,              "fly_ticks": 1,           "run_ticks": 3,       "power_ticks": 2,     "stamina_ticks": -5,        "belly_ticks": (1, 2), "hp_ticks": (1, 2), "energy_ticks": (1, 2)},
+            "power fruit": {        "power_ticks": (1, 4),           "run_power": 1,                                                                                 "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "swim fruit": {         "swim_ticks": (1, 4),            "swim_fly": -1,                                                                                 "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "run fruit": {          "run_ticks": (1, 4),             "run_power": -1,                                                                                "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
+            "fly fruit": {          "fly_ticks": (1, 4),             "swim_fly": 1,                                                                                  "belly_ticks": 1, "hp_ticks": 1, "energy_ticks": 1},
             "strange mushroom": {},  # Add custom logic for randomizing ticks
         }
         
@@ -135,346 +104,6 @@ class ChaoHelper(commands.Cog):
 
         self.load_persistent_views()
 
-    def cog_unload(self):
-        self.force_belly_decay_loop.cancel()
-        self.force_happiness_decay_loop.cancel()
-        self.force_energy_decay_loop.cancel()
-        self.force_hp_decay_loop.cancel()  # New
-
-    #----------------------------------------------------------------------
-    # BELLY DECAY
-    #----------------------------------------------------------------------
-    @tasks.loop(minutes=1)
-    async def force_belly_decay_loop(self):
-        """Block-based decay for belly."""
-        for guild in self.bot.guilds:
-            server_folder = self.data_utils.get_server_folder(str(guild.id), guild.name)
-            if not os.path.exists(server_folder):
-                continue
-
-            for user_folder_name in os.listdir(server_folder):
-                if not user_folder_name[:1].isdigit():
-                    continue
-                user_path = os.path.join(server_folder, user_folder_name)
-                chao_data_dir = os.path.join(user_path, "chao_data")
-                if not os.path.exists(chao_data_dir):
-                    continue
-
-                for chao_name in os.listdir(chao_data_dir):
-                    stats_file = os.path.join(chao_data_dir, chao_name, f"{chao_name}_stats.parquet")
-                    if not os.path.exists(stats_file):
-                        continue
-
-                    df = self.data_utils.load_chao_stats(stats_file)
-                    if df.empty:
-                        continue
-
-                    latest_stats = df.iloc[-1].to_dict()
-
-                    if "last_belly_update" not in latest_stats:
-                        latest_stats["last_belly_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    old_time_str = latest_stats["last_belly_update"]
-                    try:
-                        old_time = datetime.strptime(old_time_str, "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        latest_stats["last_belly_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    now = datetime.now()
-                    passed_minutes = int((now - old_time).total_seconds() // 60)
-                    blocks = passed_minutes // self.belly_decay_minutes
-                    if blocks > 0:
-                        old_val = latest_stats.get("belly_ticks", 0)
-                        reduce_amount = self.belly_decay_amount * blocks
-                        new_val = max(0, old_val - reduce_amount)
-                        latest_stats["belly_ticks"] = new_val
-
-                        used_time = old_time + timedelta(minutes=(blocks * self.belly_decay_minutes))
-                        if used_time > now:
-                            used_time = now
-                        latest_stats["last_belly_update"] = used_time.strftime("%Y-%m-%d %H:%M:%S")
-
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-
-    @force_belly_decay_loop.before_loop
-    async def before_force_belly_decay_loop(self):
-        await self.bot.wait_until_ready()
-        print("[ChaoHelper] force_belly_decay_loop is starting up...")
-
-    async def force_belly_decay(self, ctx, ticks: int, minutes: int):
-        """Admin sets how many belly ticks to remove per block, and block size in minutes."""
-        if ticks < 1 or minutes < 1:
-            return await ctx.reply("Please provide integers >= 1 for both ticks and minutes.")
-
-        self.belly_decay_amount = ticks
-        self.belly_decay_minutes = minutes
-        await ctx.reply(
-            f"Belly decay set to subtract **{ticks}** tick(s) every **{minutes}** minute(s)."
-        )
-
-    #----------------------------------------------------------------------
-    # ENERGY DECAY
-    #----------------------------------------------------------------------
-    @tasks.loop(minutes=1)
-    async def force_energy_decay_loop(self):
-        """Block-based decay for energy."""
-        for guild in self.bot.guilds:
-            server_folder = self.data_utils.get_server_folder(str(guild.id), guild.name)
-            if not os.path.exists(server_folder):
-                continue
-
-            for user_folder_name in os.listdir(server_folder):
-                if not user_folder_name[:1].isdigit():
-                    continue
-
-                user_path = os.path.join(server_folder, user_folder_name)
-                chao_data_dir = os.path.join(user_path, "chao_data")
-                if not os.path.exists(chao_data_dir):
-                    continue
-
-                for chao_name in os.listdir(chao_data_dir):
-                    stats_file = os.path.join(chao_data_dir, chao_name, f"{chao_name}_stats.parquet")
-                    if not os.path.exists(stats_file):
-                        continue
-
-                    df = self.data_utils.load_chao_stats(stats_file)
-                    if df.empty:
-                        continue
-
-                    latest_stats = df.iloc[-1].to_dict()
-
-                    # Initialize if missing
-                    if "last_energy_update" not in latest_stats:
-                        latest_stats["last_energy_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    old_time_str = latest_stats["last_energy_update"]
-                    try:
-                        old_time = datetime.strptime(old_time_str, "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        latest_stats["last_energy_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    now = datetime.now()
-                    passed_minutes = int((now - old_time).total_seconds() // 60)
-                    blocks = passed_minutes // self.energy_decay_minutes
-                    if blocks > 0:
-                        old_val = latest_stats.get("energy_ticks", 0)
-                        reduce_amount = self.energy_decay_amount * blocks
-                        new_val = max(0, old_val - reduce_amount)
-                        latest_stats["energy_ticks"] = new_val
-
-                        used_time = old_time + timedelta(minutes=(blocks * self.energy_decay_minutes))
-                        if used_time > now:
-                            used_time = now
-                        latest_stats["last_energy_update"] = used_time.strftime("%Y-%m-%d %H:%M:%S")
-
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-
-    @force_energy_decay_loop.before_loop
-    async def before_force_energy_decay_loop(self):
-        await self.bot.wait_until_ready()
-        print("[ChaoHelper] force_energy_decay_loop is starting up...")
-
-    async def force_energy_decay(self, ctx, ticks: int, minutes: int):
-        """
-        Admin-only command to set how many energy ticks are subtracted
-        and how often (in minutes).
-        Usage: $force_energy_decay <ticks> <minutes>
-        """
-        if ticks < 1 or minutes < 1:
-            return await ctx.reply("Please provide integers >= 1 for both ticks and minutes.")
-
-        self.energy_decay_amount = ticks
-        self.energy_decay_minutes = minutes
-        await ctx.reply(
-            f"Energy decay set to subtract **{ticks}** tick(s) every **{minutes}** minute(s)."
-        )
-
-    #----------------------------------------------------------------------
-    # HAPPINESS DECAY
-    #----------------------------------------------------------------------
-    @tasks.loop(minutes=1)
-    async def force_happiness_decay_loop(self):
-        """Block-based decay for happiness."""
-        for guild in self.bot.guilds:
-            server_folder = self.data_utils.get_server_folder(str(guild.id), guild.name)
-            if not os.path.exists(server_folder):
-                continue
-
-            for user_folder_name in os.listdir(server_folder):
-                if not user_folder_name[:1].isdigit():
-                    continue
-
-                user_path = os.path.join(server_folder, user_folder_name)
-                chao_data_dir = os.path.join(user_path, "chao_data")
-                if not os.path.exists(chao_data_dir):
-                    continue
-
-                for chao_name in os.listdir(chao_data_dir):
-                    stats_file = os.path.join(chao_data_dir, chao_name, f"{chao_name}_stats.parquet")
-                    if not os.path.exists(stats_file):
-                        continue
-
-                    df = self.data_utils.load_chao_stats(stats_file)
-                    if df.empty:
-                        continue
-
-                    latest_stats = df.iloc[-1].to_dict()
-
-                    if "last_happiness_update" not in latest_stats:
-                        latest_stats["last_happiness_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    old_time_str = latest_stats["last_happiness_update"]
-                    try:
-                        old_time = datetime.strptime(old_time_str, "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        latest_stats["last_happiness_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    now = datetime.now()
-                    passed_minutes = int((now - old_time).total_seconds() // 60)
-                    blocks = passed_minutes // self.happiness_decay_minutes
-                    if blocks > 0:
-                        old_val = latest_stats.get("happiness_ticks", 0)
-                        reduce_amount = self.happiness_decay_amount * blocks
-                        new_val = max(0, old_val - reduce_amount)
-                        latest_stats["happiness_ticks"] = new_val
-
-                        used_time = old_time + timedelta(minutes=(blocks * self.happiness_decay_minutes))
-                        if used_time > now:
-                            used_time = now
-                        latest_stats["last_happiness_update"] = used_time.strftime("%Y-%m-%d %H:%M:%S")
-
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-
-    @force_happiness_decay_loop.before_loop
-    async def before_force_happiness_decay_loop(self):
-        await self.bot.wait_until_ready()
-        print("[ChaoHelper] force_happiness_decay_loop is starting up...")
-
-    async def force_happiness_decay(self, ctx, ticks: int, minutes: int):
-        """
-        Admin-only command to set how many happiness ticks are subtracted
-        and how often (in minutes).
-        """
-        if ticks < 1 or minutes < 1:
-            return await ctx.reply("Please provide integers >= 1 for both ticks and minutes.")
-
-        self.happiness_decay_amount = ticks
-        self.happiness_decay_minutes = minutes
-        await ctx.reply(
-            f"Happiness decay set to subtract **{ticks}** tick(s) every **{minutes}** minute(s)."
-        )
-
-    #----------------------------------------------------------------------
-    # HP DECAY (NEW!) - Only if belly=0, energy=0, happiness=0
-    #----------------------------------------------------------------------
-    @tasks.loop(minutes=1)
-    async def force_hp_decay_loop(self):
-        """
-        Every minute, we check if belly=0, energy=0, and happiness=0.
-        If so, HP decays by self.hp_decay_amount per full block of
-        self.hp_decay_minutes (default 1 tick every 12 hours).
-        If ANY of belly, energy, or happiness is above 0, we skip HP decay.
-        """
-        for guild in self.bot.guilds:
-            server_folder = self.data_utils.get_server_folder(str(guild.id), guild.name)
-            if not os.path.exists(server_folder):
-                continue
-
-            for user_folder_name in os.listdir(server_folder):
-                if not user_folder_name[:1].isdigit():
-                    continue
-
-                user_path = os.path.join(server_folder, user_folder_name)
-                chao_data_dir = os.path.join(user_path, "chao_data")
-                if not os.path.exists(chao_data_dir):
-                    continue
-
-                for chao_name in os.listdir(chao_data_dir):
-                    stats_file = os.path.join(chao_data_dir, chao_name, f"{chao_name}_stats.parquet")
-                    if not os.path.exists(stats_file):
-                        continue
-
-                    df = self.data_utils.load_chao_stats(stats_file)
-                    if df.empty:
-                        continue
-
-                    latest_stats = df.iloc[-1].to_dict()
-
-                    # If any of belly, energy, or happiness is above zero, skip HP decay
-                    belly = latest_stats.get("belly_ticks", 0)
-                    energy = latest_stats.get("energy_ticks", 0)
-                    happiness = latest_stats.get("happiness_ticks", 0)
-                    if belly > 0 or energy > 0 or happiness > 0:
-                        # Reset last_hp_update to now (so it doesn't do a big jump
-                        # next time everything is 0 again)
-                        latest_stats["last_hp_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    # So at this point, belly=0, energy=0, happiness=0 => HP decays
-                    if "last_hp_update" not in latest_stats:
-                        latest_stats["last_hp_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    old_time_str = latest_stats["last_hp_update"]
-                    try:
-                        old_time = datetime.strptime(old_time_str, "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        latest_stats["last_hp_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-                        continue
-
-                    now = datetime.now()
-                    passed_minutes = int((now - old_time).total_seconds() // 60)
-                    blocks = passed_minutes // self.hp_decay_minutes
-                    if blocks > 0:
-                        old_val = latest_stats.get("hp_ticks", 0)
-                        reduce_amount = self.hp_decay_amount * blocks
-                        new_val = max(0, old_val - reduce_amount)
-                        latest_stats["hp_ticks"] = new_val
-
-                        used_time = old_time + timedelta(minutes=(blocks * self.hp_decay_minutes))
-                        if used_time > now:
-                            used_time = now
-                        latest_stats["last_hp_update"] = used_time.strftime("%Y-%m-%d %H:%M:%S")
-
-                        self.data_utils.save_chao_stats(stats_file, df, latest_stats)
-
-    @force_hp_decay_loop.before_loop
-    async def before_force_hp_decay_loop(self):
-        await self.bot.wait_until_ready()
-        print("[ChaoHelper] force_hp_decay_loop is starting up...")
-
-    # Optional admin command to tweak HP decay if you want
-    async def force_hp_decay(self, ctx, ticks: int, minutes: int):
-        """
-        Admin-only command to set how many HP ticks are subtracted
-        every block of <minutes> -- but ONLY if belly=0, energy=0, happiness=0.
-        Usage: $force_hp_decay <ticks> <minutes>
-        Default: 1 tick every 720 minutes (12h).
-        """
-        if ticks < 1 or minutes < 1:
-            return await ctx.reply("Please provide integers >= 1 for both ticks and minutes.")
-
-        self.hp_decay_amount = ticks
-        self.hp_decay_minutes = minutes
-        await ctx.reply(
-            f"HP decay set to subtract **{ticks}** tick(s) every **{minutes}** minute(s), "
-            f"if belly, energy, and happiness are all empty."
-        )
 
 
     def save_persistent_view(self, view_data: Dict):
@@ -629,12 +258,12 @@ class ChaoHelper(commands.Cog):
         Syntax:
         $feed <chao_name> <fruit_name> [quantity]
 
-        Notes:
         - If quantity is omitted, defaults to 1.
         - Only allows multiple units of the SAME fruit in one command.
         - Form 2 Chao can shift alignment on each feeding.
         - Form 3/4 Chao remain locked in advanced form alignment.
         - Level-ups and changes are aggregated into a single summary.
+        - A Chao's stat level can NOT exceed level 99.
         """
         guild_id = str(ctx.guild.id)
         guild_name = ctx.guild.name
@@ -727,33 +356,61 @@ class ChaoHelper(commands.Cog):
                             ticks_changes[stat] += net_gain
                             latest_stats[stat] = new_val
 
-                # B) Trainable stats (range 0–9, reset at 10 => level up)
+                # B) Trainable stats => 0-9 ticks => level up => up to level 99
                 elif stat.endswith("_ticks"):
+                    level_key = stat.replace("_ticks", "_level")
+                    grade_key = stat.replace("_ticks", "_grade")
+                    exp_key = stat.replace("_ticks", "_exp")
+
+                    old_level = latest_stats.get(level_key, 0)
+                    # If already at level 99, skip entirely
+                    if old_level >= 99:
+                        continue
+
                     remaining = increment
                     while remaining > 0:
-                        old_val = latest_stats.get(stat, 0)
-                        space_until_level = 9 - old_val
+                        curr_ticks = latest_stats.get(stat, 0)
+                        # How many ticks until we hit 10 -> triggers level up
+                        space_until_level = 9 - curr_ticks
+
+                        # We'll add 'to_add' ticks this step
                         to_add = min(remaining, space_until_level + 1)
-                        new_val = old_val + to_add
+                        new_val = curr_ticks + to_add
                         remaining -= to_add
 
                         if new_val > 9:
-                            level_key = stat.replace("_ticks", "_level")
-                            grade_key = stat.replace("_ticks", "_grade")
-                            exp_key = stat.replace("_ticks", "_exp")
-
+                            # We crossed from <10 to >=10 => level up
                             old_level = latest_stats.get(level_key, 0)
-                            latest_stats[level_key] = old_level + 1
-                            levels_gained[level_key] += 1
+                            new_level = old_level + 1
 
-                            grade = latest_stats.get(grade_key, 'F')
-                            old_exp = latest_stats.get(exp_key, 0)
-                            latest_stats[exp_key] = old_exp + self.get_stat_increment(grade)
+                            # If after leveling we exceed 99, clamp
+                            if new_level > 99:
+                                new_level = 99
+
+                            latest_stats[level_key] = new_level
+                            if new_level > old_level and new_level <= 99:
+                                # We actually gained a level
+                                levels_gained[level_key] += 1
+
+                                # Add EXP based on grade
+                                grade = latest_stats.get(grade_key, 'F')
+                                old_exp = latest_stats.get(exp_key, 0)
+                                latest_stats[exp_key] = old_exp + self.get_stat_increment(grade)
+
+                            # Reset ticks to 0 after leveling
                             latest_stats[stat] = 0
+
+                            # If we just hit level 99, no more increments for this feeding
+                            if new_level >= 99:
+                                break
                         else:
-                            net_gain = new_val - old_val
-                            ticks_changes[stat] += net_gain
-                            latest_stats[stat] = new_val
+                            # No level up, just partial ticks
+                            net_gain = new_val - curr_ticks
+                            if net_gain > 0:
+                                ticks_changes[stat] += net_gain
+                                latest_stats[stat] = new_val
+
+                    # End of the while loop for ticks
 
                 # C) Alignment stats
                 elif stat in ["run_power", "swim_fly", "dark_hero"]:
@@ -768,7 +425,7 @@ class ChaoHelper(commands.Cog):
             current_form = str(latest_stats.get("Form", "1"))
             if current_form == "2":
                 # e.g. handle run_power and swim_fly pulling to 0
-                if matched_fruit_lower in ["swim fruit", "blue fruit", "green fruit", "purple fruit", "pink fruit", "fly fruit"]:
+                if matched_fruit_lower in ["swim fruit","blue fruit","green fruit","purple fruit","pink fruit","fly fruit"]:
                     old_rp = latest_stats.get("run_power", 0)
                     new_rp = old_rp + 1 if old_rp < 0 else (old_rp - 1 if old_rp > 0 else old_rp)
                     new_rp = clamp(new_rp, -5, 5)
@@ -776,7 +433,7 @@ class ChaoHelper(commands.Cog):
                         alignment_changes["run_power"] += (new_rp - old_rp)
                         latest_stats["run_power"] = new_rp
 
-                if matched_fruit_lower in ["run fruit", "red fruit", "power fruit"]:
+                if matched_fruit_lower in ["run fruit","red fruit","power fruit"]:
                     old_sf = latest_stats.get("swim_fly", 0)
                     new_sf = old_sf + 1 if old_sf < 0 else (old_sf - 1 if old_sf > 0 else old_sf)
                     new_sf = clamp(new_sf, -5, 5)
@@ -790,7 +447,10 @@ class ChaoHelper(commands.Cog):
 
         # 8) Deduct fruit
         normalized_inventory[matched_fruit_lower] = have_amount - quantity
-        updated_inventory = {k: normalized_inventory.get(k.lower(), 0) for k in current_inv.keys()}
+        updated_inventory = {
+            k: normalized_inventory.get(k.lower(), 0) 
+            for k in current_inv.keys()
+        }
         self.data_utils.save_inventory(inv_path, inv_df, updated_inventory)
 
         # 9) Update chao form / thumbnail
@@ -831,13 +491,15 @@ class ChaoHelper(commands.Cog):
         for stat, net_gain in ticks_changes.items():
             base_name = stat.replace("_ticks", "").capitalize()
             final_val = latest_stats.get(stat, 0)
-            cap = 10 if stat in ["hp_ticks","belly_ticks","energy_ticks","happiness_ticks","illness_ticks"] else 9
+            cap = 10 if stat in [
+                "hp_ticks","belly_ticks","energy_ticks","happiness_ticks","illness_ticks"
+            ] else 9
             sign = "+" if net_gain > 0 else ""
             stat_lines.append(f"{base_name} {sign}{net_gain} ({final_val}/{cap})")
 
         for a_stat, net_align in alignment_changes.items():
             if a_stat == "dark_hero":
-                continue  # Hide dark/hero changes
+                continue  # Hide direct dark/hero changes from the feed summary
             sign = "+" if net_align > 0 else ""
             final_val = latest_stats.get(a_stat, 0)
             base = a_stat.replace("_","/").capitalize()
@@ -871,6 +533,7 @@ class ChaoHelper(commands.Cog):
         with open(thumbnail_path, 'rb') as file:
             thumbnail = discord.File(file, filename="chao_thumbnail.png")
             await ctx.reply(embed=embed, file=thumbnail)
+
 
     async def stats(self, ctx, *, chao_name: str):
         """
@@ -1005,6 +668,132 @@ class ChaoHelper(commands.Cog):
         }
 
         view = StatsView.from_data(view_data, self)
+
+
+
+        def save_persistent_view(self, view_data: Dict):
+            """Example function that saves the view to JSON, so we can restore on startup."""
+            try:
+                with open(PERSISTENT_VIEWS_FILE, "r") as f:
+                    data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                data = {}
+
+            key = f"{view_data['guild_id']}_{view_data['user_id']}_{view_data['chao_name']}"
+            data[key] = view_data
+
+            with open(PERSISTENT_VIEWS_FILE, "w") as f:
+                json.dump(data, f)
+
+        def load_persistent_views(self):
+            """
+            On bot startup, we read from JSON for each old view, call `StatsView.from_data` once,
+            and then do `self.bot.add_view(...)` so it can handle button clicks for that old view.
+            """
+            if os.path.exists(PERSISTENT_VIEWS_FILE):
+                with open(PERSISTENT_VIEWS_FILE, "r") as f:
+                    try:
+                        data = json.load(f)
+                    except json.JSONDecodeError:
+                        return
+
+                for key, view_data in data.items():
+                    # Check required keys, etc.
+                    if not all(k in view_data for k in ("chao_name", "guild_id", "user_id", "chao_type_display", "alignment_label", "total_pages", "current_page")):
+                        continue
+
+                    # If the user left the view on page2, we see "current_page": 2
+                    view = StatsView.from_data(view_data, self)
+                    self.bot.add_view(view)
+
+
+        # Optionally, save so that if the bot restarts, we can restore
+        self.save_persistent_view(view_data)
+
+        await ctx.reply(
+            files=[
+                discord.File(stats_image_paths[1], "stats_page.png"),
+                discord.File(self.ICON_PATH, filename="Stats.png"),
+                discord.File(thumbnail_path, filename="chao_thumbnail.png"),
+            ],
+            embed=embed,
+            view=view
+        )
+
+    def check_life_cycle(self, c: Dict) -> str:
+        """Check if a Chao is older than 60 days and decide if it reincarnates or dies."""
+        if (datetime.now() - datetime.strptime(c['birth_date'], "%Y-%m-%d")).days < 60:
+            return "alive"
+        return (
+            "reincarnated"
+            if c.get('happiness_ticks', 0) > 5 and not c.update({
+                k: 0 for k in [
+                    f"{x}_{y}"
+                    for x in ['swim', 'fly', 'run', 'power', 'stamina']
+                    for y in ['ticks', 'level', 'exp']
+                ]
+            } | {
+                'reincarnations': c.get('reincarnations', 0) + 1,
+                'happiness_ticks': 10,
+                'birth_date': datetime.now().strftime("%Y-%m-%d")
+            })
+            else c.update({'dead': 1}) or "died"
+        )
+
+    async def force_life_check(self, ctx, *, chao_name: str):
+        """Force check a chao's life cycle: either reincarnate or die if older than 60 days."""
+        g, u = str(ctx.guild.id), str(ctx.author.id)
+        p, l, s, o, t, e = self.data_utils.get_path, self.data_utils.load_chao_stats, \
+                           self.data_utils.save_chao_stats, os.path, datetime.now, discord.Embed
+
+        f = o.join(p(g, u, 'chao_data', chao_name), f'{chao_name}_stats.parquet')
+        if not o.exists(f):
+            return await ctx.reply(embed=e(description=f"{ctx.author.mention}, no Chao named **{chao_name}** exists.", color=0xFF0000))
+
+        c, d = l(f), l(f).iloc[-1].to_dict()
+        m = (
+            f"✨ **{chao_name} has reincarnated! A fresh start begins!**"
+            if d.get('happiness_ticks', 0) > 5
+            else f"😢 **{chao_name} has passed away due to low happiness.**"
+        )
+
+        if d.get('happiness_ticks', 0) > 5:
+            new_data = {
+                "reincarnations": d.get('reincarnations', 0) + 1,
+                "happiness_ticks": 10,
+                "birth_date": t().strftime("%Y-%m-%d"),
+                **{
+                    f"{x}_{y}": 0
+                    for x in ['swim', 'fly', 'run', 'power', 'stamina']
+                    for y in ['ticks', 'level', 'exp']
+                }
+            }
+        else:
+            new_data = {**d, "dead": 1}
+
+        s(f, c, new_data)
+        color_val = 0x00FF00 if "reincarnated" in m else 0x8B0000
+        await ctx.reply(embed=e(description=m, color=color_val))
+
+    async def force_happiness(self, ctx, *, chao_name: str, happiness_value: int):
+        """Set a chao's happiness to a specific value."""
+        g, u = str(ctx.guild.id), str(ctx.author.id)
+        p, l, s, o, e = self.data_utils.get_path, self.data_utils.load_chao_stats, \
+                        self.data_utils.save_chao_stats, os.path, discord.Embed
+
+        f = o.join(p(g, u, 'chao_data', chao_name), f"{chao_name}_stats.parquet")
+        if not o.exists(f):
+            return await ctx.reply(embed=e(description=f"{ctx.author.mention}, no Chao named **{chao_name}** exists.", color=0xFF0000))
+
+        c = l(f)
+        d = c.iloc[-1].to_dict()
+        d['happiness_ticks'] = happiness_value
+        s(f, c, d)
+
+        await ctx.reply(embed=e(
+            description=f"✅ **{chao_name}'s happiness has been set to {happiness_value}.**",
+            color=0x00FF00
+        ))
 
 
 
