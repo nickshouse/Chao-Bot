@@ -30,7 +30,8 @@ class Chao(commands.Cog):
             "Chaoko", "Chaowser", "Chaorunner", "Chaozart", "Chaobacca", "Chaowder",
             "Chaocolate", "Chaolesterol", "Chao Mein", "Chaoster", "Chaomanji", "Chaosmic",
             "Chaozilla", "Chaoseidon", "Chaosferatu", "Chaolin", "Chow", "Chaotzhu",
-            "Chaoblin", "Count Chaocula", "Chaozil", "Chaoz"
+            "Chaoblin", "Count Chaocula", "Chaozil", "Chaoz", "Chaokie Chan", "Chaobama", "Chaombie", 
+            "Xin Chao", "Ka Chao", "Chow Wow", "Ciao" "Chaomin Ultra"
         ]
 
         # Thresholds for run_power / swim_fly
