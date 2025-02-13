@@ -11,16 +11,16 @@ class ChaoDecay(commands.Cog):
 
         # Default decay settings (from chao_helper originally)
         self.belly_decay_amount = 1
-        self.belly_decay_minutes = 180
+        self.belly_decay_minutes = 720
 
         self.happiness_decay_amount = 1
-        self.happiness_decay_minutes = 240
+        self.happiness_decay_minutes = 960
 
         self.energy_decay_amount = 2
-        self.energy_decay_minutes = 240
+        self.energy_decay_minutes = 1080
 
         self.hp_decay_amount = 1
-        self.hp_decay_minutes = 720
+        self.hp_decay_minutes = 1440
 
         # Start decay loops
         self.force_belly_decay_loop.start()
