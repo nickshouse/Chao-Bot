@@ -2,8 +2,7 @@
 
 import discord
 from discord.ext import commands
-# Import both decorators from your top-level decorators.py:
-from decorators import ensure_user_initialized, ensure_chao_alive
+from decorators import ensure_user_initialized, ensure_chao_alive, ensure_chao_lifecycle, ensure_chao_hatched, ensure_not_in_cacoon
 
 class Commands(commands.Cog):
     def __init__(self, bot):
@@ -63,6 +62,7 @@ class Commands(commands.Cog):
 
     @commands.command(name='egg', help="Give yourself a Chao egg.")
     @ensure_user_initialized
+    @ensure_chao_lifecycle
     async def egg(self, ctx):
         await self.chao_cog.egg(ctx)
 
@@ -71,6 +71,13 @@ class Commands(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def give_rings(self, ctx):
         await self.chao_cog.give_rings(ctx)
+
+    @commands.command(name='listchao', help='List all the Chao you own.')
+    @ensure_user_initialized
+    async def list_chao(self, ctx):
+        await self.chao_cog.list_chao(ctx)
+
+
 
     @commands.command(name='force_belly_decay', help="(Admin) Adjust how often belly is reduced.")
     @commands.has_permissions(administrator=True)
@@ -98,6 +105,8 @@ class Commands(commands.Cog):
     async def force_life_check(self, ctx, *, chao_name: str):
         await self.chao_helper_cog.force_life_check(ctx, chao_name=chao_name)
 
+
+
     @commands.command(name='force_happiness', help="Manually set Chao happiness (0-10).")
     @ensure_user_initialized
     @commands.has_permissions(administrator=True)
@@ -110,39 +119,59 @@ class Commands(commands.Cog):
             ctx, chao_name=chao_name, happiness_value=happiness_value
         )
 
+
+
     @commands.command(name='goodbye', help="Send Chao away to the faraway Chao Forest.")
     @ensure_user_initialized
-    #@ensure_chao_alive
+    @ensure_chao_alive
+    @ensure_chao_lifecycle
+    @ensure_chao_hatched
+    @ensure_not_in_cacoon
     async def goodbye(self, ctx, *, chao_name: str = None):
         await self.chao_cog.goodbye(ctx, chao_name=chao_name)
 
     @commands.command(name='pet', help="Pet your Chao to make it happy!")
     @ensure_user_initialized
-    #@ensure_chao_alive
+    @ensure_chao_alive
+    @ensure_chao_lifecycle
+    @ensure_chao_hatched
+    @ensure_not_in_cacoon
     async def pet(self, ctx, *, chao_name: str):
         await self.chao_cog.pet(ctx, chao_name=chao_name)
 
     @commands.command(name='grades', help="View a Chao's grades.")
     @ensure_user_initialized
-    #@ensure_chao_alive
+    @ensure_chao_alive
+    @ensure_chao_lifecycle
+    @ensure_chao_hatched
+    @ensure_not_in_cacoon
     async def grades(self, ctx, *, chao_name: str):
         await self.chao_cog.grades(ctx, chao_name=chao_name)
 
     @commands.command(name='throw', help="Throw your Chao!")
     @ensure_user_initialized
-    #@ensure_chao_alive
+    @ensure_chao_alive
+    @ensure_chao_lifecycle
+    @ensure_chao_hatched
+    @ensure_not_in_cacoon
     async def throw(self, ctx, *, chao_name: str):
         await self.chao_cog.throw_chao(ctx, chao_name=chao_name)
 
     @commands.command(name='stats', help="View a Chao's stats.")
     @ensure_user_initialized
-    #@ensure_chao_alive
+    @ensure_chao_alive
+    @ensure_chao_lifecycle
+    @ensure_chao_hatched
+    @ensure_not_in_cacoon
     async def stats(self, ctx, *, chao_name: str):
         await self.chao_helper_cog.stats(ctx, chao_name=chao_name)
 
     @commands.command(name='feed', help="Feed a fruit to your Chao.")
     @ensure_user_initialized
-    #@ensure_chao_alive
+    @ensure_chao_alive
+    @ensure_chao_lifecycle
+    @ensure_chao_hatched
+    @ensure_not_in_cacoon
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         chao_helper_cog = self.bot.get_cog("ChaoHelper")
         if not chao_helper_cog:
@@ -151,14 +180,14 @@ class Commands(commands.Cog):
 
     @commands.command(name='rename', help="Rename your Chao.")
     @ensure_user_initialized
-    #@ensure_chao_alive
+    @ensure_chao_alive
+    @ensure_chao_lifecycle
+    @ensure_chao_hatched
+    @ensure_not_in_cacoon
     async def rename(self, ctx, *, chao_name_and_new_name: str = None):
         await self.chao_cog.rename(ctx, chao_name_and_new_name=chao_name_and_new_name)
 
-    @commands.command(name='listchao', help='List all the Chao you own.')
-    @ensure_user_initialized
-    async def list_chao(self, ctx):
-        await self.chao_cog.list_chao(ctx)
+
 
     @commands.command(name='help', help="Show all available commands.")
     async def help(self, ctx):

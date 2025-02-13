@@ -31,7 +31,7 @@ class Chao(commands.Cog):
             "Chaocolate", "Chaolesterol", "Chao Mein", "Chaoster", "Chaomanji", "Chaosmic",
             "Chaozilla", "Chaoseidon", "Chaosferatu", "Chaolin", "Chow", "Chaotzhu",
             "Chaoblin", "Count Chaocula", "Chaozil", "Chaoz", "Chaokie Chan", "Chaobama", "Chaombie", 
-            "Xin Chao", "Ka Chao", "Chow Wow", "Ciao" "Chaomin Ultra"
+            "Xin Chao", "Ka Chao", "Chow Wow", "Ciao"
         ]
 
         # Thresholds for run_power / swim_fly
@@ -137,21 +137,21 @@ class Chao(commands.Cog):
 
 
     async def give_rings(self, ctx):
-        """Give the user 10,000 rings."""
+        """Give the user 1,000,000 rings."""
         guild_id, guild_name, user = str(ctx.guild.id), ctx.guild.name, ctx.author
         inventory_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
 
         inventory_df = self.data_utils.load_inventory(inventory_path)
         current_inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {'rings': 0}
 
-        current_inventory['rings'] = current_inventory.get('rings', 0) + 10000
+        current_inventory['rings'] = current_inventory.get('rings', 0) + 1000000
         self.data_utils.save_inventory(inventory_path, inventory_df, current_inventory)
 
         await self.send_embed(
             ctx,
-            f"{ctx.author.mention} has been given 10,000 rings! Your current rings: {current_inventory['rings']}"
+            f"{ctx.author.mention} has been given 1,000,000 rings! Your current rings: {current_inventory['rings']}"
         )
-        print(f"[give_rings] 10,000 Rings added to User: {user.id}. New balance: {current_inventory['rings']}")
+        print(f"[give_rings] 1,000,000 Rings added to User: {user.id}. New balance: {current_inventory['rings']}")
 
 
     async def list_chao(self, ctx):
@@ -290,11 +290,16 @@ class Chao(commands.Cog):
         probabilities = [4, 20, 25, 35, 10, 5, 1]  # Probabilities for each grade
         return random.choices(grades, probabilities, k=1)[0]
 
+
     async def hatch(self, ctx):
         """
-        Command to hatch a Chao Egg. Initializes the Chao's stats
-        and generates the initial thumbnail for the Chao.
+        Command to hatch a Chao Egg.
+        1) If we find a reincarnated chao (reincarnations>0) that is still hatched=0,
+        we finalize that chao instead of creating a new one—keeping the old eye/mouth expression
+        but forcing neutral alignment.
+        2) Otherwise, we do the normal brand-new hatching logic (decrement an egg, pick random name, etc.).
         """
+
         guild_id, user_id = str(ctx.guild.id), str(ctx.author.id)
         chao_dir = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'chao_data', '')
         inventory_path = self.data_utils.get_path(guild_id, ctx.guild.name, ctx.author, 'user_data', 'inventory.parquet')
@@ -302,12 +307,119 @@ class Chao(commands.Cog):
         inventory_df = self.data_utils.load_inventory(inventory_path)
         inventory = inventory_df.iloc[-1].to_dict() if not inventory_df.empty else {}
 
-        # Check for Chao Egg
+        # -------------------------------------------------------
+        # 1) Check for an unhatched reincarnated chao
+        # -------------------------------------------------------
+        unhatched_reincarnated = None
+        for folder in os.listdir(chao_dir):
+            folder_path = os.path.join(chao_dir, folder)
+            if not os.path.isdir(folder_path):
+                continue
+
+            stats_file = os.path.join(folder_path, f"{folder}_stats.parquet")
+            if os.path.exists(stats_file):
+                df_temp = self.data_utils.load_chao_stats(stats_file)
+                if df_temp.empty:
+                    continue
+
+                latest_stats = df_temp.iloc[-1].to_dict()
+                # Conditions for a reincarnated, unhatched chao:
+                #   - reincarnations > 0
+                #   - hatched == 0
+                if (
+                    latest_stats.get("reincarnations", 0) > 0
+                    and latest_stats.get("hatched", 0) == 0
+                ):
+                    unhatched_reincarnated = folder
+                    break
+
+        if unhatched_reincarnated:
+            # -------------------------------------------------------
+            # 2) Finalize hatching that existing reincarnated chao
+            # -------------------------------------------------------
+            chao_name = unhatched_reincarnated
+            chao_path = os.path.join(chao_dir, chao_name)
+            chao_stats_path = os.path.join(chao_path, f"{chao_name}_stats.parquet")
+
+            # --- FIRST, ensure user has an egg to use ---
+            if inventory.get('Chao Egg', 0) < 1:
+                return await ctx.reply(
+                    f"{ctx.author.mention}, you need at least 1 Chao Egg in your inventory to hatch this reincarnated chao!"
+                )
+            # Decrement the egg
+            inventory['Chao Egg'] -= 1
+            if inventory['Chao Egg'] < 0:
+                inventory['Chao Egg'] = 0
+            self.data_utils.save_inventory(inventory_path, inventory_df, inventory)
+
+            # --- Now finalize the hatch ---
+            df_temp = self.data_utils.load_chao_stats(chao_stats_path)
+            latest_stats = df_temp.iloc[-1].to_dict()
+
+            # Mark as hatched
+            latest_stats["hatched"] = 1
+            latest_stats["date"] = datetime.now().strftime("%Y-%m-%d")
+
+            # Force newborn alignment = "neutral",
+            # but keep the old final eye expression (e.g. "angry") and old mouth (e.g. "grumble")
+            old_eyes = latest_stats.get("eyes", "happy")
+            # e.g. "hero_angry" => final_eyes="angry"
+            if "_" in old_eyes:
+                final_eyes = old_eyes.split("_", 1)[1]
+            else:
+                final_eyes = old_eyes
+
+            old_mouth = latest_stats.get("mouth", "happy")
+            latest_stats["Alignment"] = "neutral"
+            latest_stats["eyes"] = final_eyes
+            latest_stats["mouth"] = old_mouth
+
+            # Save updated stats
+            self.data_utils.save_chao_stats(chao_stats_path, df_temp, latest_stats)
+
+            # Build face images
+            eyes_image_path = os.path.join(self.EYES_DIR, f"neutral_{final_eyes}.png")
+            if not os.path.exists(eyes_image_path):
+                eyes_image_path = os.path.join(self.EYES_DIR, "neutral.png")
+
+            mouth_image_path = os.path.join(self.MOUTH_DIR, f"{old_mouth}.png")
+            if not os.path.exists(mouth_image_path):
+                mouth_image_path = os.path.join(self.MOUTH_DIR, "happy.png")
+
+            thumbnail_path = os.path.join(chao_path, f"{chao_name}_thumbnail.png")
+            self.image_utils.combine_images_with_face(
+                self.BACKGROUND_PATH,
+                self.NEUTRAL_PATH,
+                eyes_image_path,
+                mouth_image_path,
+                thumbnail_path
+            )
+
+            # Send embed
+            embed = discord.Embed(
+                title="Your Reincarnated Chao has Hatched!",
+                description=(
+                    f"{ctx.author.mention}, your **reincarnated** chao **{chao_name}** has hatched!\n"
+                    f"Use `$rename` if you want to give it your own name."
+                ),
+                color=discord.Color.blue()
+            )
+            embed.set_thumbnail(url=f"attachment://{chao_name.replace(' ', '_')}_thumbnail.png")
+            return await ctx.reply(
+                file=discord.File(thumbnail_path, filename=f"{chao_name.replace(' ', '_')}_thumbnail.png"),
+                embed=embed
+            )
+
+        # -------------------------------------------------------
+        # 3) Otherwise, do normal brand-new hatching logic
+        # -------------------------------------------------------
         if inventory.get('Chao Egg', 0) < 1:
             return await ctx.reply(f"{ctx.author.mention}, you do not have any Chao Eggs to hatch.")
 
         # Decrement egg
         inventory['Chao Egg'] -= 1
+        if inventory['Chao Egg'] < 0:
+            inventory['Chao Egg'] = 0
         self.data_utils.save_inventory(inventory_path, inventory_df, inventory)
 
         # Ensure chao_data folder
@@ -324,7 +436,6 @@ class Chao(commands.Cog):
 
         # Pick a name from self.chao_names
         available_names = [n for n in self.chao_names if n not in used_names]
-
         if not available_names:
             return await ctx.reply(
                 f"{ctx.author.mention}, all default chao names are used up. "
@@ -335,7 +446,7 @@ class Chao(commands.Cog):
         chao_path = os.path.join(chao_dir, chao_name)
         os.makedirs(chao_path, exist_ok=True)
 
-        # Default stats
+        # Default stats for brand-new chao
         chao_stats = {
             'date': datetime.now().strftime("%Y-%m-%d"),
             'birth_date': datetime.now().strftime("%Y-%m-%d"),
@@ -343,6 +454,7 @@ class Chao(commands.Cog):
             'Type': 'neutral_normal_1',
             'hatched': 1,
             'evolved': 0,
+            'cacoon' : 0,
             'dead': 0,
             'immortal': 0,
             'reincarnations': 0,
@@ -357,6 +469,7 @@ class Chao(commands.Cog):
             'swim_exp': 0,
             'swim_grade': self.get_random_grade(),
             'swim_level': 0,
+            'swim_ticks': 0,
             'swim_fly': 0,
             'fly_exp': 0,
             'fly_grade': self.get_random_grade(),
@@ -381,7 +494,7 @@ class Chao(commands.Cog):
         chao_stats_path = os.path.join(chao_path, f'{chao_name}_stats.parquet')
         self.data_utils.save_chao_stats(chao_stats_path, pd.DataFrame(), chao_stats)
 
-        # Build face images
+        # Build face images for new chao
         eyes_image_path = os.path.join(self.EYES_DIR, f"neutral_{chao_stats['eyes']}.png") \
             if os.path.exists(os.path.join(self.EYES_DIR, f"neutral_{chao_stats['eyes']}.png")) else \
             os.path.join(self.EYES_DIR, "neutral.png")
@@ -390,7 +503,6 @@ class Chao(commands.Cog):
             os.path.join(self.MOUTH_DIR, "happy.png")
         thumbnail_path = os.path.join(chao_path, f"{chao_name}_thumbnail.png")
 
-        # Combine to create the chao's initial image
         self.image_utils.combine_images_with_face(
             self.BACKGROUND_PATH,
             self.NEUTRAL_PATH,
@@ -402,18 +514,17 @@ class Chao(commands.Cog):
         # Send embed
         embed = discord.Embed(
             title="Your Chao Egg has hatched!",
-            description=f"Your Chao Egg hatched into a Chao named **{chao_name}**!\n"
-                        f"Use `$rename` if you want to give it your own name.",
+            description=(
+                f"Your Chao Egg hatched into a Chao named **{chao_name}**!\n"
+                f"Use `$rename` if you want to give it your own name."
+            ),
             color=discord.Color.blue()
         )
-        embed.set_thumbnail(url=f"attachment://{chao_name.replace(' ', '_')}_thumbnail.png")  # Use as thumbnail
+        embed.set_thumbnail(url=f"attachment://{chao_name.replace(' ', '_')}_thumbnail.png")
         await ctx.reply(
             file=discord.File(thumbnail_path, filename=f"{chao_name.replace(' ', '_')}_thumbnail.png"),
             embed=embed
         )
-
-
-
 
 
     # Additional helper methods
@@ -721,17 +832,15 @@ class Chao(commands.Cog):
 
     async def rename(self, ctx, *, chao_name_and_new_name: str = None):
         """
-        Rename a Chao.  
-        
-        - Allows: 
-            - 1-word → multi-word, e.g. $rename Chaoz Count Chaocula
-            - multi-word → 1-word, e.g. $rename Count Chaocula Chaoz
-          by guessing which tokens form the old name vs. the new name.
-          
-        - Called externally like:
-            await self.chao_cog.rename(ctx, chao_name_and_new_name="Chaoz Count Chaocula")
-        """
+        Rename a Chao.
 
+        Allows:
+            - 1-word → multi-word, e.g. `$rename Chaoz Count Chaocula`
+            - multi-word → 1-word, e.g. `$rename Count Chaocula Chaoz`
+            - multi-word → multi-word, e.g. `$rename Count Chaocula Chow Mein`
+
+        If the bot guesses incorrectly, try using quotes around the names.
+        """
         # --- 1) Basic usage check ---
         if not chao_name_and_new_name:
             embed = discord.Embed(
@@ -740,105 +849,126 @@ class Chao(commands.Cog):
                     "Usage:\n"
                     "`$rename <old_name> <new_name>`\n\n"
                     "Examples:\n"
-                    "`$rename Chaoz Count Chaocula`\n"
-                    "  → Renames 'Chaoz' to 'Count Chaocula'\n\n"
-                    "`$rename Count Chaocula Chaoz`\n"
-                    "  → Renames 'Count Chaocula' to 'Chaoz'\n\n"
+                    "`$rename Chaoz Count Chaocula`  → Renames 'Chaoz' to 'Count Chaocula'\n"
+                    "`$rename Count Chaocula Chaoz`  → Renames 'Count Chaocula' to 'Chaoz'\n"
+                    "`$rename Count Chaocula Chow Mein`  → Renames 'Count Chaocula' to 'Chow Mein'\n\n"
                     "If your old name or new name has spaces and the bot guesses incorrectly, "
                     "use quotes:\n"
-                    "`$rename \"Chaoz Count\" \"Chaocula Prime\"`"
+                    "`$rename \"Old Name\" \"New Name\"`"
                 ),
                 color=discord.Color.blue(),
             )
             return await ctx.reply(embed=embed)
 
         # Split the user-provided string into tokens
-        # e.g. "Chaoz Count Chaocula" -> ["Chaoz", "Count", "Chaocula"]
         args = chao_name_and_new_name.split()
+        num_tokens = len(args)
 
-        # We need at least 2 tokens to form an old name + new name
-        if len(args) < 2:
+        # A valid command must have 2 to 4 tokens (since a Chao name can be 1 or 2 words)
+        if num_tokens < 2 or num_tokens > 4:
             return await ctx.reply(
-                f"{ctx.author.mention}, please provide both the old Chao name and the new name.\n"
-                "Usage: `$rename <old_name> <new_name>`"
+                f"{ctx.author.mention}, invalid number of name tokens. "
+                "A Chao name can only be 1 or 2 words."
             )
 
-        # --- 2) Attempt #1: old=first token, new=rest ---
-        attempt1_old = args[0]                   # e.g. "Chaoz"
-        attempt1_new = " ".join(args[1:])        # e.g. "Count Chaocula"
-
-        # Path for attempt #1
+        # Get the user folder from DataUtils
         user_folder = self.data_utils.get_user_folder(
             self.data_utils.update_server_folder(ctx.guild), ctx.author
         )
-        attempt1_old_path = os.path.join(user_folder, "chao_data", attempt1_old)
+        chao_data_folder = os.path.join(user_folder, "chao_data")
+        old_name = None
+        new_name = None
 
-        if os.path.exists(attempt1_old_path):
-            # If that folder exists, we assume attempt #1 is correct
-            old_name = attempt1_old
-            new_name = attempt1_new
-        else:
-            # --- 3) Attempt #2: old=all but last, new=last token ---
-            # e.g. ["Count", "Chaocula", "Chaoz"] => old="Count Chaocula", new="Chaoz"
-            attempt2_old = " ".join(args[:-1])
-            attempt2_new = args[-1]
-            attempt2_old_path = os.path.join(user_folder, "chao_data", attempt2_old)
-
-            if os.path.exists(attempt2_old_path):
-                old_name = attempt2_old
-                new_name = attempt2_new
+        if num_tokens == 2:
+            # e.g. "$rename Count Chaocula"
+            candidate = args[0]
+            candidate_path = os.path.join(chao_data_folder, candidate)
+            if os.path.exists(candidate_path):
+                old_name = candidate
             else:
-                # Both guesses failed
+                # Look for a unique folder that starts with candidate + " "
+                matches = [folder for folder in os.listdir(chao_data_folder)
+                           if folder.startswith(candidate + " ")]
+                if len(matches) == 1:
+                    old_name = matches[0]
+                else:
+                    # If there are no matches or multiple matches, fall back to candidate
+                    old_name = candidate
+            new_name = args[1]
+
+        elif num_tokens == 3:
+            # Two possibilities:
+            # Possibility A: old = first token (1 word), new = last 2 tokens (2 words)
+            attemptA_old = args[0]
+            attemptA_new = " ".join(args[1:])
+            attemptA_old_path = os.path.join(chao_data_folder, attemptA_old)
+            if os.path.exists(attemptA_old_path):
+                old_name = attemptA_old
+                new_name = attemptA_new
+            else:
+                # Possibility B: old = first 2 tokens (2 words), new = last token (1 word)
+                attemptB_old = " ".join(args[:2])
+                attemptB_new = args[2]
+                attemptB_old_path = os.path.join(chao_data_folder, attemptB_old)
+                if os.path.exists(attemptB_old_path):
+                    old_name = attemptB_old
+                    new_name = attemptB_new
+                else:
+                    return await ctx.reply(
+                        f"{ctx.author.mention}, I couldn't find a Chao folder matching either "
+                        f"`{attemptA_old}` or `{attemptB_old}`.\n"
+                        "Please check your spelling or use quotes if the old name has spaces."
+                    )
+        elif num_tokens == 4:
+            # For 4 tokens, we assume a 2-word old name and a 2-word new name.
+            old_name = " ".join(args[:2])
+            new_name = " ".join(args[2:])
+            attempt_old_path = os.path.join(chao_data_folder, old_name)
+            if not os.path.exists(attempt_old_path):
                 return await ctx.reply(
-                    f"{ctx.author.mention}, I couldn't find a Chao folder matching "
-                    f"**{attempt1_old}** or **{attempt2_old}**.\n"
+                    f"{ctx.author.mention}, I couldn't find a Chao folder matching `{old_name}`.\n"
                     "Please check your spelling or use quotes if the old name has spaces."
                 )
 
-        # --- 4) Now we have old_name and new_name properly determined ---
-
-        # Validate new_name length
+        # --- 4) Validate the new name ---
         if len(new_name) > 15:
             return await ctx.reply(
                 f"{ctx.author.mention}, the new name **{new_name}** exceeds the 15-character limit."
             )
-
-        # Validate characters (letters, numbers, spaces)
         if not new_name.replace(" ", "").isalnum():
             return await ctx.reply(
-                f"{ctx.author.mention}, the new name **{new_name}** must be letters/numbers only, "
-                "with spaces allowed."
+                f"{ctx.author.mention}, the new name **{new_name}** must be letters/numbers only, with spaces allowed."
             )
 
-        # Build final paths
-        old_path = os.path.join(user_folder, "chao_data", old_name)
-        new_path = os.path.join(user_folder, "chao_data", new_name)
+        # Build final paths for renaming
+        old_path = os.path.join(chao_data_folder, old_name)
+        new_path = os.path.join(chao_data_folder, new_name)
 
-        # Check if the new folder name already exists
+        # Check if the new folder name already exists.
         if os.path.exists(new_path):
             return await ctx.reply(
                 f"{ctx.author.mention}, a Chao named **{new_name}** already exists!"
             )
 
-        # Rename the main chao_data directory
+        # --- 5) Rename the folder and associated files ---
         os.rename(old_path, new_path)
 
-        # Rename stats file (e.g. "Chaoz_stats.parquet" → "Count Chaocula_stats.parquet")
+        # Rename stats file (e.g. "Count Chaocula_stats.parquet" → "Chaocula_stats.parquet")
         old_stats = os.path.join(new_path, f"{old_name}_stats.parquet")
         new_stats = os.path.join(new_path, f"{new_name}_stats.parquet")
         if os.path.exists(old_stats):
             os.rename(old_stats, new_stats)
 
-        # Rename any other files containing the old name
+        # Rename any other files containing the old name (skip the stats file we just renamed)
         for filename in os.listdir(new_path):
+            if filename == f"{new_name}_stats.parquet":
+                continue
             if old_name in filename:
                 old_file_path = os.path.join(new_path, filename)
-                new_file_path = os.path.join(
-                    new_path, filename.replace(old_name, new_name)
-                )
+                new_file_path = os.path.join(new_path, filename.replace(old_name, new_name))
                 os.rename(old_file_path, new_file_path)
 
-        # Confirmation
+        # --- 6) Confirmation ---
         await ctx.reply(
             f"{ctx.author.mention}, your Chao has been successfully renamed from "
             f"**{old_name}** to **{new_name}**!"

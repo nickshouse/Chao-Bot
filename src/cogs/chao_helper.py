@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import List, Tuple, Dict, Optional
 
 PERSISTENT_VIEWS_FILE = "persistent_views.json"
+ASSETS_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../assets"))
 
 class ChaoHelper(commands.Cog):
     def __init__(self, bot):
@@ -252,6 +253,56 @@ class ChaoHelper(commands.Cog):
             return "normal", "1"
 
 
+    def get_guild_user(ctx):
+        return str(ctx.guild.id), ctx.guild.name, ctx.author
+
+    def safe_int(val):
+        try:
+            return int(float(val))
+        except (ValueError, TypeError):
+            return 0
+
+    def get_stat_levels(latest_stats):
+        stats = ['swim', 'fly', 'run', 'power', 'stamina']
+        return [safe_int(latest_stats.get(f"{s}_level") or latest_stats.get(f"{s.capitalize()}_level")) for s in stats]
+
+
+    def get_background_for_chao_evolution(self, latest_stats: Dict) -> str:
+        """Return background path for evolution, using the same logic as get_bg_path."""
+        if not self.image_utils:
+            return self.NEUTRAL_BG_PATH  # fallback if no ImageUtils cog
+
+        align = latest_stats.get("Alignment", "neutral")
+        form = str(latest_stats.get("Form", "1"))
+        if form in ["3", "4"]:
+            if align == "hero":
+                return self.HERO_BG_PATH
+            elif align == "dark":
+                return self.DARK_BG_PATH
+            else:
+                return self.NEUTRAL_BG_PATH
+        return self.NEUTRAL_BG_PATH
+
+    def generate_evolution_image(self, bg_path, overlay_img, safe_name):
+        """
+        Generates a lifecycle/evolution image by overlaying `overlay_img` onto `bg_path`.
+        Returns a discord.File object of the composite image.
+        """
+        # Use self.assets_dir instead of ASSETS_DIR
+        temp_folder = os.path.join(self.assets_dir, "temp")
+        os.makedirs(temp_folder, exist_ok=True)
+        temp_output = os.path.join(temp_folder, f"lifecycle_{safe_name}.png")
+
+        from PIL import Image
+        with Image.open(bg_path).convert("RGBA") as bg, Image.open(overlay_img).convert("RGBA") as overlay:
+            overlay = overlay.resize(bg.size)
+            Image.alpha_composite(bg, overlay).save(temp_output)
+
+        return discord.File(temp_output, filename=f"lifecycle_{safe_name}.png")
+
+
+
+
     async def feed(self, ctx, *, chao_name_and_fruit: str):
         """
         Feeds a particular fruit to a Chao multiple times.
@@ -264,6 +315,8 @@ class ChaoHelper(commands.Cog):
         - Form 3/4 Chao remain locked in advanced form alignment.
         - Level-ups and changes are aggregated into a single summary.
         - A Chao's stat level can NOT exceed level 99.
+        - If a Chao is Form 3 and any stat >= 20 after feeding, evolution triggers immediately.
+          (Evolution is now stored in the DB, so it persists if the bot restarts.)
         """
         guild_id = str(ctx.guild.id)
         guild_name = ctx.guild.name
@@ -363,54 +416,36 @@ class ChaoHelper(commands.Cog):
                     exp_key = stat.replace("_ticks", "_exp")
 
                     old_level = latest_stats.get(level_key, 0)
-                    # If already at level 99, skip entirely
                     if old_level >= 99:
-                        continue
+                        continue  # Already maxed
 
                     remaining = increment
                     while remaining > 0:
                         curr_ticks = latest_stats.get(stat, 0)
-                        # How many ticks until we hit 10 -> triggers level up
                         space_until_level = 9 - curr_ticks
-
-                        # We'll add 'to_add' ticks this step
                         to_add = min(remaining, space_until_level + 1)
                         new_val = curr_ticks + to_add
                         remaining -= to_add
 
                         if new_val > 9:
-                            # We crossed from <10 to >=10 => level up
                             old_level = latest_stats.get(level_key, 0)
                             new_level = old_level + 1
-
-                            # If after leveling we exceed 99, clamp
                             if new_level > 99:
                                 new_level = 99
-
                             latest_stats[level_key] = new_level
                             if new_level > old_level and new_level <= 99:
-                                # We actually gained a level
                                 levels_gained[level_key] += 1
-
-                                # Add EXP based on grade
                                 grade = latest_stats.get(grade_key, 'F')
                                 old_exp = latest_stats.get(exp_key, 0)
                                 latest_stats[exp_key] = old_exp + self.get_stat_increment(grade)
-
-                            # Reset ticks to 0 after leveling
                             latest_stats[stat] = 0
-
-                            # If we just hit level 99, no more increments for this feeding
                             if new_level >= 99:
                                 break
                         else:
-                            # No level up, just partial ticks
                             net_gain = new_val - curr_ticks
                             if net_gain > 0:
                                 ticks_changes[stat] += net_gain
                                 latest_stats[stat] = new_val
-
-                    # End of the while loop for ticks
 
                 # C) Alignment stats
                 elif stat in ["run_power", "swim_fly", "dark_hero"]:
@@ -448,7 +483,7 @@ class ChaoHelper(commands.Cog):
         # 8) Deduct fruit
         normalized_inventory[matched_fruit_lower] = have_amount - quantity
         updated_inventory = {
-            k: normalized_inventory.get(k.lower(), 0) 
+            k: normalized_inventory.get(k.lower(), 0)
             for k in current_inv.keys()
         }
         self.data_utils.save_inventory(inv_path, inv_df, updated_inventory)
@@ -481,13 +516,52 @@ class ChaoHelper(commands.Cog):
         # Save updated stats
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
 
-        # 10) Build final embed message
+        # -----------------------------
+        #  MERGED EVOLUTION LOGIC HERE
+        # -----------------------------
+        current_form = str(latest_stats.get("Form", "1"))
+        if current_form == "3":
+            stats_of_interest = ["swim_level","fly_level","run_level","power_level","stamina_level"]
+            if any(int(latest_stats.get(s, 0)) >= 20 for s in stats_of_interest):
+                # If not already evolving:
+                if not latest_stats.get("evolution_end_time"):
+
+                    now = datetime.now()
+                    evolution_end = now + timedelta(seconds=60)
+                    latest_stats["evolution_end_time"] = evolution_end.isoformat()
+                    latest_stats["evolution_seconds_left"] = 60
+                    latest_stats["cacoon"] = 1  # Mark that the Chao is in a cocoon
+
+                    self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
+
+                    # Always use NEUTRAL background for the evolving embed:
+                    bg_path = os.path.join(self.assets_dir, "graphics", "thumbnails", "neutral_background.png")
+
+                    overlay_img = os.path.join(self.assets_dir, "graphics", "cacoons", "cacoon_evolve.png")
+                    safe_name = chao_name.replace(" ", "_")
+                    file = self.generate_evolution_image(bg_path, overlay_img, safe_name)
+
+                    embed = discord.Embed(
+                        title="Chao Is Evolving!",
+                        description=(
+                            f"{ctx.author.mention}, your chao **{chao_name}** is evolving.\n"
+                            "You cannot interact for 60 seconds. "
+                        ),
+                        color=discord.Color.purple()
+                    )
+                    embed.set_thumbnail(url=f"attachment://{file.filename}")
+                    await ctx.reply(embed=embed, file=file)
+
+                    # We do not finalize here; the time is tracked in the DB
+                    # and a separate background or decorator will finalize.
+                    return
+
+        # If NOT evolving, show normal feed results
         feed_summary = f"{chao_name} ate {quantity} {matched_fruit}!"
         if quantity == 1:
             feed_summary = f"{chao_name} ate a {matched_fruit}!"
 
         stat_lines = []
-        # Summarize stat changes
         for stat, net_gain in ticks_changes.items():
             base_name = stat.replace("_ticks", "").capitalize()
             final_val = latest_stats.get(stat, 0)
@@ -499,7 +573,7 @@ class ChaoHelper(commands.Cog):
 
         for a_stat, net_align in alignment_changes.items():
             if a_stat == "dark_hero":
-                continue  # Hide direct dark/hero changes from the feed summary
+                continue
             sign = "+" if net_align > 0 else ""
             final_val = latest_stats.get(a_stat, 0)
             base = a_stat.replace("_","/").capitalize()
@@ -720,25 +794,8 @@ class ChaoHelper(commands.Cog):
             view=view
         )
 
-    def check_life_cycle(self, c: Dict) -> str:
-        """Check if a Chao is older than 60 days and decide if it reincarnates or dies."""
-        if (datetime.now() - datetime.strptime(c['birth_date'], "%Y-%m-%d")).days < 60:
-            return "alive"
-        return (
-            "reincarnated"
-            if c.get('happiness_ticks', 0) > 5 and not c.update({
-                k: 0 for k in [
-                    f"{x}_{y}"
-                    for x in ['swim', 'fly', 'run', 'power', 'stamina']
-                    for y in ['ticks', 'level', 'exp']
-                ]
-            } | {
-                'reincarnations': c.get('reincarnations', 0) + 1,
-                'happiness_ticks': 10,
-                'birth_date': datetime.now().strftime("%Y-%m-%d")
-            })
-            else c.update({'dead': 1}) or "died"
-        )
+
+
 
     async def force_life_check(self, ctx, *, chao_name: str):
         """Force check a chao's life cycle: either reincarnate or die if older than 60 days."""

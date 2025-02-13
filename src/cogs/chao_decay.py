@@ -258,7 +258,8 @@ class ChaoDecay(commands.Cog):
     async def force_hp_decay_loop(self):
         """
         Every minute, check if ANY one of belly, energy, or happiness is drained (== 0).
-        If so, subtract HP ticks based on elapsed time and notify the user at thresholds.
+        If so, subtract HP ticks at the rate defined by hp_decay_amount every hp_decay_minutes.
+        The last update time is reset to now once the ticks are subtracted.
         """
         for guild in self.bot.guilds:
             server_folder = self.data_utils.get_server_folder(str(guild.id), guild.name)
@@ -299,19 +300,15 @@ class ChaoDecay(commands.Cog):
                         continue
                     now = datetime.now()
                     passed_minutes = int((now - old_time).total_seconds() // 60)
-                    blocks = passed_minutes // self.hp_decay_minutes
-                    if blocks > 0:
+                    # Only subtract HP if the required minutes have passed.
+                    if passed_minutes >= self.hp_decay_minutes:
+                        blocks = passed_minutes // self.hp_decay_minutes
                         old_val = latest_stats.get("hp_ticks", 0)
                         reduce_amount = self.hp_decay_amount * blocks
                         new_val = max(0, old_val - reduce_amount)
                         latest_stats["hp_ticks"] = new_val
-
-                        used_time = old_time + timedelta(minutes=(blocks * self.hp_decay_minutes))
-                        if used_time > now:
-                            used_time = now
-                        latest_stats["last_hp_update"] = used_time.strftime("%Y-%m-%d %H:%M:%S")
-
-                        # If HP has decreased, check thresholds and notify the user
+                        # Reset the last_hp_update to now to prevent over-accumulation.
+                        latest_stats["last_hp_update"] = now.strftime("%Y-%m-%d %H:%M:%S")
                         if new_val < old_val:
                             await self.check_hp_thresholds(
                                 guild_id=guild.id,
@@ -330,23 +327,15 @@ class ChaoDecay(commands.Cog):
     async def check_hp_thresholds(self, guild_id: int, user_folder_name: str, chao_name: str,
                                   old_hp: int, new_hp: int):
         """
-        Check if HP has dropped to critical thresholds (3, 1, or 0)
-        and notify the user via DM.
+        (Notifications removed)
         """
-        user_id_str = user_folder_name.split()[0]
-        try:
-            user_id_int = int(user_id_str)
-            user = self.bot.get_user(user_id_int)
-            if not user:
-                return
-        except ValueError:
-            return  # Unable to parse user ID
+        pass
 
     async def force_hp_decay(self, ctx, ticks: int, minutes: int):
         """
         Admin command to update HP decay settings.
         HP decay will subtract the given ticks every block of <minutes>,
-        but only if at least one of belly, energy, or happiness is empty.
+        but only if any of belly, energy, or happiness is drained.
         """
         if ticks < 1 or minutes < 1:
             return await ctx.reply("Please provide integers >= 1 for both ticks and minutes.")
