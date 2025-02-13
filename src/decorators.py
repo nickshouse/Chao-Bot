@@ -240,8 +240,8 @@ def ensure_chao_lifecycle(func):
             latest_stats.pop('death_seconds_left', None)
             self.data_utils.save_chao_stats(stats_path, chao_df, latest_stats)
             embed = discord.Embed(
-                title="Chao Has Died",
-                description=f"{author_mention}, your chao **{chao_name}** has died and can no longer be interacted with.",
+                title=f"{chao_name} has passed...",
+                description=f"{chao_name} can no longer be interacted with.\n\n**Date of Death:** {date_of_death}",
                 color=discord.Color.dark_gray()
             )
             grave = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "chao_grave.png")
@@ -279,7 +279,7 @@ def ensure_chao_lifecycle(func):
         chao_name_raw = (kwargs.get('chao_name') or kwargs.get('chao_name_and_fruit') or 
                          kwargs.get('chao_name_and_new_name') or (args[0] if args else None))
         if not chao_name_raw:
-            return await ctx.reply("No valid Chao name provided.")
+            return await ctx.reply("Something went wrong and this action cannot proceed.")
         chao_name = parse_chao_name(ctx, chao_name_raw, self.data_utils)
         if not chao_name:
             return await ctx.reply("No valid Chao name found.")
@@ -308,37 +308,51 @@ def ensure_chao_lifecycle(func):
         end_time_str = latest_stats.get("reincarnation_end_time") or latest_stats.get("death_end_time")
         is_reinc = bool(latest_stats.get("reincarnation_end_time"))
         is_death = bool(latest_stats.get("death_end_time"))
+
         if end_time_str:
-            try:
-                dt_end = datetime.fromisoformat(end_time_str)
-            except ValueError:
-                dt_end = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
-            seconds_left = (dt_end - now).total_seconds()
+            # <--- HERE IS THE FIX
+            if end_time_str in ("0", ""):
+                # Means there's no valid date/time
+                seconds_left = 0
+            else:
+                # Attempt to parse the stored string
+                try:
+                    dt_end = datetime.fromisoformat(end_time_str)
+                except ValueError:
+                    dt_end = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
+                seconds_left = (dt_end - now).total_seconds()
+
             if seconds_left > 0:
+                # The rest of your countdown logic
                 if is_reinc:
                     latest_stats["reincarnation_seconds_left"] = int(seconds_left)
                 if is_death:
                     latest_stats["death_seconds_left"] = int(seconds_left)
                 self.data_utils.save_chao_stats(stats_path, chao_df, latest_stats)
+
+                # Possibly pick an overlay, show embed, etc.
                 image_utils = self.bot.get_cog("ImageUtils")
                 bg_path = get_bg_path(image_utils, latest_stats)
                 if is_reinc:
                     overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_reincarnate.png")
-                    title_str = "Chao Is Reincarnating"
-                    desc_str = f"{author_mention}, your chao **{chao_name}** is reincarnating. Please wait {int(seconds_left)} second(s)!"
+                    title_str = "Cacoon In Progress"
+                    desc_str = f"{author_mention}, your chao **{chao_name}** is in a cacoon. Please wait {int(seconds_left)} second(s)!"
                     color_val = discord.Color.dark_gray()
                 else:
                     overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_death.png")
-                    title_str = "Death State In Progress"
-                    desc_str = f"{author_mention}, your chao **{chao_name}** is dying. Please wait {int(seconds_left)} second(s)!"
+                    title_str = "Cacoon In Progress"
+                    desc_str = f"{author_mention}, your chao **{chao_name}** is in a cacoon. Please wait {int(seconds_left)} second(s)!"
                     color_val = discord.Color.red()
+
                 file = generate_lifecycle_image(bg_path, overlay_img, safe_name)
                 embed = discord.Embed(title=title_str, description=desc_str, color=color_val)
                 embed.set_thumbnail(url=f"attachment://lifecycle_{safe_name}.png")
                 return await ctx.reply(file=file, embed=embed)
+
             if is_death and not latest_stats.get("death_notified", False):
                 await finalize_death(channel, stats_path, chao_name, safe_name)
                 return
+
 
         # --- Stat check: if any stat reaches ≥99, trigger reincarnation or death ---
         if any(lvl >= 99 for lvl in get_stat_levels(latest_stats)):
@@ -355,8 +369,8 @@ def ensure_chao_lifecycle(func):
                 overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_reincarnate.png")
                 file = generate_lifecycle_image(bg_path, overlay_img, safe_name)
                 embed = discord.Embed(
-                    title="Chao Is Reincarnating",
-                    description=f"{author_mention}, your chao **{chao_name}** is reincarnating! Please wait 60 seconds.",
+                    title="Cacoon In Progress",
+                    description=f"{author_mention}, your chao **{chao_name}** is in a cacoon. Please wait 60 seconds.",
                     color=discord.Color.dark_gray()
                 )
                 embed.set_thumbnail(url=f"attachment://lifecycle_{safe_name}.png")
@@ -373,8 +387,8 @@ def ensure_chao_lifecycle(func):
                 overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_death.png")
                 file = generate_lifecycle_image(bg_path, overlay_img, safe_name)
                 embed = discord.Embed(
-                    title="Entering Death State",
-                    description=f"{author_mention}, your chao **{chao_name}** is entering a death state. Please wait 60 seconds!",
+                    title="Cacoon In Progress",
+                    description=f"{author_mention}, your chao **{chao_name}** is in a cacoon. Please wait 60 seconds!",
                     color=discord.Color.orange()
                 )
                 embed.set_thumbnail(url=f"attachment://lifecycle_{safe_name}.png")

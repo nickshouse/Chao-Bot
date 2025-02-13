@@ -149,28 +149,71 @@ class DataUtils(commands.Cog):
     def save_chao_stats(self, chao_stats_path, chao_df, chao_stats):
         """
         Saves Chao stats for the current date, ensuring zero-padded date.
-        Also forces any 'last_*_update' columns to be strings to avoid ArrowInvalid.
+        Also forces any 'last_*_update' columns or time-based columns
+        ('evolution_end_time', 'death_end_time', 'reincarnation_end_time')
+        to be strings, both in the existing DataFrame and in the new row.
+        This prevents 'incompatible dtype' FutureWarnings in pandas,
+        and avoids storing "0" for missing time columns (we use "" instead).
+
+        Additionally, it replaces any existing "0" in time columns with "" 
+        to avoid parse errors like "Invalid isoformat string: '0'".
         """
         current_date_str = datetime.now().strftime("%Y-%m-%d")
         new_entry = {**chao_stats, 'date': current_date_str}
         columns = ['date'] + [col for col in new_entry if col != 'date']
         new_entry_df = pd.DataFrame([new_entry])[columns]
 
-        if not chao_df.empty and current_date_str in chao_df['date'].values:
-            chao_df.loc[chao_df['date'] == current_date_str, columns[1:]] = new_entry_df.iloc[0][columns[1:]].values
-        else:
-            chao_df = pd.concat([chao_df, new_entry_df], ignore_index=True).fillna(0)
+        # Columns that might store ISO8601 times
+        time_cols = ['evolution_end_time', 'death_end_time', 'reincarnation_end_time']
 
-        # Force alignment as str if present
+        # 1) Cast those columns to str in new_entry_df (to avoid incompatible dtypes)
+        for tcol in time_cols:
+            if tcol in new_entry_df.columns:
+                new_entry_df[tcol] = new_entry_df[tcol].astype(str)
+
+        # Also cast any 'last_*_update' columns in new_entry_df
+        for col in new_entry_df.columns:
+            if col.startswith("last_") and col.endswith("_update"):
+                new_entry_df[col] = new_entry_df[col].astype(str)
+
+        # 2) If chao_df is not empty, cast these columns to str in chao_df as well
+        #    BEFORE overwriting today's row. This avoids the "incompatible dtype" warning.
+        if not chao_df.empty:
+            for tcol in time_cols:
+                if tcol in chao_df.columns:
+                    chao_df[tcol] = chao_df[tcol].astype(str)
+            for col in chao_df.columns:
+                if col.startswith("last_") and col.endswith("_update"):
+                    chao_df[col] = chao_df[col].astype(str)
+
+        # 3) Overwrite or append today's row
+        if not chao_df.empty and current_date_str in chao_df['date'].values:
+            chao_df.loc[chao_df['date'] == current_date_str, columns[1:]] = (
+                new_entry_df.iloc[0][columns[1:]].values
+            )
+        else:
+            # Use fillna("") so empty values become "", avoiding "0" in time columns
+            chao_df = pd.concat([chao_df, new_entry_df], ignore_index=True).fillna("")
+
+        # 4) Force alignment as str if present
         if 'Alignment' in chao_df.columns:
             chao_df['Alignment'] = chao_df['Alignment'].astype(str)
 
-        # Force all 'last_*_update' columns to string
+        # 5) Finally, cast again to ensure everything is consistent
+        for tcol in time_cols:
+            if tcol in chao_df.columns:
+                # Replace any "0" with "", so we never parse "0" as a date/time
+                chao_df[tcol] = chao_df[tcol].replace("0", "")
+                chao_df[tcol] = chao_df[tcol].astype(str)
+
         for col in chao_df.columns:
             if col.startswith("last_") and col.endswith("_update"):
                 chao_df[col] = chao_df[col].astype(str)
 
+        # Save to Parquet
         chao_df.to_parquet(chao_stats_path, index=False)
+
+
 
     def load_chao_stats(self, chao_stats_path):
         if os.path.exists(chao_stats_path):

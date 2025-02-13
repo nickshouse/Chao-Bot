@@ -55,10 +55,7 @@ class Commands(commands.Cog):
     async def inventory(self, ctx):
         await self.chao_cog.inventory(ctx)
 
-    @commands.command(name='restore', help="Restore your Chao data.")
-    @ensure_user_initialized
-    async def restore(self, ctx, *, args: str):
-        await self.data_utils.restore(ctx, args=args)
+
 
     @commands.command(name='egg', help="Give yourself a Chao egg.")
     @ensure_user_initialized
@@ -119,7 +116,12 @@ class Commands(commands.Cog):
             ctx, chao_name=chao_name, happiness_value=happiness_value
         )
 
-
+    @commands.command(name='restore', help="Restore your Chao data.")
+    @ensure_user_initialized
+    @ensure_chao_alive
+    @ensure_chao_lifecycle
+    async def restore(self, ctx, *, args: str):
+        await self.data_utils.restore(ctx, args=args)
 
     @commands.command(name='goodbye', help="Send Chao away to the faraway Chao Forest.")
     @ensure_user_initialized
