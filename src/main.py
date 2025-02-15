@@ -168,7 +168,7 @@ def add_rings_for_user(message):
             current_inventory = inventory_df.iloc[-1].to_dict()
 
         # Award 5 rings for this valid (non-spam) message.
-        current_inventory['rings'] = current_inventory.get('rings', 0) + 5
+        current_inventory['rings'] = current_inventory.get('rings', 0) + 15
 
         # Save the updated inventory.
         data_utils.save_inventory(inventory_path, inventory_df, current_inventory)
