@@ -1,8 +1,10 @@
 # cogs/commands.py
 
 import discord
+import os
 from discord.ext import commands
 from decorators import ensure_user_initialized, ensure_chao_alive, ensure_chao_lifecycle, ensure_chao_hatched, ensure_not_in_cacoon
+
 
 class Commands(commands.Cog):
     def __init__(self, bot):
@@ -101,6 +103,62 @@ class Commands(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def force_life_check(self, ctx, *, chao_name: str):
         await self.chao_helper_cog.force_life_check(ctx, chao_name=chao_name)
+
+    @commands.command(name="force_grade_change", help="(Admin) Force a grade change on a chao. Usage: %force_grade_change @User ChaoName stat new_grade")
+    @commands.has_permissions(administrator=True)
+    async def force_grade_change(self, ctx, target: discord.Member, *, args: str):
+        """
+        Force-change a chao's grade for a given stat.
+        
+        Example:
+        %force_grade_change @nickshouse Ka Chao power A
+        This sets nickshouse's chao named "Ka Chao" so that its power grade is set to A.
+        """
+        # Split the arguments into words.
+        args_list = args.split()
+        if len(args_list) < 3:
+            return await ctx.reply("Usage: %force_grade_change @User ChaoName stat new_grade")
+        
+        # The new grade is the last word, the stat is the second-to-last,
+        # and the remaining words form the chao's name.
+        new_grade = args_list[-1].upper()
+        stat = args_list[-2].lower()
+        chao_name = " ".join(args_list[:-2])
+        
+        valid_stats = ["power", "fly", "run", "swim"]
+        if stat not in valid_stats:
+            return await ctx.reply(f"{ctx.author.mention}, the stat must be one of: {', '.join(valid_stats)}.")
+        
+        # Retrieve the chao's data folder for the target.
+        guild_id = str(ctx.guild.id)
+        guild_name = ctx.guild.name
+        # Update the server folder and then the user's folder.
+        server_folder = self.data_utils.update_server_folder(ctx.guild)
+        user_folder = self.data_utils.get_user_folder(server_folder, target)
+        # The chao folder is expected to be in user_folder/chao_data/{chao_name}
+        chao_folder = os.path.join(user_folder, "chao_data", chao_name)
+        stats_file = os.path.join(chao_folder, f"{chao_name}_stats.parquet")
+        if not os.path.exists(stats_file):
+            return await ctx.reply(f"{ctx.author.mention}, no stats file found for **{chao_name}** of {target.mention}.")
+        
+        # Load the chao stats.
+        chao_df = self.data_utils.load_chao_stats(stats_file)
+        if chao_df.empty:
+            return await ctx.reply(f"{ctx.author.mention}, no stats data found for **{chao_name}** of {target.mention}.")
+        latest_stats = chao_df.iloc[-1].to_dict()
+        
+        # Determine which grade key to update.
+        grade_key = f"{stat}_grade"
+        # Get the valid grades list (assumed to be set in the ChaoHelper cog).
+        grade_list = self.chao_helper_cog.GRADES  # e.g., ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'X']
+        if new_grade not in grade_list:
+            return await ctx.reply(f"{ctx.author.mention}, {new_grade} is not a valid grade. Valid grades: {', '.join(grade_list)}.")
+        
+        # Update the grade.
+        latest_stats[grade_key] = new_grade
+        self.data_utils.save_chao_stats(stats_file, chao_df, latest_stats)
+        await ctx.reply(f"{ctx.author.mention}, {target.mention}'s chao **{chao_name}** now has its {stat.capitalize()} grade set to {new_grade}.")
+
 
 
 

@@ -1,6 +1,8 @@
 # cogs/chao_helper.py
 
 import os, json, random, asyncio, discord, shutil, pandas as pd
+import collections
+from PIL import Image
 from discord.ext import commands, tasks
 from discord.ui import View, Button
 from datetime import datetime, timedelta
@@ -293,7 +295,7 @@ class ChaoHelper(commands.Cog):
         os.makedirs(temp_folder, exist_ok=True)
         temp_output = os.path.join(temp_folder, f"lifecycle_{safe_name}.png")
 
-        from PIL import Image
+
         with Image.open(bg_path).convert("RGBA") as bg, Image.open(overlay_img).convert("RGBA") as overlay:
             overlay = overlay.resize(bg.size)
             Image.alpha_composite(bg, overlay).save(temp_output)
@@ -316,8 +318,9 @@ class ChaoHelper(commands.Cog):
         - Level-ups and changes are aggregated into a single summary.
         - A Chao's stat level can NOT exceed level 99.
         - If a Chao is Form 3 and any stat >= 20 after feeding, evolution triggers immediately.
-          (Evolution is now stored in the DB, so it persists if the bot restarts.)
+        (Evolution is now stored in the DB, so it persists if the bot restarts.)
         """
+
         guild_id = str(ctx.guild.id)
         guild_name = ctx.guild.name
         user = ctx.author
@@ -383,7 +386,6 @@ class ChaoHelper(commands.Cog):
         latest_stats = chao_df.iloc[-1].to_dict()
 
         # 5) Track changes in aggregated form
-        import collections
         ticks_changes = collections.defaultdict(int)
         alignment_changes = collections.defaultdict(int)
         levels_gained = collections.defaultdict(int)
@@ -459,8 +461,7 @@ class ChaoHelper(commands.Cog):
             # D) If Form 2, shift the *other* alignment stat one step toward 0
             current_form = str(latest_stats.get("Form", "1"))
             if current_form == "2":
-                # e.g. handle run_power and swim_fly pulling to 0
-                if matched_fruit_lower in ["swim fruit","blue fruit","green fruit","purple fruit","pink fruit","fly fruit"]:
+                if matched_fruit_lower in ["swim fruit", "blue fruit", "green fruit", "purple fruit", "pink fruit", "fly fruit"]:
                     old_rp = latest_stats.get("run_power", 0)
                     new_rp = old_rp + 1 if old_rp < 0 else (old_rp - 1 if old_rp > 0 else old_rp)
                     new_rp = clamp(new_rp, -5, 5)
@@ -468,7 +469,7 @@ class ChaoHelper(commands.Cog):
                         alignment_changes["run_power"] += (new_rp - old_rp)
                         latest_stats["run_power"] = new_rp
 
-                if matched_fruit_lower in ["run fruit","red fruit","power fruit"]:
+                if matched_fruit_lower in ["run fruit", "red fruit", "power fruit"]:
                     old_sf = latest_stats.get("swim_fly", 0)
                     new_sf = old_sf + 1 if old_sf < 0 else (old_sf - 1 if old_sf > 0 else old_sf)
                     new_sf = clamp(new_sf, -5, 5)
@@ -496,22 +497,21 @@ class ChaoHelper(commands.Cog):
         latest_stats["Form"] = form
         latest_stats["Type"] = chao_type
 
-        # Possibly handle form evolution from 2 -> 3
+        # --- Evolve from Form 2 -> Form 3: Upgrade grade letter accordingly ---
         if prev_form == "2" and form == "3":
-            suffix = chao_type.split("_")[1]
+            # Instead of checking run_power, derive the type from the new chao_type.
+            suffix = chao_type.split("_")[1]  # e.g. "power", "fly", "run", or "swim"
             stat_to_upgrade = {
                 "fly": "fly_grade",
                 "power": "power_grade",
                 "run": "run_grade",
                 "swim": "swim_grade"
             }.get(suffix)
-            if stat_to_upgrade and stat_to_upgrade in latest_stats:
-                grades = self.GRADES
+            if stat_to_upgrade:
                 current_grade = latest_stats.get(stat_to_upgrade, 'F')
-                if current_grade in grades:
-                    new_grade_index = min(len(grades) - 1, grades.index(current_grade) + 1)
-                    latest_stats[stat_to_upgrade] = grades[new_grade_index]
-                    levels_gained[stat_to_upgrade] += 1
+                new_grade_index = min(len(self.GRADES) - 1, self.GRADES.index(current_grade) + 1)
+                latest_stats[stat_to_upgrade] = self.GRADES[new_grade_index]
+                levels_gained[stat_to_upgrade] += 1
 
         # Save updated stats
         self.data_utils.save_chao_stats(chao_stats_path, chao_df, latest_stats)
@@ -521,11 +521,10 @@ class ChaoHelper(commands.Cog):
         # -----------------------------
         current_form = str(latest_stats.get("Form", "1"))
         if current_form == "3":
-            stats_of_interest = ["swim_level","fly_level","run_level","power_level","stamina_level"]
+            stats_of_interest = ["swim_level", "fly_level", "run_level", "power_level", "stamina_level"]
             if any(int(latest_stats.get(s, 0)) >= 20 for s in stats_of_interest):
                 # If not already evolving:
                 if not latest_stats.get("evolution_end_time"):
-
                     now = datetime.now()
                     evolution_end = now + timedelta(seconds=60)
                     latest_stats["evolution_end_time"] = evolution_end.isoformat()
@@ -536,7 +535,6 @@ class ChaoHelper(commands.Cog):
 
                     # Always use NEUTRAL background for the evolving embed:
                     bg_path = os.path.join(self.assets_dir, "graphics", "thumbnails", "neutral_background.png")
-
                     overlay_img = os.path.join(self.assets_dir, "graphics", "cacoons", "cacoon_evolve.png")
                     safe_name = chao_name.replace(" ", "_")
                     file = self.generate_evolution_image(bg_path, overlay_img, safe_name)
@@ -551,9 +549,6 @@ class ChaoHelper(commands.Cog):
                     )
                     embed.set_thumbnail(url=f"attachment://{file.filename}")
                     await ctx.reply(embed=embed, file=file)
-
-                    # We do not finalize here; the time is tracked in the DB
-                    # and a separate background or decorator will finalize.
                     return
 
         # If NOT evolving, show normal feed results
@@ -565,9 +560,7 @@ class ChaoHelper(commands.Cog):
         for stat, net_gain in ticks_changes.items():
             base_name = stat.replace("_ticks", "").capitalize()
             final_val = latest_stats.get(stat, 0)
-            cap = 10 if stat in [
-                "hp_ticks","belly_ticks","energy_ticks","happiness_ticks","illness_ticks"
-            ] else 9
+            cap = 10 if stat in ["hp_ticks", "belly_ticks", "energy_ticks", "happiness_ticks", "illness_ticks"] else 9
             sign = "+" if net_gain > 0 else ""
             stat_lines.append(f"{base_name} {sign}{net_gain} ({final_val}/{cap})")
 
@@ -576,16 +569,16 @@ class ChaoHelper(commands.Cog):
                 continue
             sign = "+" if net_align > 0 else ""
             final_val = latest_stats.get(a_stat, 0)
-            base = a_stat.replace("_","/").capitalize()
+            base = a_stat.replace("_", "/").capitalize()
             stat_lines.append(f"{base} {sign}{net_align} (→ {final_val}/5)")
 
         for lvl_key, times_gained in levels_gained.items():
             if lvl_key.endswith("_level"):
-                short_name = lvl_key.replace("_level","").capitalize()
+                short_name = lvl_key.replace("_level", "").capitalize()
                 new_level = latest_stats.get(lvl_key, 0)
                 stat_lines.append(f"{short_name} leveled up to {new_level}")
             elif lvl_key.endswith("_grade"):
-                short_name = lvl_key.replace("_grade","").capitalize()
+                short_name = lvl_key.replace("_grade", "").capitalize()
                 new_grade = latest_stats.get(lvl_key, "F")
                 stat_lines.append(f"{short_name} grade improved to {new_grade}")
 
@@ -607,6 +600,16 @@ class ChaoHelper(commands.Cog):
         with open(thumbnail_path, 'rb') as file:
             thumbnail = discord.File(file, filename="chao_thumbnail.png")
             await ctx.reply(embed=embed, file=thumbnail)
+
+
+
+
+
+
+
+
+
+
 
 
     async def stats(self, ctx, *, chao_name: str):
