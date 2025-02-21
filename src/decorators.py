@@ -200,17 +200,18 @@ def ensure_chao_lifecycle(func):
                 'illness_ticks': 0,
                 'energy_ticks': random.randint(3, 10),
                 'hp_ticks': 10,
-                'swim_exp': 0, 'swim_grade': getattr(self, 'get_random_grade', lambda: "F")(),
+                'swim_exp': 0, 'swim_grade': latest_stats.get('swim_grade', "F"),
                 'swim_level': 0, 'swim_ticks': 0, 'swim_fly': 0,
-                'fly_exp': 0, 'fly_grade': getattr(self, 'get_random_grade', lambda: "F")(),
+                'fly_exp': 0, 'fly_grade': latest_stats.get('fly_grade', "F"),
                 'fly_level': 0, 'fly_ticks': 0,
-                'power_exp': 0, 'power_grade': getattr(self, 'get_random_grade', lambda: "F")(),
+                'power_exp': 0, 'power_grade': latest_stats.get('power_grade', "F"),
                 'power_level': 0, 'power_ticks': 0,
-                'run_exp': 0, 'run_grade': getattr(self, 'get_random_grade', lambda: "F")(),
+                'run_exp': 0, 'run_grade': latest_stats.get('run_grade', "F"),
                 'run_level': 0, 'run_ticks': 0,
-                'stamina_exp': 0, 'stamina_grade': getattr(self, 'get_random_grade', lambda: "F")(),
+                'stamina_exp': 0, 'stamina_grade': latest_stats.get('stamina_grade', "F"),
                 'stamina_level': 0, 'stamina_ticks': 0
             }
+
             for s in ["swim", "fly", "run", "power", "stamina"]:
                 new_stats[f"{s}_exp"] = int(old_exp[s] * 0.1)
             self.data_utils.save_chao_stats(stats_path, chao_df, new_stats)
