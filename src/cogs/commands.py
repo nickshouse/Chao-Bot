@@ -94,6 +94,7 @@ class Commands(commands.Cog):
 
     @app_commands.command(name="listchao", description="List all the Chao you own.")
     @ensure_user_initialized
+    @ensure_chao_alive
     async def listchao(self, interaction: discord.Interaction):
         await self.chao_cog.list_chao(interaction)
 

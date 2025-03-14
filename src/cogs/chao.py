@@ -160,7 +160,7 @@ class Chao(commands.Cog):
         if alive_chao_count == 0:
             return await interaction.response.send_message(f"{user.mention}, you have no living Chao.")
 
-        embed.set_footer(text=f"Total Alive Chao: {alive_chao_count} | Graphics Pending...")
+        embed.set_footer(text=f"Graphics Pending...")
         await interaction.response.send_message(embed=embed)
 
     async def grades(self, interaction: discord.Interaction, chao_name: str):

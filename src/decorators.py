@@ -169,45 +169,64 @@ def ensure_user_initialized(func):
 
 def ensure_chao_alive(func):
     """
-    Ensures the targeted chao is not dead.
+    Ensures the targeted chao is not dead, and updates every chao in the user's chao database:
+    if a chao has 0 hp ticks, its 'dead' value is set to 1.
     """
     @wraps(func)
     async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
+        data_utils = self.data_utils
+        # Retrieve guild and user info for later use.
+        guild_id, guild_name, user = get_guild_user_interaction(interaction)
+
+        # Update every chao file in the user's chao_data folder recursively.
+        guild_obj = interaction.guild
+        guild_folder = data_utils.update_server_folder(guild_obj)
+        user_folder = data_utils.get_user_folder(guild_folder, user)
+        chao_data_dir = os.path.join(user_folder, "chao_data")
+        if os.path.exists(chao_data_dir):
+            for root, _, files in os.walk(chao_data_dir):
+                for filename in files:
+                    if filename.endswith("_stats.parquet"):
+                        stats_path = os.path.join(root, filename)
+                        chao_df = data_utils.load_chao_stats(stats_path)
+                        if not chao_df.empty:
+                            latest = chao_df.iloc[-1].to_dict()
+                            if safe_int(latest.get("hp_ticks", 0)) == 0 and safe_int(latest.get("dead", 0)) != 1:
+                                # Update the 'dead' field in the latest row to 1.
+                                chao_df.iloc[-1, chao_df.columns.get_loc("dead")] = 1
+                                chao_df.to_parquet(stats_path, index=False)
+
+        # Process the targeted chao if provided.
         chao_raw = (
-            kwargs.get('chao_name')
-            or kwargs.get('chao_name_and_fruit')
+            kwargs.get("chao_name")
+            or kwargs.get("chao_name_and_fruit")
             or (args[0] if args else None)
         )
         if not chao_raw:
-            # If no chao name is provided, just run the command
             return await func(self, interaction, *args, **kwargs)
 
-        data_utils = self.data_utils
         chao_name = parse_chao_name(interaction, chao_raw, data_utils)
         if not chao_name:
             return await interaction.response.send_message(
                 "No valid Chao name found.", ephemeral=True
             )
 
-        guild_id, guild_name, user = get_guild_user_interaction(interaction)
-        chao_dir = data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
+        chao_dir = data_utils.get_path(guild_id, guild_name, user, "chao_data", chao_name)
         stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
-
         if not os.path.exists(stats_path):
             return await interaction.response.send_message(
                 f"{interaction.user.mention}, no Chao named **{chao_name}** exists.",
-                ephemeral=True
+                ephemeral=True,
             )
 
         chao_df = data_utils.load_chao_stats(stats_path)
         if chao_df.empty:
             return await interaction.response.send_message(
                 f"{interaction.user.mention}, no stats found for **{chao_name}**.",
-                ephemeral=True
+                ephemeral=True,
             )
 
         latest = chao_df.iloc[-1].to_dict()
-        # If the chao is "dead" or hp_ticks=0 => show the grave embed
         if safe_int(latest.get("dead", 0)) == 1 or safe_int(latest.get("hp_ticks", 0)) == 0:
             d = latest.get("date_of_death", datetime.now().strftime("%Y-%m-%d"))
             embed = discord.Embed(
@@ -221,7 +240,6 @@ def ensure_chao_alive(func):
             await interaction.response.send_message(file=file, embed=embed)
             return
 
-        # If alive, proceed
         try:
             return await func(self, interaction, *args, **kwargs)
         except Exception as e:
@@ -231,6 +249,7 @@ def ensure_chao_alive(func):
             raise
 
     return wrapper
+
 
 
 def ensure_chao_hatched(func):
