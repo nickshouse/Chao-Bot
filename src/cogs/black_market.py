@@ -329,7 +329,7 @@ class BlackMarket(commands.Cog):
 
         # Create an embed with the black market thumbnail
         description = (
-            f"{interaction.user.mention} bought {quantity}x {actual_item_name} for {price} rings! "
+            f"{interaction.user.mention} bought {quantity}x {actual_item_name} for {price} rings!\n"
             f"You now have {current_inv['rings']} rings."
         )
         embed = discord.Embed(title="Chao Bot", description=description, color=self.embed_color)

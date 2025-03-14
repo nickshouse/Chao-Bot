@@ -370,7 +370,7 @@ class Chao(commands.Cog):
         self.data_utils.save_chao_stats(stats_file, df, ls)
         happy_thumb = os.path.join(chao_dir, f"{chao_name}_thumbnail_happy.png")
         self.image_utils.combine_images_with_face(bg, img, os.path.join(self.EYES_DIR, "neutral_happy.png"), os.path.join(self.MOUTH_DIR, "happy.png"), happy_thumb)
-        embed = discord.Embed(title=f"You pet {chao_name}!", description=f"{chao_name} looks so happy! Happiness increased!", color=self.embed_color)
+        embed = discord.Embed(title=f"You pet {chao_name}!", description=f"{chao_name} looks so happy!\nHappiness increased!", color=self.embed_color)
         embed.set_thumbnail(url="attachment://happy_thumbnail.png")
         await interaction.response.send_message(embed=embed, file=discord.File(happy_thumb, filename="happy_thumbnail.png"))
 
