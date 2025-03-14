@@ -5,7 +5,9 @@ import difflib
 import time
 import discord
 from discord.ext import commands
+from discord import app_commands
 from dotenv import load_dotenv
+from views.stats_view import StatsView  # Import persistent view loader
 
 # Global dictionary to store a sliding window of recent messages per user.
 # Key: (guild_id, user.id) -> List of normalized messages (up to 5 recent ones)
@@ -15,7 +17,7 @@ recent_user_messages = {}
 load_dotenv()
 
 # Initialize bot with all intents
-bot = commands.Bot(command_prefix='$', help_command=None, intents=discord.Intents.all())
+bot = commands.Bot(command_prefix='/', help_command=None, intents=discord.Intents.all())
 
 # Path to store the restrict settings
 RESTRICT_FILE = "restricted_channels.json"
@@ -32,46 +34,85 @@ async def on_ready():
     """
     Event triggered when the bot is ready and connected to Discord.
     """
-    for cog in ['cogs.image_utils', 'cogs.data_utils', 'cogs.chao_helper', 
-                'cogs.chao_decay', 'cogs.chao', 'cogs.black_market', 'cogs.commands']:
+    # Load cogs
+    for cog in [
+        'cogs.image_utils', 
+        'cogs.data_utils', 
+        'cogs.chao_helper',
+        'cogs.chao_decay', 
+        'cogs.chao', 
+        'cogs.black_market', 
+        'cogs.chao_lifecycle', 
+        'cogs.chao_admin', 
+        'cogs.commands'
+    ]:
         try:
             await bot.load_extension(cog)
             print(f'Loaded {cog}')
         except Exception as e:
             print(f'Failed to load {cog}: {e}')
+
+    # Sync slash commands
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} slash commands.")
+    except Exception as e:
+        print(f"Failed to sync slash commands: {e}")
+
+    # Load persistent StatsView instances so interactions remain active across restarts.
+    StatsView.load_all_persistent_views(bot)
+    print("Persistent stats views loaded.")
+
     print(f'Connected as {bot.user.name}')
 
-@bot.command(name="restrict")
-@commands.has_permissions(administrator=True)  # Admin-only command
-async def restrict(ctx, channel_id: int = None):
+
+@bot.tree.command(name="restrict", description="Restrict the bot to a specific channel or remove restriction.")
+@app_commands.describe(channel_id="Channel ID to restrict to. Omit to remove restriction.")
+@app_commands.checks.has_permissions(administrator=True)
+async def restrict_cmd(interaction: discord.Interaction, channel_id: int = None):
     """
     Restrict the bot to post messages only in a specific channel.
     If no channel ID is provided, it removes the restriction.
     """
-    guild_id = str(ctx.guild.id)
+    # We need a guild to exist
+    if not interaction.guild:
+        await interaction.response.send_message("This command can only be used in a server (guild).", ephemeral=True)
+        return
 
+    guild_id = str(interaction.guild.id)
+
+    # If the user provided a channel ID, set or validate it
     if channel_id:
         # Validate the channel exists in the guild
-        channel = ctx.guild.get_channel(channel_id)
+        channel = interaction.guild.get_channel(channel_id)
         if not channel:
-            await ctx.reply(f"Channel ID {channel_id} is not valid in this server.")
+            await interaction.response.send_message(
+                f"Channel ID {channel_id} is not valid in this server.",
+                ephemeral=True
+            )
             return
 
         # Set the restricted channel ID
         restricted_channels[guild_id] = channel_id
         save_restricted_channels()
-        await ctx.reply(f"The bot is now restricted to post messages only in <#{channel_id}>.")
+        await interaction.response.send_message(
+            f"The bot is now restricted to post messages only in <#{channel_id}>."
+        )
     else:
         # Remove the restriction
         restricted_channels.pop(guild_id, None)
         save_restricted_channels()
-        await ctx.reply("The bot can now post messages in all channels.")
+        await interaction.response.send_message(
+            "The bot can now post messages in all channels."
+        )
+
 
 @bot.event
-async def on_message(message):
+async def on_message(message: discord.Message):
     """
     Event triggered for every message the bot can see.
     Ensures that messages are processed only if they are in the restricted channel, if set.
+    Also handles awarding rings for non-spam messages.
     """
     # Ignore bot messages and messages outside of guilds
     if message.author.bot or not message.guild:
@@ -86,7 +127,11 @@ async def on_message(message):
         return
 
     add_rings_for_user(message)
+
+    # Process commands if it's not a slash command
+    # (Slash commands do not go through on_message)
     await bot.process_commands(message)
+
 
 def save_restricted_channels():
     """
@@ -96,8 +141,7 @@ def save_restricted_channels():
         json.dump(restricted_channels, f, indent=4)
 
 
-# Waits for 3 messages to be sent, then checks the last 5 messages for similarity
-def add_rings_for_user(message):
+def add_rings_for_user(message: discord.Message):
     """
     Award 5 rings for each non-spam message a user sends.
     
@@ -125,7 +169,7 @@ def add_rings_for_user(message):
     # Normalize the message: lowercase and remove non-alphanumeric characters
     normalized_message = re.sub(r'\W+', '', message.content.lower())
 
-    # Ignore messages that are less than 3 characters after normalization.
+    # Ignore messages that are less than 3 characters after normalization
     if len(normalized_message) < 3:
         print(f"Ignoring message from {user.name} because it is too short.")
         return
@@ -134,14 +178,14 @@ def add_rings_for_user(message):
     recent_msgs = recent_user_messages.get(user_key, [])
 
     spam_count = 0
-    comparisons = []  # List to hold tuples of (old_message, similarity_ratio)
+    comparisons = []
     for old_msg in recent_msgs:
         similarity = difflib.SequenceMatcher(None, normalized_message, old_msg).ratio()
         comparisons.append((old_msg, similarity))
         if similarity > 0.9:
             spam_count += 1
 
-    # If at least 2 similar messages are found, treat this as spam.
+    # If at least 2 similar messages are found, treat this as spam
     if spam_count >= 2:
         for old_msg, similarity in comparisons:
             if similarity > 0.9:
@@ -151,15 +195,15 @@ def add_rings_for_user(message):
         recent_user_messages[user_key] = recent_msgs[-5:]
         return
 
-    # Update the sliding window with the new normalized message.
+    # Update the sliding window with the new normalized message
     recent_msgs.append(normalized_message)
     recent_user_messages[user_key] = recent_msgs[-5:]
 
     try:
-        # Get the inventory file path.
+        # Get the inventory file path
         inventory_path = data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
 
-        # Load the inventory.
+        # Load the inventory
         inventory_df = data_utils.load_inventory(inventory_path)
         if inventory_df.empty:
             print(f"Inventory is empty for user {user.name}. Initializing with 0 rings.")
@@ -167,10 +211,10 @@ def add_rings_for_user(message):
         else:
             current_inventory = inventory_df.iloc[-1].to_dict()
 
-        # Award 5 rings for this valid (non-spam) message.
-        current_inventory['rings'] = current_inventory.get('rings', 0) + 15
+        # Award 5 rings for this valid (non-spam) message
+        current_inventory['rings'] = current_inventory.get('rings', 0) + 5
 
-        # Save the updated inventory.
+        # Save the updated inventory
         data_utils.save_inventory(inventory_path, inventory_df, current_inventory)
         print(f"Awarded 5 rings to {user.name} (Guild={guild_id}).")
     except Exception as e:

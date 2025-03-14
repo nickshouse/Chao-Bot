@@ -1,4 +1,4 @@
-# black_market.py
+# cogs/black_market.py
 
 import os
 import discord
@@ -154,7 +154,6 @@ class MarketView(View):
             )
 
 
-
 class BlackMarket(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -227,12 +226,11 @@ class BlackMarket(commands.Cog):
                 )
                 self.bot.add_view(view, message_id=self.market_message_id)
 
-    def send_embed(self, ctx, description, title="Chao Bot"):
+    def send_embed(self, interaction: discord.Interaction, description, title="Chao Bot"):
         embed = discord.Embed(title=title, description=description, color=self.embed_color)
-        return ctx.reply(embed=embed)
+        return interaction.response.send_message(embed=embed)
 
-
-    async def market(self, ctx, *, market_type: str = None):
+    async def market(self, interaction: discord.Interaction, *, market_type: str = None):
         """
         Opens the black market. Defaults to fruits market if no type is specified.
         """
@@ -278,11 +276,12 @@ class BlackMarket(commands.Cog):
             )
 
             # Send the market embed and view
-            msg = await ctx.reply(
+            await interaction.response.send_message(
                 files=[icon_file, thumb_file, page_1_file],
                 embed=embed,
                 view=view
             )
+            msg = await interaction.original_response()
 
             # Save the message ID for the market view
             with open("market_message_id.txt", "w") as f:
@@ -293,16 +292,11 @@ class BlackMarket(commands.Cog):
 
         except Exception as e:
             print(f"[market] Failed to send market message: {e}")
-            await ctx.reply("An error occurred while opening the market.")
+            await interaction.response.send_message("An error occurred while opening the market.", ephemeral=True)
 
-
-
-    async def buy(self, ctx, *, item_quantity: str):
-        try:
-            *item_parts, quantity = item_quantity.rsplit(' ', 1)
-            item_name, quantity = ' '.join(item_parts).strip(), int(quantity)
-        except ValueError:
-            return await self.send_embed(ctx, f"{ctx.author.mention}, use `$buy [item] [quantity]`.")
+    async def buy(self, interaction: discord.Interaction, item: str, amount: int):
+        item_name = item.strip()
+        quantity = amount
 
         item_name_normalized = item_name.lower()
         fruit_prices_normalized = {key.lower(): key for key in self.fruit_prices}
@@ -310,13 +304,13 @@ class BlackMarket(commands.Cog):
         if item_name_normalized not in fruit_prices_normalized:
             available_items = ', '.join(self.fruit_prices.keys())
             return await self.send_embed(
-                ctx,
-                f"{ctx.author.mention}, '{item_name}' is not sold here. Available items: {available_items}."
+                interaction,
+                f"{interaction.user.mention}, '{item_name}' is not sold here. Available items: {available_items}."
             )
 
         actual_item_name = fruit_prices_normalized[item_name_normalized]
 
-        guild_id, guild_name, user = str(ctx.guild.id), ctx.guild.name, ctx.author
+        guild_id, guild_name, user = str(interaction.guild.id), interaction.guild.name, interaction.user
         inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
         inv_df = self.data_utils.load_inventory(inv_path)
         current_inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {'rings': 0}
@@ -325,25 +319,31 @@ class BlackMarket(commands.Cog):
         price = self.fruit_prices[actual_item_name] * quantity
         if rings < price:
             return await self.send_embed(
-                ctx,
-                f"{ctx.author.mention}, not enough rings. You need {price} rings, but you only have {rings}."
+                interaction,
+                f"{interaction.user.mention}, not enough rings. You need {price} rings, but you only have {rings}."
             )
 
         current_inv['rings'] = rings - price
         current_inv[actual_item_name] = current_inv.get(actual_item_name, 0) + quantity
         self.data_utils.save_inventory(inv_path, inv_df, current_inv)
 
-        await self.send_embed(
-            ctx,
-            f"{ctx.author.mention} bought {quantity}x {actual_item_name} for {price} rings! "
+        # Create an embed with the black market thumbnail
+        description = (
+            f"{interaction.user.mention} bought {quantity}x {actual_item_name} for {price} rings! "
             f"You now have {current_inv['rings']} rings."
         )
+        embed = discord.Embed(title="Chao Bot", description=description, color=self.embed_color)
+        embed.set_thumbnail(url="attachment://black_market.png")
+        thumb_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
+        await interaction.response.send_message(embed=embed, file=thumb_file)
+
 
     async def cog_unload(self):
         temp_files = ["black_market_fruits_page_1_temp.png", "black_market_fruits_page_2_temp.png"]
         for temp_file in temp_files:
             if os.path.exists(temp_file):
                 os.remove(temp_file)
+
 
 async def setup(bot):
     await bot.add_cog(BlackMarket(bot))

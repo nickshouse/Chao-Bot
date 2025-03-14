@@ -1,4 +1,4 @@
-# image_utils.py
+# cogs/image_utils.py
 
 import os
 from PIL import Image
@@ -199,7 +199,6 @@ class ImageUtils(commands.Cog):
             # Save the updated image
             template.save(output_path)
 
-
     def paste_black_market_prices_page1(
         self, template_path: str, output_path: str, fruit_prices: Dict[str, int]
     ):
@@ -267,7 +266,6 @@ class ImageUtils(commands.Cog):
 
             # Save the updated image to the specified output path
             template.save(output_path, format="PNG")
-
 
     def change_image_hue(
             self, image_path, output_path, hue, saturation):

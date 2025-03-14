@@ -1,11 +1,14 @@
+# cogs/data_utils.py
+
 import os
 import pandas as pd
 from datetime import datetime
 from dateutil.parser import parse as date_parse
 from discord.ext import commands
+import discord
 
 class DataUtils(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -94,7 +97,6 @@ class DataUtils(commands.Cog):
         # Now just check if inventory.parquet exists
         inventory_path = os.path.join(user_folder, 'user_data', 'inventory.parquet')
         return os.path.exists(inventory_path)
-
 
     def get_path(self, guild_id, guild_name, user, folder, filename):
         """Returns a path under server_folder -> user_folder -> folder -> filename."""
@@ -213,8 +215,6 @@ class DataUtils(commands.Cog):
         # Save to Parquet
         chao_df.to_parquet(chao_stats_path, index=False)
 
-
-
     def load_chao_stats(self, chao_stats_path):
         if os.path.exists(chao_stats_path):
             df = pd.read_parquet(chao_stats_path).fillna(0)
@@ -241,66 +241,75 @@ class DataUtils(commands.Cog):
             df = pd.concat([df, new_entry_df], ignore_index=True).fillna(0)
         return df
 
-    async def restore(self, ctx, *, args: str):
+    async def _send(self, interaction: discord.Interaction, **kwargs):
         """
-        $restore inventory YYYY-MM-DD
-        $restore <ChaoName> YYYY-MM-DD
+        Helper to send a response with interactions.
+        If no response has been sent yet, use interaction.response.send_message;
+        otherwise, use interaction.followup.send.
+        """
+        if not interaction.response.is_done():
+            await interaction.response.send_message(**kwargs)
+        else:
+            await interaction.followup.send(**kwargs)
+
+    async def restore(self, interaction: discord.Interaction, *, args: str):
+        """
+        Slash command:
+        /restore inventory YYYY-MM-DD
+        /restore <chao_name> YYYY-MM-DD
         """
         parts = args.rsplit(' ', 1)
         if len(parts) < 2:
-            return await ctx.reply(
-                "Usage:\n"
-                "`$restore inventory YYYY-MM-DD`\n"
-                "`$restore <chao_name> YYYY-MM-DD`"
+            return await self._send(
+                interaction,
+                content=(
+                    "Usage:\n"
+                    "`/restore inventory YYYY-MM-DD`\n"
+                    "`/restore <chao_name> YYYY-MM-DD`"
+                )
             )
 
         target_raw, date_str_raw = parts[0], parts[1]
 
-        # parse date
         try:
             parsed_date = date_parse(date_str_raw)
             date_str = parsed_date.strftime("%Y-%m-%d")
-        except:
-            return await ctx.reply("Please provide a valid date (YYYY-MM-DD).")
+        except Exception:
+            return await self._send(interaction, content="Please provide a valid date (YYYY-MM-DD).")
 
-        guild_id, user = ctx.guild.id, ctx.author
+        guild_id, user = interaction.guild.id, interaction.user
 
         if target_raw.lower() == 'inventory':
-            # inventory restore
-            file_path = self.get_path(guild_id, ctx.guild.name, user,
-                                      'user_data',
-                                      'inventory.parquet')
+            file_path = self.get_path(guild_id, interaction.guild.name, user, 'user_data', 'inventory.parquet')
             inv_df = self.load_inventory(file_path)
             try:
                 updated = self._restore_parquet_data(inv_df, date_str)
             except ValueError:
-                return await ctx.reply(f"No inventory data found for {date_str}.")
+                return await self._send(interaction, content=f"No inventory data found for {date_str}.")
             updated.to_parquet(file_path, index=False)
-            return await ctx.reply(f"Inventory restored to {date_str}")
+            return await self._send(interaction, content=f"Inventory restored to {date_str}")
 
-        # else: treat as Chao name
+        # Else: treat as Chao name and use a subfolder for its stats file.
         chao_name = target_raw
-        # *** Here's the CRITICAL difference: add 'chao_name' as a subfolder ***
-        # so the file path is chao_data/Chow/Chow_stats.parquet
         chao_stats_path = self.get_path(
             guild_id,
-            ctx.guild.name,
+            interaction.guild.name,
             user,
-            os.path.join('chao_data', chao_name),  # <== Subfolder named after the Chao
+            os.path.join('chao_data', chao_name),
             f"{chao_name}_stats.parquet"
         )
         if not os.path.exists(chao_stats_path):
-            return await ctx.reply(f"No Chao stats file found for {chao_name}.")
+            return await self._send(interaction, content=f"No Chao stats file found for {chao_name}.")
 
         chao_df = self.load_chao_stats(chao_stats_path)
         try:
             updated_chao_df = self._restore_parquet_data(chao_df, date_str)
         except ValueError:
-            return await ctx.reply(f"No Chao data found for {chao_name} on {date_str}.")
+            return await self._send(interaction, content=f"No Chao data found for {chao_name} on {date_str}.")
 
         updated_chao_df.to_parquet(chao_stats_path, index=False)
-        return await ctx.reply(f"{chao_name} restored to {date_str}.")
+        return await self._send(interaction, content=f"{chao_name} restored to {date_str}.")
 
 
-async def setup(bot):
+async def setup(bot: commands.Bot):
     await bot.add_cog(DataUtils(bot))

@@ -1,17 +1,28 @@
-import discord
 import os
 import shutil
-import pandas as pd
 import asyncio
 import random
+import discord
+import pandas as pd
 from datetime import datetime, timedelta
 from functools import wraps
 from PIL import Image
 
-ASSETS_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../assets"))
+ASSETS_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "../assets")
+)
 
-def get_guild_user(ctx):
-    return str(ctx.guild.id), ctx.guild.name, ctx.author
+# --------------------------
+# Helper Functions
+# --------------------------
+
+def get_guild_user_interaction(interaction: discord.Interaction):
+    """
+    Extract (guild_id, guild_name, user) from the given Interaction.
+    """
+    if not interaction.guild:
+        raise ValueError("This command must be used in a guild.")
+    return str(interaction.guild.id), interaction.guild.name, interaction.user
 
 def safe_int(val):
     try:
@@ -19,23 +30,7 @@ def safe_int(val):
     except (ValueError, TypeError):
         return 0
 
-def get_stat_levels(latest_stats):
-    stats = ['swim', 'fly', 'run', 'power', 'stamina']
-    return [safe_int(latest_stats.get(f"{s}_level") or latest_stats.get(f"{s.capitalize()}_level")) for s in stats]
-
-def get_bg_path(image_utils, stats):
-    # Returns a background image path based on Form and Alignment.
-    if stats.get("Form", "1") in ["3", "4"]:
-        align = stats.get("Alignment", "neutral")
-        if align == "hero":
-            return getattr(image_utils, "HERO_BG_PATH", os.path.join(image_utils.assets_dir, "graphics", "thumbnails", "hero_background.png"))
-        elif align == "dark":
-            return getattr(image_utils, "DARK_BG_PATH", os.path.join(image_utils.assets_dir, "graphics", "thumbnails", "dark_background.png"))
-        else:
-            return getattr(image_utils, "NEUTRAL_BG_PATH", os.path.join(image_utils.assets_dir, "graphics", "thumbnails", "neutral_background.png"))
-    return os.path.join(image_utils.assets_dir, "graphics", "thumbnails", "neutral_background.png")
-
-def generate_lifecycle_image(bg_path, overlay_img, safe_name):
+def generate_evolution_image(bg_path, overlay_img, safe_name):
     temp_folder = os.path.join(ASSETS_DIR, "temp")
     os.makedirs(temp_folder, exist_ok=True)
     temp_output = os.path.join(temp_folder, f"lifecycle_{safe_name}.png")
@@ -44,506 +39,372 @@ def generate_lifecycle_image(bg_path, overlay_img, safe_name):
         Image.alpha_composite(bg, overlay).save(temp_output)
     return discord.File(temp_output, filename=f"lifecycle_{safe_name}.png")
 
-def ensure_user_initialized(func):
-    @wraps(func)
-    async def wrapper(self, ctx, *args, **kwargs):
-        guild_id, guild_name, user = get_guild_user(ctx)
-        if not self.data_utils.is_user_initialized(guild_id, guild_name, user):
-            return await ctx.reply(f"{ctx.author.mention}, please use the $chao command to start using the Chao Bot.")
-        try:
-            return await func(self, ctx, *args, **kwargs)
-        except Exception as e:
-            await ctx.reply(f"An error occurred: {e}")
-            raise
-    return wrapper
+def generate_reincarnation_image(latest_stats: dict, safe_name: str):
+    """
+    Pick a background based on the chao's stats (e.g., alignment),
+    overlay the reincarnation cocoon, and return a discord.File.
+    """
+    alignment_val = latest_stats.get("dark_hero", 0)
+    if alignment_val > 0:
+        bg_file = "hero_background.png"
+    elif alignment_val < 0:
+        bg_file = "dark_background.png"
+    else:
+        bg_file = "neutral_background.png"
 
-def ensure_chao_alive(func):
-    @wraps(func)
-    async def wrapper(self, ctx, *args, **kwargs):
-        chao_name = kwargs.get('chao_name') or (args[0] if args else None)
-        if not chao_name:
-            return await func(self, ctx, *args, **kwargs)
-        guild_id, guild_name, user = get_guild_user(ctx)
-        chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
-        stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
-        if not os.path.exists(stats_path):
-            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
-        chao_df = self.data_utils.load_chao_stats(stats_path)
-        if chao_df.empty:
-            return await ctx.reply(f"{ctx.author.mention}, no stats found for **{chao_name}**.")
-        latest_stats = chao_df.iloc[-1].to_dict()
-        if safe_int(latest_stats.get("hp_ticks", 0)) <= 0:
-            date_of_death = latest_stats.get("date_of_death", datetime.now().strftime("%Y-%m-%d"))
-            embed = discord.Embed(
-                title=f"{chao_name} has passed...",
-                description=f"{chao_name} can no longer be interacted with.\n\n**Date of Death:** {date_of_death}",
-                color=discord.Color.dark_gray()
-            )
-            thumb = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "chao_grave.png")
-            file = discord.File(thumb, filename="chao_grave.png")
-            embed.set_thumbnail(url="attachment://chao_grave.png")
-            return await ctx.reply(file=file, embed=embed)
-        try:
-            return await func(self, ctx, *args, **kwargs)
-        except Exception as e:
-            await ctx.reply(f"An error occurred: {e}")
-            raise
-    return wrapper
+    bg_path = os.path.join(ASSETS_DIR, "graphics", "thumbnails", bg_file)
+    overlay_path = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_reincarnate.png")
+    
+    temp_folder = os.path.join(ASSETS_DIR, "temp")
+    os.makedirs(temp_folder, exist_ok=True)
+    temp_output = os.path.join(temp_folder, f"lifecycle_{safe_name}.png")
 
-def parse_chao_name(ctx, chao_name_raw, data_utils):
+    with Image.open(bg_path).convert("RGBA") as bg, Image.open(overlay_path).convert("RGBA") as overlay:
+        overlay = overlay.resize(bg.size)
+        Image.alpha_composite(bg, overlay).save(temp_output)
+
+    return discord.File(temp_output, filename=f"lifecycle_{safe_name}.png")
+
+def generate_death_image(latest_stats: dict, safe_name: str):
+    """
+    Pick a background based on the chao's stats (e.g., alignment),
+    overlay the death cocoon, and return a discord.File.
+    """
+    alignment_val = latest_stats.get("dark_hero", 0)
+    if alignment_val > 0:
+        bg_file = "hero_background.png"
+    elif alignment_val < 0:
+        bg_file = "dark_background.png"
+    else:
+        bg_file = "neutral_background.png"
+
+    bg_path = os.path.join(ASSETS_DIR, "graphics", "thumbnails", bg_file)
+    overlay_path = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_death.png")
+    
+    temp_folder = os.path.join(ASSETS_DIR, "temp")
+    os.makedirs(temp_folder, exist_ok=True)
+    temp_output = os.path.join(temp_folder, f"lifecycle_{safe_name}.png")
+
+    with Image.open(bg_path).convert("RGBA") as bg, Image.open(overlay_path).convert("RGBA") as overlay:
+        overlay = overlay.resize(bg.size)
+        Image.alpha_composite(bg, overlay).save(temp_output)
+
+    return discord.File(temp_output, filename=f"lifecycle_{safe_name}.png")
+
+
+# --------------------------
+# Parsing / Decorator Helpers
+# --------------------------
+
+def parse_chao_name(interaction: discord.Interaction, chao_name_raw: str, data_utils) -> str:
+    """
+    Attempt to find a valid chao directory matching 'chao_name_raw'
+    within the user’s 'chao_data' folder. Return the validated name if found.
+    """
     if not chao_name_raw:
         return None
-    tokens = chao_name_raw.split()
-    user_folder = data_utils.get_user_folder(data_utils.update_server_folder(ctx.guild), ctx.author)
+
+    # Build the user’s directory
+    if not interaction.guild:
+        return None
+    guild_folder = data_utils.update_server_folder(interaction.guild)
+    user_folder = data_utils.get_user_folder(guild_folder, interaction.user)
     chao_dir = os.path.join(user_folder, "chao_data")
-    # Try decreasing token combinations.
+
+    tokens = chao_name_raw.split()
+    # Try chunking from longest to shortest
     for i in range(len(tokens), 0, -1):
         candidate = " ".join(tokens[:i])
-        candidate_folder = os.path.join(chao_dir, candidate)
-        candidate_stats = os.path.join(candidate_folder, f"{candidate}_stats.parquet")
-        if os.path.exists(candidate_folder) and os.path.exists(candidate_stats):
+        stats_file = os.path.join(chao_dir, candidate, f"{candidate}_stats.parquet")
+        if os.path.exists(os.path.join(chao_dir, candidate)) and os.path.exists(stats_file):
             return candidate
-    # Fallback: search for a matching stats file.
+
+    # Last resort: scan subfolders
     for folder in os.listdir(chao_dir):
         folder_path = os.path.join(chao_dir, folder)
         if os.path.isdir(folder_path):
             stats_file = os.path.join(folder_path, f"{chao_name_raw}_stats.parquet")
             if os.path.exists(stats_file):
                 return folder
+
     return None
 
-def ensure_chao_hatched(func):
+
+# --------------------------
+# Decorators
+# --------------------------
+
+def ensure_user_initialized(func):
+    """
+    Ensures the user has used the 'Chao' command before (is initialized).
+    Uses interaction instead of ctx.
+    """
     @wraps(func)
-    async def wrapper(self, ctx, *args, **kwargs):
-        chao_name_raw = (kwargs.get('chao_name') or kwargs.get('chao_name_and_fruit') or 
-                         kwargs.get('chao_name_and_new_name') or (args[0] if args else None))
-        if not chao_name_raw:
-            return await ctx.reply("No valid Chao name provided.")
-        chao_name = parse_chao_name(ctx, chao_name_raw, self.data_utils)
-        if not chao_name:
-            return await ctx.reply("No valid Chao name found.")
-        guild_id, guild_name, user = get_guild_user(ctx)
-        chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
-        stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
-        if not os.path.exists(stats_path):
-            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
-        chao_df = self.data_utils.load_chao_stats(stats_path)
-        if chao_df.empty:
-            return await ctx.reply(f"{ctx.author.mention}, no stats found for **{chao_name}**.")
-        latest_stats = chao_df.iloc[-1].to_dict()
-        if safe_int(latest_stats.get("hatched", 0)) == 0:
-            embed = discord.Embed(
-                title="Chao is Still an Egg",
-                description=f"{ctx.author.mention}, your chao **{chao_name}** is still an egg and cannot be interacted with until it is hatched.",
-                color=discord.Color.orange()
+    async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
+        try:
+            data_utils = self.data_utils
+            guild_id, guild_name, user = get_guild_user_interaction(interaction)
+        except Exception:
+            # If there's no guild or user, respond gracefully
+            return await interaction.response.send_message(
+                "This command can only be used in a server.", ephemeral=True
             )
-            egg_thumb = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "egg_background.png")
-            if os.path.exists(egg_thumb):
-                embed.set_thumbnail(url="attachment://egg_background.png")
-                file = discord.File(egg_thumb, filename="egg_background.png")
-                return await ctx.reply(embed=embed, file=file)
-            return await ctx.reply(embed=embed)
-        return await func(self, ctx, *args, **kwargs)
+
+        if not data_utils.is_user_initialized(guild_id, guild_name, user):
+            return await interaction.response.send_message(
+                f"{interaction.user.mention}, please use the `/chao` command to start using the Chao Bot.",
+                ephemeral=True
+            )
+
+        try:
+            return await func(self, interaction, *args, **kwargs)
+        except Exception as e:
+            await interaction.response.send_message(
+                f"An error occurred: {e}", ephemeral=True
+            )
+            raise
+
     return wrapper
 
 
-def ensure_chao_lifecycle(func):
+def ensure_chao_alive(func):
+    """
+    Ensures the targeted chao is not dead.
+    """
     @wraps(func)
-    async def wrapper(self, ctx, *args, **kwargs):
-        author_mention = ctx.author.mention
-        guild_id, guild_name, user = get_guild_user(ctx)
-        now = datetime.now()
+    async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
+        chao_raw = (
+            kwargs.get('chao_name')
+            or kwargs.get('chao_name_and_fruit')
+            or (args[0] if args else None)
+        )
+        if not chao_raw:
+            # If no chao name is provided, just run the command
+            return await func(self, interaction, *args, **kwargs)
 
-        # If using the 'hatch' command, remove one egg for reincarnated (unhatched) chao.
-        if ctx.command.name.lower() == "hatch":
-            chao_name_raw = (kwargs.get('chao_name') or kwargs.get('chao_name_and_fruit') or 
-                             kwargs.get('chao_name_and_new_name') or (args[0] if args else None))
-            if chao_name_raw:
-                found = parse_chao_name(ctx, chao_name_raw, self.data_utils)
-                if found:
-                    chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', found)
-                    stats_path = os.path.join(chao_dir, f"{found}_stats.parquet")
-                    chao_df = self.data_utils.load_chao_stats(stats_path)
-                    if not chao_df.empty:
-                        latest = chao_df.iloc[-1].to_dict()
-                        if latest.get("hatched", 0) == 0 and safe_int(latest.get("reincarnations", 0)) > 0:
-                            inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
-                            inv_df = self.data_utils.load_inventory(inv_path)
-                            inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
-                            if inv.get("Chao Egg", 0) > 0:
-                                inv["Chao Egg"] = max(inv.get("Chao Egg", 0) - 1, 0)
-                                self.data_utils.save_inventory(inv_path, inv_df, inv)
-
-        # --- Finalization helpers ---
-        async def finalize_reincarnation(channel, stats_path, chao_name, safe_name, wait_time, inv_path):
-            await asyncio.sleep(wait_time)
-            chao_df = self.data_utils.load_chao_stats(stats_path)
-            if chao_df.empty:
-                return
-            latest_stats = chao_df.iloc[-1].to_dict()
-            old_exp = {s: latest_stats.get(f"{s}_exp", 0) for s in ["swim", "fly", "run", "power", "stamina"]}
-            new_stats = {
-                'date': now.strftime("%Y-%m-%d"),
-                'birth_date': now.strftime("%Y-%m-%d"),
-                'Form': '1',
-                'Type': 'neutral_normal_1',
-                'hatched': 0,
-                'evolved': 0,
-                'dead': 0,
-                'immortal': 0,
-                'reincarnations': safe_int(latest_stats.get('reincarnations', 0)) + 1,
-                'eyes': latest_stats.get('eyes'),
-                'mouth': latest_stats.get('mouth'),
-                'dark_hero': 0,
-                'belly_ticks': random.randint(3, 10),
-                'happiness_ticks': random.randint(3, 10),
-                'illness_ticks': 0,
-                'energy_ticks': random.randint(3, 10),
-                'hp_ticks': 10,
-                'swim_exp': 0, 'swim_grade': latest_stats.get('swim_grade', "F"),
-                'swim_level': 0, 'swim_ticks': 0, 'swim_fly': 0,
-                'fly_exp': 0, 'fly_grade': latest_stats.get('fly_grade', "F"),
-                'fly_level': 0, 'fly_ticks': 0,
-                'power_exp': 0, 'power_grade': latest_stats.get('power_grade', "F"),
-                'power_level': 0, 'power_ticks': 0,
-                'run_exp': 0, 'run_grade': latest_stats.get('run_grade', "F"),
-                'run_level': 0, 'run_ticks': 0,
-                'stamina_exp': 0, 'stamina_grade': latest_stats.get('stamina_grade', "F"),
-                'stamina_level': 0, 'stamina_ticks': 0
-            }
-
-            for s in ["swim", "fly", "run", "power", "stamina"]:
-                new_stats[f"{s}_exp"] = int(old_exp[s] * 0.1)
-            self.data_utils.save_chao_stats(stats_path, chao_df, new_stats)
-            inv_df = self.data_utils.load_inventory(inv_path)
-            inv = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
-            if inv.get("Chao Egg", 0) < 1:
-                inv["Chao Egg"] = 1
-                self.data_utils.save_inventory(inv_path, inv_df, inv)
-            egg_thumb = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "egg_background.png")
-            egg_file = discord.File(egg_thumb, filename="egg_background.png")
-            embed = discord.Embed(
-                title="Chao Has Reincarnated",
-                description=(f"{ctx.author.mention}, your chao **{chao_name}** has fully reincarnated and is now an egg.\n"
-                             "10% of each stat’s EXP carried over!"),
-                color=discord.Color.pink()
+        data_utils = self.data_utils
+        chao_name = parse_chao_name(interaction, chao_raw, data_utils)
+        if not chao_name:
+            return await interaction.response.send_message(
+                "No valid Chao name found.", ephemeral=True
             )
-            embed.set_thumbnail(url="attachment://egg_background.png")
-            await channel.send(file=egg_file, embed=embed)
 
-        async def finalize_death(channel, stats_path, chao_name, safe_name):
-            chao_df = self.data_utils.load_chao_stats(stats_path)
-            if chao_df.empty:
-                return
-            latest_stats = chao_df.iloc[-1].to_dict()
-            latest_stats.update({'dead': 1, 'death_notified': True})
-            latest_stats.pop('death_end_time', None)
-            latest_stats.pop('death_seconds_left', None)
-            self.data_utils.save_chao_stats(stats_path, chao_df, latest_stats)
+        guild_id, guild_name, user = get_guild_user_interaction(interaction)
+        chao_dir = data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
+        stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
+
+        if not os.path.exists(stats_path):
+            return await interaction.response.send_message(
+                f"{interaction.user.mention}, no Chao named **{chao_name}** exists.",
+                ephemeral=True
+            )
+
+        chao_df = data_utils.load_chao_stats(stats_path)
+        if chao_df.empty:
+            return await interaction.response.send_message(
+                f"{interaction.user.mention}, no stats found for **{chao_name}**.",
+                ephemeral=True
+            )
+
+        latest = chao_df.iloc[-1].to_dict()
+        # If the chao is "dead" or hp_ticks=0 => show the grave embed
+        if safe_int(latest.get("dead", 0)) == 1 or safe_int(latest.get("hp_ticks", 0)) == 0:
+            d = latest.get("date_of_death", datetime.now().strftime("%Y-%m-%d"))
             embed = discord.Embed(
                 title=f"{chao_name} has passed...",
-                description=f"{chao_name} can no longer be interacted with.\n\n**Date of Death:** {date_of_death}",
+                description=f"{chao_name} can no longer be interacted with.\n\n**Date of Death:** {d}",
                 color=discord.Color.dark_gray()
             )
-            grave = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "chao_grave.png")
-            file = discord.File(grave, filename="chao_grave.png")
+            thumb = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "chao_grave.png")
+            file = discord.File(thumb, filename="chao_grave.png")
             embed.set_thumbnail(url="attachment://chao_grave.png")
-            await channel.send(file=file, embed=embed)
+            await interaction.response.send_message(file=file, embed=embed)
+            return
 
-        # --- 'egg' command logic ---
-        if ctx.command.name.lower() == "egg":
-            user_folder = self.data_utils.get_user_folder(self.data_utils.update_server_folder(ctx.guild), user)
-            chao_data_folder = os.path.join(user_folder, "chao_data")
-            if os.path.exists(chao_data_folder):
-                for folder in os.listdir(chao_data_folder):
-                    stats_path = os.path.join(chao_data_folder, folder, f"{folder}_stats.parquet")
-                    if os.path.exists(stats_path):
-                        df_temp = self.data_utils.load_chao_stats(stats_path)
-                        if not df_temp.empty:
-                            stats_temp = df_temp.iloc[-1].to_dict()
-                            raw_end = stats_temp.get("reincarnation_end_time") or stats_temp.get("death_end_time")
-                            if raw_end:
-                                try:
-                                    dt_end = datetime.fromisoformat(raw_end)
-                                except ValueError:
-                                    dt_end = datetime.strptime(raw_end, "%Y-%m-%d %H:%M:%S")
-                                if datetime.now() < dt_end:
-                                    return await ctx.reply(f"{ctx.author.mention}, you cannot obtain a new Chao Egg while a chao is evolving/dying.")
-            inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
-            inv_df = self.data_utils.load_inventory(inv_path)
-            inv_data = inv_df.iloc[-1].to_dict() if not inv_df.empty else {}
-            if inv_data.get("Chao Egg", 0) > 0:
-                return await ctx.reply(f"{ctx.author.mention}, you already have a Chao Egg in your inventory.")
-            return await func(self, ctx, *args, **kwargs)
+        # If alive, proceed
+        try:
+            return await func(self, interaction, *args, **kwargs)
+        except Exception as e:
+            await interaction.followup.send(
+                f"An error occurred: {e}", ephemeral=True
+            )
+            raise
 
-        # --- Otherwise, require a valid chao ---
-        chao_name_raw = (kwargs.get('chao_name') or kwargs.get('chao_name_and_fruit') or 
-                         kwargs.get('chao_name_and_new_name') or (args[0] if args else None))
-        if not chao_name_raw:
-            return await ctx.reply("Something went wrong and this action cannot proceed.")
-        chao_name = parse_chao_name(ctx, chao_name_raw, self.data_utils)
+    return wrapper
+
+
+def ensure_chao_hatched(func):
+    @wraps(func)
+    async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
+        chao_raw = (
+            kwargs.get('chao_name') 
+            or kwargs.get('chao_name_and_fruit')
+            or kwargs.get('chao_name_and_new_name')
+            or (args[0] if args else None)
+        )
+        # If no name is provided, we skip the check and just call the command.
+        if not chao_raw:
+            return await func(self, interaction, *args, **kwargs)
+
+        # Otherwise, proceed with the normal "hatching" validation
+        data_utils = self.data_utils
+        chao_name = parse_chao_name(interaction, chao_raw, data_utils)
         if not chao_name:
-            return await ctx.reply("No valid Chao name found.")
-        chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
-        stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
-        chao_df = self.data_utils.load_chao_stats(stats_path)
-        if chao_df.empty:
-            return await ctx.reply(f"No stats found for **{chao_name}**.")
-        latest_stats = chao_df.iloc[-1].to_dict()
-        safe_name = chao_name.replace(" ", "_")
-        channel = ctx.channel
-
-        # Block if chao is dead.
-        if latest_stats.get('dead', 0):
-            embed = discord.Embed(
-                title="Chao Is Dead",
-                description=f"**{chao_name}** has died and can no longer be interacted with.",
-                color=discord.Color.dark_gray()
+            return await interaction.response.send_message(
+                "No valid Chao name found.", ephemeral=True
             )
-            grave = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "chao_grave.png")
-            file = discord.File(grave, filename="chao_grave.png")
-            embed.set_thumbnail(url="attachment://chao_grave.png")
-            return await ctx.reply(file=file, embed=embed)
 
-        # --- Timer active? Show countdown and overlay ---
-        end_time_str = latest_stats.get("reincarnation_end_time") or latest_stats.get("death_end_time")
-        is_reinc = bool(latest_stats.get("reincarnation_end_time"))
-        is_death = bool(latest_stats.get("death_end_time"))
+        guild_id, guild_name, user = get_guild_user_interaction(interaction)
+        chao_dir = data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
+        stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
 
-        if end_time_str:
-            # <--- HERE IS THE FIX
-            if end_time_str in ("0", ""):
-                # Means there's no valid date/time
-                seconds_left = 0
-            else:
-                # Attempt to parse the stored string
-                try:
-                    dt_end = datetime.fromisoformat(end_time_str)
-                except ValueError:
-                    dt_end = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
-                seconds_left = (dt_end - now).total_seconds()
+        if not os.path.exists(stats_path):
+            return await interaction.response.send_message(
+                f"{interaction.user.mention}, no Chao named **{chao_name}** exists.",
+                ephemeral=True
+            )
 
-            if seconds_left > 0:
-                # The rest of your countdown logic
-                if is_reinc:
-                    latest_stats["reincarnation_seconds_left"] = int(seconds_left)
-                if is_death:
-                    latest_stats["death_seconds_left"] = int(seconds_left)
-                self.data_utils.save_chao_stats(stats_path, chao_df, latest_stats)
+        chao_df = data_utils.load_chao_stats(stats_path)
+        if chao_df.empty or safe_int(chao_df.iloc[-1].to_dict().get("hatched", 0)) == 0:
+            # (Show "still an egg" message)
+            return
 
-                # Possibly pick an overlay, show embed, etc.
-                image_utils = self.bot.get_cog("ImageUtils")
-                bg_path = get_bg_path(image_utils, latest_stats)
-                if is_reinc:
-                    overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_reincarnate.png")
-                    title_str = "Cacoon In Progress"
-                    desc_str = f"{author_mention}, your chao **{chao_name}** is in a cacoon. Please wait {int(seconds_left)} second(s)!"
-                    color_val = discord.Color.dark_gray()
-                else:
-                    overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_death.png")
-                    title_str = "Cacoon In Progress"
-                    desc_str = f"{author_mention}, your chao **{chao_name}** is in a cacoon. Please wait {int(seconds_left)} second(s)!"
-                    color_val = discord.Color.red()
-
-                file = generate_lifecycle_image(bg_path, overlay_img, safe_name)
-                embed = discord.Embed(title=title_str, description=desc_str, color=color_val)
-                embed.set_thumbnail(url=f"attachment://lifecycle_{safe_name}.png")
-                return await ctx.reply(file=file, embed=embed)
-
-            if is_death and not latest_stats.get("death_notified", False):
-                await finalize_death(channel, stats_path, chao_name, safe_name)
-                return
-
-
-        # --- Stat check: if any stat reaches ≥99, trigger reincarnation or death ---
-        if any(lvl >= 99 for lvl in get_stat_levels(latest_stats)):
-            happiness = safe_int(latest_stats.get('happiness_ticks', 0))
-            if happiness >= 5:
-                dt_end = now + timedelta(seconds=60)
-                latest_stats["reincarnation_end_time"] = dt_end.strftime("%Y-%m-%d %H:%M:%S")
-                latest_stats["reincarnation_seconds_left"] = 60
-                self.data_utils.save_chao_stats(stats_path, chao_df, latest_stats)
-                inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
-                asyncio.create_task(finalize_reincarnation(channel, stats_path, chao_name, safe_name, 60, inv_path))
-                image_utils = self.bot.get_cog("ImageUtils")
-                bg_path = get_bg_path(image_utils, latest_stats)
-                overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_reincarnate.png")
-                file = generate_lifecycle_image(bg_path, overlay_img, safe_name)
-                embed = discord.Embed(
-                    title="Cacoon In Progress",
-                    description=f"{author_mention}, your chao **{chao_name}** is in a cacoon. Please wait 60 seconds.",
-                    color=discord.Color.dark_gray()
-                )
-                embed.set_thumbnail(url=f"attachment://lifecycle_{safe_name}.png")
-                await ctx.reply(file=file, embed=embed)
-                return
-            else:
-                dt_end = now + timedelta(seconds=60)
-                latest_stats["death_end_time"] = dt_end.strftime("%Y-%m-%d %H:%M:%S")
-                latest_stats["death_seconds_left"] = 60
-                latest_stats.pop("death_notified", None)
-                self.data_utils.save_chao_stats(stats_path, chao_df, latest_stats)
-                image_utils = self.bot.get_cog("ImageUtils")
-                bg_path = get_bg_path(image_utils, latest_stats)
-                overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_death.png")
-                file = generate_lifecycle_image(bg_path, overlay_img, safe_name)
-                embed = discord.Embed(
-                    title="Cacoon In Progress",
-                    description=f"{author_mention}, your chao **{chao_name}** is in a cacoon. Please wait 60 seconds!",
-                    color=discord.Color.orange()
-                )
-                embed.set_thumbnail(url=f"attachment://lifecycle_{safe_name}.png")
-                await ctx.reply(file=file, embed=embed)
-                await asyncio.sleep(60)
-                final_stats = self.data_utils.load_chao_stats(stats_path).iloc[-1].to_dict()
-                if not final_stats.get("dead", 0):
-                    await finalize_death(channel, stats_path, chao_name, safe_name)
-                return
-
-        return await func(self, ctx, *args, **kwargs)
+        return await func(self, interaction, *args, **kwargs)
     return wrapper
 
 
 def ensure_not_in_cacoon(func):
+    """
+    Ensures the chao is not currently in an evolve/reincarnate/death cacoon.
+    If it is, show a relevant embed and wait out the time (or block).
+    """
     @wraps(func)
-    async def wrapper(self, ctx, *args, **kwargs):
-        """
-        Prevents interaction if the Chao is currently evolving (cacoon=1).
-
-        - If evolution_end_time is in the past => finalize immediately,
-          post 'Evolution Complete' embed, and allow the command.
-        - If there's time left, spawn a background task to finalize once it expires,
-          and block this command with a countdown embed.
-        - The 'evolution' thumbnail always uses the NEUTRAL background.
-        """
-        chao_name_raw = (
+    async def wrapper(self, interaction: discord.Interaction, *args, **kwargs):
+        chao_raw = (
             kwargs.get('chao_name')
             or kwargs.get('chao_name_and_fruit')
             or kwargs.get('chao_name_and_new_name')
             or (args[0] if args else None)
         )
-        if not chao_name_raw:
-            return await func(self, ctx, *args, **kwargs)
+        if not chao_raw:
+            return await func(self, interaction, *args, **kwargs)
 
-        # 1) Determine actual chao name
-        chao_name = parse_chao_name(ctx, chao_name_raw, self.data_utils)
+        data_utils = self.data_utils
+        chao_name = parse_chao_name(interaction, chao_raw, data_utils)
         if not chao_name:
-            return await ctx.reply("No valid Chao name found.")
+            return await interaction.response.send_message(
+                "No valid Chao name found.", ephemeral=True
+            )
 
-        # 2) Load stats
-        guild_id, guild_name, user = get_guild_user(ctx)
-        chao_dir = self.data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
+        guild_id, guild_name, user = get_guild_user_interaction(interaction)
+        chao_dir = data_utils.get_path(guild_id, guild_name, user, 'chao_data', chao_name)
         stats_path = os.path.join(chao_dir, f"{chao_name}_stats.parquet")
-
         if not os.path.exists(stats_path):
-            return await ctx.reply(f"{ctx.author.mention}, no Chao named **{chao_name}** exists.")
+            return await interaction.response.send_message(
+                f"{interaction.user.mention}, no Chao named **{chao_name}** exists.",
+                ephemeral=True
+            )
 
-        chao_df = self.data_utils.load_chao_stats(stats_path)
+        chao_df = data_utils.load_chao_stats(stats_path)
         if chao_df.empty:
-            return await ctx.reply(f"{ctx.author.mention}, no stats found for **{chao_name}**.")
+            return await interaction.response.send_message(
+                f"{interaction.user.mention}, no stats found for **{chao_name}**.",
+                ephemeral=True
+            )
 
-        latest_stats = chao_df.iloc[-1].to_dict()
-        now = datetime.now()
+        latest = chao_df.iloc[-1].to_dict()
 
-        # 3) If chao is not in cocoon => let them proceed
-        if not latest_stats.get("cacoon", 0):
-            return await func(self, ctx, *args, **kwargs)
+        # --- Check if Evolving ---
+        if latest.get("evolve_cacoon", 0) == 1:
+            evolution_end_time_str = latest.get("evolution_end_time")
+            now = datetime.now()
+            if evolution_end_time_str:
+                try:
+                    evolution_end = datetime.fromisoformat(evolution_end_time_str)
+                except:
+                    evolution_end = now + timedelta(seconds=60)
+            else:
+                evolution_end = now + timedelta(seconds=60)
 
-        end_time_str = latest_stats.get("evolution_end_time")
-        if not end_time_str:
-            # If we have cacoon=1 but no end_time => treat as ended
-            seconds_left = 0
-        else:
-            try:
-                dt_end = datetime.fromisoformat(end_time_str)
-            except ValueError:
-                dt_end = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
-            seconds_left = (dt_end - now).total_seconds()
+            remaining = (evolution_end - now).total_seconds()
+            if remaining > 0:
+                safe_name = chao_name.replace(" ", "_")
+                bg_path = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "neutral_background.png")
+                overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_evolve.png")
+                file = generate_evolution_image(bg_path, overlay_img, safe_name)
 
-        # 4) If time is up => finalize now
-        if seconds_left <= 0:
-            if latest_stats.get("Form") == "3" and latest_stats.get("cacoon") == 1:
-                latest_stats["cacoon"] = 0
-                latest_stats["evolved"] = 1
-                latest_stats.pop("evolution_end_time", None)
-                latest_stats.pop("evolution_seconds_left", None)
-
-                # Save
-                self.data_utils.save_chao_stats(stats_path, chao_df, latest_stats)
-
-                # Post embed about finishing
-                thumb_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
                 embed = discord.Embed(
-                    title="Evolution Complete",
-                    description=f"{ctx.author.mention}, your chao **{chao_name}** has finished evolving!",
-                    color=discord.Color.green()
+                    title="Chao Is Evolving!",
+                    description=(
+                        f"{interaction.user.mention}, your chao **{chao_name}** is evolving. "
+                        f"You cannot interact for {int(remaining)} seconds."
+                    ),
+                    color=discord.Color.purple()
                 )
-
-                files = []
-                if os.path.exists(thumb_path):
-                    safe_thumb = os.path.basename(thumb_path).replace(" ", "_")
-                    thumb_file = discord.File(thumb_path, filename=safe_thumb)
-                    embed.set_thumbnail(url=f"attachment://{safe_thumb}")
-                    files.append(thumb_file)
-
-                await ctx.reply(embed=embed, files=files)
-
-            # Let the user's command proceed now that it's done
-            return await func(self, ctx, *args, **kwargs)
-
-        # 5) Otherwise => time remains => spawn background finalize + block
-        secs_left = int(seconds_left)
-        latest_stats["evolution_seconds_left"] = secs_left
-        self.data_utils.save_chao_stats(stats_path, chao_df, latest_stats)
-
-        async def finalize_evolution_later():
-            await asyncio.sleep(secs_left)
-            df_now = self.data_utils.load_chao_stats(stats_path)
-            if df_now.empty:
+                embed.set_thumbnail(url=f"attachment://{file.filename}")
+                await interaction.response.send_message(embed=embed, file=file)
+                await asyncio.sleep(remaining)
                 return
-            current = df_now.iloc[-1].to_dict()
 
-            if current.get("cacoon", 0) == 1:
-                current["cacoon"] = 0
-                current["evolved"] = 1
-                current.pop("evolution_end_time", None)
-                current.pop("evolution_seconds_left", None)
-                self.data_utils.save_chao_stats(stats_path, df_now, current)
+        # --- Check if Reincarnating ---
+        if latest.get("reincarnate_cacoon", 0) == 1:
+            reincarnation_end_time_str = latest.get("reincarnation_end_time")
+            now = datetime.now()
+            if reincarnation_end_time_str:
+                try:
+                    reincarnation_end = datetime.fromisoformat(reincarnation_end_time_str)
+                except:
+                    reincarnation_end = now + timedelta(seconds=60)
+            else:
+                reincarnation_end = now + timedelta(seconds=60)
 
-                thumb_path = os.path.join(chao_dir, f"{chao_name}_thumbnail.png")
+            remaining = (reincarnation_end - now).total_seconds()
+            if remaining > 0:
+                safe_name = chao_name.replace(" ", "_")
+                file = generate_reincarnation_image(latest, safe_name)
                 embed = discord.Embed(
-                    title="Evolution Complete",
-                    description=f"{ctx.author.mention}, your chao **{chao_name}** has finished evolving!",
-                    color=discord.Color.green()
+                    title="Chao Is Reincarnating!",
+                    description=(
+                        f"{interaction.user.mention}, your chao **{chao_name}** is reincarnating. "
+                        f"You cannot interact for {int(remaining)} seconds."
+                    ),
+                    color=discord.Color.purple()
                 )
+                embed.set_thumbnail(url=f"attachment://{file.filename}")
+                await interaction.response.send_message(embed=embed, file=file)
+                await asyncio.sleep(remaining)
+                return
 
-                files = []
-                if os.path.exists(thumb_path):
-                    safe_thumb = os.path.basename(thumb_path).replace(" ", "_")
-                    thumb_file = discord.File(thumb_path, filename=safe_thumb)
-                    embed.set_thumbnail(url=f"attachment://{safe_thumb}")
-                    files.append(thumb_file)
+        # --- Check if in Death Cacoon ---
+        if latest.get("death_cacoon", 0) == 1:
+            death_end_time_str = latest.get("death_end_time")
+            now = datetime.now()
+            if death_end_time_str:
+                try:
+                    death_end = datetime.fromisoformat(death_end_time_str)
+                except:
+                    death_end = now + timedelta(seconds=60)
+            else:
+                death_end = now + timedelta(seconds=60)
 
-                await ctx.channel.send(embed=embed, files=files)
+            remaining = (death_end - now).total_seconds()
+            if remaining > 0:
+                safe_name = chao_name.replace(" ", "_")
+                file = generate_death_image(latest, safe_name)
+                embed = discord.Embed(
+                    title="Chao Is Dying!",
+                    description=(
+                        f"{interaction.user.mention}, your chao **{chao_name}** is dying. "
+                        f"You cannot interact for {int(remaining)} seconds."
+                    ),
+                    color=discord.Color.dark_red()
+                )
+                embed.set_thumbnail(url=f"attachment://{file.filename}")
+                await interaction.response.send_message(embed=embed, file=file)
+                await asyncio.sleep(remaining)
+                return
 
-        asyncio.create_task(finalize_evolution_later())
-
-        # Instead of using the dynamic background, we always use NEUTRAL
-        bg_path = os.path.join(ASSETS_DIR, "graphics", "thumbnails", "neutral_background.png")
-
-        overlay_img = os.path.join(ASSETS_DIR, "graphics", "cacoons", "cacoon_evolve.png")
-        safe_name = chao_name.replace(" ", "_")
-        file = generate_lifecycle_image(bg_path, overlay_img, safe_name)
-
-        embed = discord.Embed(
-            title="Chao Is Evolving!",
-            description=(
-                f"{ctx.author.mention}, your chao **{chao_name}** is evolving!\n"
-                f"Please wait **{secs_left}** second(s)."
-            ),
-            color=discord.Color.purple()
-        )
-        embed.set_thumbnail(url=f"attachment://{file.filename}")
-        return await ctx.reply(embed=embed, file=file)
+        # If none of the cacoon states are active, proceed
+        return await func(self, interaction, *args, **kwargs)
 
     return wrapper
