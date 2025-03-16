@@ -199,24 +199,6 @@ class ChaoLifecycle(commands.Cog):
             latest_stats["Alignment"] = alignment
             print(f"[update_chao_type_and_thumbnail] >> alignment={alignment}")
 
-            def determine_suffix(rp, sf):
-                if rp == 5:
-                    return "power"
-                elif rp == -5:
-                    return "run"
-                elif sf == 5:
-                    return "fly"
-                elif sf == -5:
-                    return "swim"
-                else:
-                    return "normal"
-
-            rp_val = latest_stats["run_power"]
-            sf_val = latest_stats["swim_fly"]
-            suffix = determine_suffix(rp_val, sf_val)
-
-            print(f"[update_chao_type_and_thumbnail] >> run_power={rp_val}, swim_fly={sf_val}, suffix={suffix}")
-
             current_form = str(latest_stats.get("Form", "1"))
             print(f"[update_chao_type_and_thumbnail] >> current_form before thresholds: {current_form}")
             if current_form == "1" and max_level >= self.FORM_LEVEL_2:
@@ -227,36 +209,58 @@ class ChaoLifecycle(commands.Cog):
                 current_form = "4"
             print(f"[update_chao_type_and_thumbnail] >> current_form after thresholds: {current_form}")
 
+            # Build the chao type based on the current form.
             if current_form == "1":
                 chao_type = f"{alignment}_normal_1"
             elif current_form == "2":
+                def determine_suffix(rp, sf):
+                    if rp == 5:
+                        return "power"
+                    elif rp == -5:
+                        return "run"
+                    elif sf == 5:
+                        return "fly"
+                    elif sf == -5:
+                        return "swim"
+                    else:
+                        return "normal"
+                suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
                 chao_type = f"{alignment}_normal_{suffix}_2"
             elif current_form == "3":
-                chao_type = f"{alignment}_{suffix}_3"
-            else:
-                old_parts = old_type.split("_")
-                print(f"[update_chao_type_and_thumbnail] >> Evolving to form 4. old_parts={old_parts}")
-                if old_form == "4" and len(old_parts) == 4:
-                    prefix = old_parts[1]
-                    chao_type = f"{old_parts[0]}_{prefix}_{suffix}_4"
-                    print(f"[update_chao_type_and_thumbnail] >> Re-used prefix from old form 4: prefix={prefix}")
-                elif old_form == "3" and old_type.endswith("_3"):
-                    if len(old_parts) >= 3:
-                        old_prefix = old_parts[-2]
-                        print(f"[update_chao_type_and_thumbnail] >> Re-using prefix from old form 3: old_prefix={old_prefix}")
-                        if old_prefix != "normal":
-                            prefix = old_prefix
-                        else:
-                            prefix = suffix
-                        chao_type = f"{alignment}_{prefix}_{suffix}_4"
+                def determine_suffix(rp, sf):
+                    if rp == 5:
+                        return "power"
+                    elif rp == -5:
+                        return "run"
+                    elif sf == 5:
+                        return "fly"
+                    elif sf == -5:
+                        return "swim"
                     else:
-                        chao_type = f"{alignment}_normal_{suffix}_4"
+                        return "normal"
+                suffix = determine_suffix(latest_stats["run_power"], latest_stats["swim_fly"])
+                chao_type = f"{alignment}_{suffix}_3"
+            elif current_form == "4":
+                # For form 4, only the suffix is determined by the extreme values.
+                if latest_stats["run_power"] == 5:
+                    new_suffix = "power"
+                elif latest_stats["run_power"] == -5:
+                    new_suffix = "run"
+                elif latest_stats["swim_fly"] == 5:
+                    new_suffix = "fly"
+                elif latest_stats["swim_fly"] == -5:
+                    new_suffix = "swim"
                 else:
-                    chao_type = f"{alignment}_normal_{suffix}_4"
-
-                if chao_type.endswith("normal_normal_4"):
-                    print(f"[update_chao_type_and_thumbnail] >> normal_normal_4 found, unifying to {alignment}_normal_normal_4")
-                    chao_type = f"{alignment}_normal_normal_4"
+                    new_suffix = "normal"
+                # Retain the prefix from the old type if possible.
+                old_parts = old_type.split("_")
+                if len(old_parts) >= 3:
+                    prefix = old_parts[1]
+                else:
+                    prefix = "normal"
+                chao_type = f"{alignment}_{prefix}_{new_suffix}_4"
+            else:
+                chao_type = f"{alignment}_normal_normal_4"
 
             print(f"[update_chao_type_and_thumbnail] >> Final computed chao_type={chao_type}")
             latest_stats["Form"] = current_form
