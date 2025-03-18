@@ -14,7 +14,7 @@ from config import (
     ASSETS_DIR,
     PAGE1_TICK_POSITIONS, PAGE2_TICK_POSITIONS,
     GRADE_RANGES,
-    PERSISTENT_VIEWS_FILE,
+    STATS_PERSISTENT_VIEWS_FILE,
     CHAO_TYPES
 )
 
@@ -38,7 +38,7 @@ class ChaoLifecycle(commands.Cog):
         self.BACKGROUND_PATH = NEUTRAL_BG_PATH
         self.EYES_DIR = os.path.join(ASSETS_DIR, "face", "eyes")
         self.MOUTH_DIR = os.path.join(ASSETS_DIR, "face", "mouth")
-        self.PERSISTENT_VIEWS_FILE = PERSISTENT_VIEWS_FILE
+        self.STATS_PERSISTENT_VIEWS_FILE = STATS_PERSISTENT_VIEWS_FILE
 
     async def cog_load(self):
         self.data_utils = self.bot.get_cog("DataUtils")
@@ -73,13 +73,13 @@ class ChaoLifecycle(commands.Cog):
             json.dump(data, f)
 
     def save_persistent_view(self, view_data: Dict):
-        data = self._read_json(PERSISTENT_VIEWS_FILE)
+        data = self._read_json(STATS_PERSISTENT_VIEWS_FILE)
         key = f"{view_data['guild_id']}_{view_data['user_id']}_{view_data['chao_name']}"
         data[key] = view_data
-        self._write_json(PERSISTENT_VIEWS_FILE, data)
+        self._write_json(STATS_PERSISTENT_VIEWS_FILE, data)
 
     def load_persistent_views(self):
-        for view_data in self._read_json(PERSISTENT_VIEWS_FILE).values():
+        for view_data in self._read_json(STATS_PERSISTENT_VIEWS_FILE).values():
             if not all(k in view_data for k in ("chao_name", "guild_id", "user_id", "chao_type_display", "alignment_label", "total_pages", "current_page")):
                 continue
             view = StatsView.from_data(view_data, self)

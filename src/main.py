@@ -7,7 +7,8 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
-from views.stats_view import StatsView  # Import persistent view loader
+from views.stats_view import StatsView  # Import persistent stats view loader
+from views.market_view import MarketView  # Import persistent market view loader
 
 # Global dictionary to store a sliding window of recent messages per user.
 # Key: (guild_id, user.id) -> List of normalized messages (up to 5 recent ones)
@@ -62,6 +63,10 @@ async def on_ready():
     # Load persistent StatsView instances so interactions remain active across restarts.
     StatsView.load_all_persistent_views(bot)
     print("Persistent stats views loaded.")
+
+    # Load persistent MarketView instances so interactions remain active across restarts.
+    MarketView.load_all_persistent_views(bot)
+    print("Persistent market views loaded.")
 
     print(f'Connected as {bot.user.name}')
 

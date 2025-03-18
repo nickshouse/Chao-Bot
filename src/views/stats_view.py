@@ -5,7 +5,7 @@ import discord
 from discord.ui import View, Button
 from discord.ext import commands
 from typing import List, Tuple, Dict
-from config import PAGE1_TICK_POSITIONS, PAGE2_TICK_POSITIONS, PERSISTENT_VIEWS_FILE
+from config import PAGE1_TICK_POSITIONS, PAGE2_TICK_POSITIONS, STATS_PERSISTENT_VIEWS_FILE
 
 class StatsView(View):
     def __init__(
@@ -31,7 +31,7 @@ class StatsView(View):
         data_utils,
         total_pages: int = 2,
         current_page: int = 1,
-        state_file: str = PERSISTENT_VIEWS_FILE
+        state_file: str = STATS_PERSISTENT_VIEWS_FILE
     ):
         super().__init__(timeout=None)
         self.bot = bot
@@ -218,19 +218,19 @@ class StatsView(View):
             data_utils=cog.data_utils,
             total_pages=view_data["total_pages"],
             current_page=view_data.get("current_page", 1),
-            state_file=PERSISTENT_VIEWS_FILE
+            state_file=STATS_PERSISTENT_VIEWS_FILE
         )
 
     def save_persistent_view(self, view_data: Dict):
-        data = StatsView._read_json(PERSISTENT_VIEWS_FILE)
+        data = StatsView._read_json(STATS_PERSISTENT_VIEWS_FILE)
         key = f"{view_data['guild_id']}_{view_data['user_id']}_{view_data['chao_name']}"
         data[key] = view_data
-        StatsView._write_json(PERSISTENT_VIEWS_FILE, data)
+        StatsView._write_json(STATS_PERSISTENT_VIEWS_FILE, data)
 
     @classmethod
     def load_all_persistent_views(cls, bot: commands.Bot) -> None:
         """Loads all persistent StatsView instances from the JSON file and registers them with the bot."""
-        data = cls._read_json(PERSISTENT_VIEWS_FILE)
+        data = cls._read_json(STATS_PERSISTENT_VIEWS_FILE)
         for view_data in data.values():
             # Ensure required keys exist
             required_keys = {"chao_name", "guild_id", "user_id", "chao_type_display", "alignment_label", "total_pages", "current_page"}
@@ -247,6 +247,3 @@ class StatsView(View):
     def load_persistent_views(self):
         """Instance method to load the current view state (if needed)."""
         self.current_page = self.load_state()
-
-# To load persistent StatsView instances on bot startup, call:
-# StatsView.load_all_persistent_views(bot)

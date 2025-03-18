@@ -14,7 +14,7 @@ from config import (
 from views.stats_view import StatsView  # Assuming you still need this for stats.
 from discord import app_commands
 
-PERSISTENT_VIEWS_FILE = "persistent_views.json"
+STATS_PERSISTENT_VIEWS_FILE = "stats_persistent_views.json"
 
 class ChaoHelper(commands.Cog):
     def __init__(self, bot):

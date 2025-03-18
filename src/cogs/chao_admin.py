@@ -12,8 +12,6 @@ from config import (
     ASSETS_DIR, PAGE1_TICK_POSITIONS, PAGE2_TICK_POSITIONS, GRADE_RANGES
 )
 
-PERSISTENT_VIEWS_FILE = "persistent_views.json"
-
 class ChaoAdmin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

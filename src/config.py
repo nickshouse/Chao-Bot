@@ -1,4 +1,5 @@
 # config.py
+
 from pathlib import Path
 
 # Directories
@@ -14,7 +15,8 @@ NEUTRAL_BG_PATH = GRAPHICS_DIR / "neutral_background.png"
 EGG_BG_PATH = GRAPHICS_DIR / "egg_background.png"
 
 # Persistent Views File
-PERSISTENT_VIEWS_FILE = "persistent_views.json"
+STATS_PERSISTENT_VIEWS_FILE = "stats_persistent_views.json"
+MARKET_PERSISTENT_VIEWS_FILE = "market_persistent_views.json"
 
 
 # Chao settings
@@ -65,6 +67,17 @@ FRUIT_STATS_ADJUSTMENTS = {
     "strange mushroom":  {}
 }
 FRUITS = [fruit.title() for fruit in FRUIT_STATS_ADJUSTMENTS]
+
+# New default prices for the black market:
+DEFAULT_PRICES = {
+    "Round Fruit": 25, "Triangle Fruit": 25, "Square Fruit": 25,
+    "Hero Fruit": 10, "Dark Fruit": 10, "Strong Fruit": 25,
+    "Tasty Fruit": 30, "Heart Fruit": 30, "Chao Fruit": 55,
+    "Orange Fruit": 35, "Yellow Fruit": 50, "Green Fruit": 50,
+    "Red Fruit": 60, "Blue Fruit": 40, "Pink Fruit": 55, "Purple Fruit": 45,
+    "Swim Fruit": 15, "Fly Fruit": 15, "Run Fruit": 15, "Power Fruit": 15,
+    "Garden Nut": 10, "Strange Mushroom": 10
+}
 
 # Tick positions for stat pages
 PAGE1_TICK_POSITIONS = [(446, y) for y in [1176, 315, 591, 883, 1469]]
