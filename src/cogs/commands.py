@@ -76,6 +76,10 @@ class Commands(commands.Cog):
     async def buy(self, interaction: discord.Interaction, item: str, amount: int):
         await self.black_market_cog.buy(interaction, item=item, amount=amount)
 
+    @buy.autocomplete("item")
+    async def buy_item_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self.black_market_cog.buy_item_autocomplete(interaction, current)
+
     @app_commands.command(name="inventory", description="View your current inventory.")
     @ensure_user_initialized
     async def inventory(self, interaction: discord.Interaction):
@@ -174,6 +178,10 @@ class Commands(commands.Cog):
     @app_commands.describe(chao_name="Name of the Chao")
     async def stats(self, interaction: discord.Interaction, chao_name: str):
         await self.chao_helper_cog.stats(interaction, chao_name=chao_name)
+    
+    @stats.autocomplete("chao_name")
+    async def stats_chao_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self.chao_helper_cog.stats_autocomplete(interaction, current)
 
     @app_commands.command(name="restore", description="Restore your Chao's data to an earlier date.")
     @ensure_user_initialized
@@ -231,7 +239,6 @@ class Commands(commands.Cog):
     )
     async def feed(self, interaction: discord.Interaction, chao_name: str, fruit: str, amount: int = 1):
         await self.chao_lifecycle_cog.feed(interaction, chao_name=chao_name, fruit=fruit, amount=amount)
-
 
     @app_commands.command(name="rename", description="Rename your Chao.")
     @ensure_user_initialized

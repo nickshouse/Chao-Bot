@@ -12,6 +12,7 @@ from config import (
     ASSETS_DIR, PAGE1_TICK_POSITIONS, PAGE2_TICK_POSITIONS, GRADE_RANGES
 )
 from views.stats_view import StatsView  # Assuming you still need this for stats.
+from discord import app_commands
 
 PERSISTENT_VIEWS_FILE = "persistent_views.json"
 
@@ -96,7 +97,6 @@ class ChaoHelper(commands.Cog):
 
                 latest_stats = chao_df.iloc[-1].to_dict()
                 if latest_stats.get("dead", False):
-                    # Save for listing
                     chao_entries.append((chao_name, uf))
 
         if not chao_entries:
@@ -108,7 +108,6 @@ class ChaoHelper(commands.Cog):
             color=discord.Color.dark_grey()
         )
 
-        # If you have a local path to a 'chao_grave.png', attach it
         grave_path = r"C:\Users\You\Documents\GitHub\Chao-Bot-Dev\assets\graphics\thumbnails\chao_grave.png"
         if os.path.exists(grave_path):
             with open(grave_path, "rb") as f:
@@ -118,7 +117,6 @@ class ChaoHelper(commands.Cog):
             grave_file = None
 
         for cname, folder_name in chao_entries:
-            # Attempt to parse the user ID from the folder name
             user_id_str = folder_name.split()[0]
             owner_line = "Unknown Owner"
             if user_id_str.isdigit():
@@ -155,17 +153,15 @@ class ChaoHelper(commands.Cog):
         chao_df = self.data_utils.load_chao_stats(chao_stats_path)
         chao_stats = chao_df.iloc[-1].to_dict()
 
-        # Use ChaoLifecycle's update_chao_type_and_thumbnail
+        # Update type/form via ChaoLifecycle
         chao_type, form = lifecycle_cog.update_chao_type_and_thumbnail(
             guild_id, guild_name, user, chao_name, chao_stats
         )
 
-        # If anything changed, save it back
         if chao_stats.get("Form") != form or chao_stats.get("Type") != chao_type:
             chao_stats["Form"], chao_stats["Type"] = form, chao_type
             self.data_utils.save_chao_stats(chao_stats_path, chao_df, chao_stats)
 
-        # Mapping from type-string to friendlier display label
         type_mapping = {
             **{f"{a}_fly_3": "Fly" for a in ["dark", "hero", "neutral"]},
             **{f"{a}_fly_{s}_4": f"Fly/{s.capitalize()}"
@@ -189,7 +185,6 @@ class ChaoHelper(commands.Cog):
         chao_type_display = type_mapping.get(chao_type, "Unknown")
         alignment_label = chao_stats.get("Alignment", "Neutral").capitalize()
 
-        # We'll generate two stat images (page 1 & page 2)
         stats_image_paths = {
             1: os.path.join(chao_dir, f"{chao_name}_stats_page_1.png"),
             2: os.path.join(chao_dir, f"{chao_name}_stats_page_2.png")
@@ -225,7 +220,6 @@ class ChaoHelper(commands.Cog):
         embed.set_image(url="attachment://stats_page.png")
         embed.set_footer(text="Page 1 / 2")
 
-        # Build data for StatsView
         view_data = {
             "chao_name": chao_name,
             "guild_id": guild_id,
@@ -235,10 +229,7 @@ class ChaoHelper(commands.Cog):
             "total_pages": 2,
             "current_page": 1
         }
-        # Use ChaoLifecycle's save_persistent_view
         lifecycle_cog.save_persistent_view(view_data)
-
-        # Create the view
         view = StatsView.from_data(view_data, self)
 
         await interaction.response.send_message(
@@ -250,6 +241,35 @@ class ChaoHelper(commands.Cog):
             embed=embed,
             view=view
         )
+
+    async def stats_autocomplete(self, interaction: discord.Interaction, current: str):
+        """
+        Returns an autocomplete list of Chao names owned by the user.
+        It reads the user's chao_data directory and returns its subdirectory names.
+        """
+        print(f"[stats_autocomplete] Current input: {current}")
+        user = interaction.user
+        guild = interaction.guild
+        try:
+            guild_folder = self.data_utils.update_server_folder(guild)
+            user_folder = self.data_utils.get_user_folder(guild_folder, user)
+            chao_base = os.path.join(user_folder, "chao_data")
+            print(f"[stats_autocomplete] chao_base: {chao_base}")
+            if not os.path.exists(chao_base):
+                print("[stats_autocomplete] chao_base does not exist")
+                return []
+            chao_names = [d for d in os.listdir(chao_base) if os.path.isdir(os.path.join(chao_base, d))]
+            print(f"[stats_autocomplete] Found chao names: {chao_names}")
+        except Exception as e:
+            print(f"[stats_autocomplete] Error retrieving chao names: {e}")
+            return []
+        current = current or ""
+        choices = sorted(
+            [app_commands.Choice(name=name, value=name) for name in chao_names if current.lower() in name.lower()],
+            key=lambda c: c.name
+        )
+        print(f"[stats_autocomplete] Returning choices: {[choice.name for choice in choices]}")
+        return choices
 
 async def setup(bot):
     await bot.add_cog(ChaoHelper(bot))

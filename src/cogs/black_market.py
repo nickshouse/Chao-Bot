@@ -1,11 +1,10 @@
 # cogs/black_market.py
 
 import os
+import json
 import discord
 from discord.ext import commands
 from discord.ui import View, Button
-import json
-
 
 class MarketView(View):
     def __init__(self, embed: discord.Embed, icon_path: str, thumbnail_path: str,
@@ -337,6 +336,17 @@ class BlackMarket(commands.Cog):
         thumb_file = discord.File(self.BLACK_MARKET_THUMBNAIL_PATH, filename="black_market.png")
         await interaction.response.send_message(embed=embed, file=thumb_file)
 
+    async def buy_item_autocomplete(self, interaction: discord.Interaction, current: str):
+        """
+        Returns a list of autocomplete choices for the buy command.
+        This function is intended to be used by the slash command in commands.py.
+        """
+        from discord import app_commands
+        current = current or ""
+        return [
+            app_commands.Choice(name=fruit, value=fruit)
+            for fruit in self.fruit_prices.keys() if current.lower() in fruit.lower()
+        ]
 
     async def cog_unload(self):
         temp_files = ["black_market_fruits_page_1_temp.png", "black_market_fruits_page_2_temp.png"]
