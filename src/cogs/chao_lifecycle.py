@@ -357,7 +357,6 @@ class ChaoLifecycle(commands.Cog):
         def apply_fruit_once():
             nonlocal latest_stats
             special = fruit_lower in {"swim fruit", "fly fruit", "run fruit", "power fruit"}
-
             if special:
                 if fruit_lower == "swim fruit":
                     old = latest_stats.get("swim_fly", 0)
@@ -369,7 +368,6 @@ class ChaoLifecycle(commands.Cog):
                     elif old_run < 0:
                         latest_stats["run_power"] = old_run + 1
                     align_changes["swim_fly"] += new - old
-
                 elif fruit_lower == "fly fruit":
                     old = latest_stats.get("swim_fly", 0)
                     new = min(old + 1, 5)
@@ -380,7 +378,6 @@ class ChaoLifecycle(commands.Cog):
                     elif old_run < 0:
                         latest_stats["run_power"] = old_run + 1
                     align_changes["swim_fly"] += new - old
-
                 elif fruit_lower == "run fruit":
                     old = latest_stats.get("run_power", 0)
                     new = max(old - 1, -5)
@@ -391,7 +388,6 @@ class ChaoLifecycle(commands.Cog):
                     elif old_swim < 0:
                         latest_stats["swim_fly"] = old_swim + 1
                     align_changes["run_power"] += new - old
-
                 elif fruit_lower == "power fruit":
                     old = latest_stats.get("run_power", 0)
                     new = min(old + 1, 5)
@@ -417,7 +413,6 @@ class ChaoLifecycle(commands.Cog):
                         if gain > 0:
                             ticks_changes[stat] += gain
                             latest_stats[stat] = new
-
                 elif stat.endswith("_ticks"):
                     level_key = stat.replace("_ticks", "_level")
                     grade_key = stat.replace("_ticks", "_grade")
@@ -445,7 +440,6 @@ class ChaoLifecycle(commands.Cog):
                             if gain > 0:
                                 ticks_changes[stat] += gain
                                 latest_stats[stat] = new
-
                 elif stat in ["run_power", "swim_fly", "dark_hero"]:
                     old = latest_stats.get(stat, 0)
                     new = clamp(old + inc, -5, 5)
@@ -533,6 +527,68 @@ class ChaoLifecycle(commands.Cog):
         with open(thumbnail_path, 'rb') as f:
             thumb = discord.File(f, filename="chao_thumbnail.png")
             await self._send(interaction, embed=embed, file=thumb)
+
+    # --- Autocomplete Functions ---
+
+    async def feed_chao_autocomplete(self, interaction: discord.Interaction, current: str):
+        """
+        Autocomplete for the 'chao_name' parameter.
+        Returns a list of Chao names (directories) owned by the user.
+        """
+        print(f"[feed_chao_autocomplete] Current input: {current}")
+        user = interaction.user
+        guild = interaction.guild
+        try:
+            guild_folder = self.data_utils.update_server_folder(guild)
+            user_folder = self.data_utils.get_user_folder(guild_folder, user)
+            chao_base = os.path.join(user_folder, "chao_data")
+            print(f"[feed_chao_autocomplete] chao_base: {chao_base}")
+            if not os.path.exists(chao_base):
+                print("[feed_chao_autocomplete] chao_base does not exist")
+                return []
+            chao_names = [d for d in os.listdir(chao_base) if os.path.isdir(os.path.join(chao_base, d))]
+            print(f"[feed_chao_autocomplete] Found chao names: {chao_names}")
+        except Exception as e:
+            print(f"[feed_chao_autocomplete] Error retrieving chao names: {e}")
+            return []
+        from discord import app_commands
+        current = current or ""
+        choices = sorted(
+            [app_commands.Choice(name=name, value=name) for name in chao_names if current.lower() in name.lower()],
+            key=lambda c: c.name
+        )
+        print(f"[feed_chao_autocomplete] Returning choices: {[c.name for c in choices]}")
+        return choices
+
+    async def feed_fruit_autocomplete(self, interaction: discord.Interaction, current: str):
+        """
+        Autocomplete for the 'fruit' parameter.
+        Returns a list of fruits from the user's inventory (only those with positive quantities).
+        """
+        user = interaction.user
+        guild = interaction.guild
+        guild_id, guild_name = str(guild.id), guild.name
+        try:
+            inv_path = self.data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
+            inv_df = self.data_utils.load_inventory(inv_path)
+            if inv_df.empty:
+                available = []
+            else:
+                current_inv = inv_df.iloc[-1].to_dict()
+                # Normalize keys and filter by available fruits
+                norm_inv = {k.lower(): v for k, v in current_inv.items() if k.lower() in [f.lower() for f in self.fruits]}
+                available = [fruit for fruit, amt in norm_inv.items() if amt > 0]
+        except Exception as e:
+            print(f"[feed_fruit_autocomplete] Error retrieving inventory: {e}")
+            available = []
+        from discord import app_commands
+        current = current or ""
+        choices = sorted(
+            [app_commands.Choice(name=fruit.title(), value=fruit.title()) for fruit in available if current.lower() in fruit.lower()],
+            key=lambda c: c.name
+        )
+        return choices
+
 
     async def evolution(self, interaction: discord.Interaction, chao_name: str, latest_stats: dict, chao_df, chao_stats_path: str,
                         feed_summary: str = "", ticks_changes: dict = None,

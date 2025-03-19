@@ -452,6 +452,37 @@ class Chao(commands.Cog):
             f"{interaction.user.mention}, your Chao has been successfully renamed from **{current_name}** to **{new_name}**!"
         )
 
+    async def rename_autocomplete(self, interaction: discord.Interaction, current: str):
+        """
+        Returns an autocomplete list of Chao names owned by the user.
+        It reads the user's chao_data directory and returns its subdirectory names,
+        mirroring the logic of the stats autocomplete.
+        """
+        print(f"[rename_autocomplete] Current input: {current}")
+        user = interaction.user
+        guild = interaction.guild
+        try:
+            guild_folder = self.data_utils.update_server_folder(guild)
+            user_folder = self.data_utils.get_user_folder(guild_folder, user)
+            chao_base = os.path.join(user_folder, "chao_data")
+            print(f"[rename_autocomplete] chao_base: {chao_base}")
+            if not os.path.exists(chao_base):
+                print("[rename_autocomplete] chao_base does not exist")
+                return []
+            chao_names = [d for d in os.listdir(chao_base) if os.path.isdir(os.path.join(chao_base, d))]
+            print(f"[rename_autocomplete] Found chao names: {chao_names}")
+        except Exception as e:
+            print(f"[rename_autocomplete] Error retrieving chao names: {e}")
+            return []
+        current = current or ""
+        from discord import app_commands
+        choices = sorted(
+            [app_commands.Choice(name=name, value=name) for name in chao_names if current.lower() in name.lower()],
+            key=lambda c: c.name
+        )
+        print(f"[rename_autocomplete] Returning choices: {[choice.name for choice in choices]}")
+        return choices
+
 
     async def egg(self, interaction: discord.Interaction):
         p, load_inv, save_inv = self.data_utils.get_path, self.data_utils.load_inventory, self.data_utils.save_inventory

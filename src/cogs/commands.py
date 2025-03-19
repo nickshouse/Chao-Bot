@@ -240,17 +240,26 @@ class Commands(commands.Cog):
     async def feed(self, interaction: discord.Interaction, chao_name: str, fruit: str, amount: int = 1):
         await self.chao_lifecycle_cog.feed(interaction, chao_name=chao_name, fruit=fruit, amount=amount)
 
+    @feed.autocomplete("chao_name")
+    async def feed_chao_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self.chao_lifecycle_cog.feed_chao_autocomplete(interaction, current)
+
+    @feed.autocomplete("fruit")
+    async def feed_fruit_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self.chao_lifecycle_cog.feed_fruit_autocomplete(interaction, current)
+
     @app_commands.command(name="rename", description="Rename your Chao.")
     @ensure_user_initialized
     @ensure_chao_alive
     @ensure_chao_hatched
     @ensure_not_in_cacoon
-    @app_commands.describe(
-        current_name="Current name of your Chao",
-        new_name="New name for your Chao"
-    )
+    @app_commands.describe(current_name="Current name of your Chao", new_name="New name for your Chao")
     async def rename(self, interaction: discord.Interaction, current_name: str, new_name: str):
         await self.chao_cog.rename(interaction, current_name=current_name, new_name=new_name)
+    
+    @rename.autocomplete("current_name")
+    async def rename_current_autocomplete(self, interaction: discord.Interaction, current: str):
+        return await self.chao_cog.rename_autocomplete(interaction, current)
 
     @app_commands.command(name="help", description="Show all available commands.")
     async def help(self, interaction: discord.Interaction):
