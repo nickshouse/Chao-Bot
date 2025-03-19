@@ -2,57 +2,62 @@
 
 # Chao Bot (currently in beta)
 
-Chao Bot is a feature-rich Discord bot designed for fans of the Chao universe! With Chao Bot, you can hatch, raise, and train your own digital Chao in your server. Whether you're nostalgic about the Chao Gardens from the Sonic games or just looking for a fun bot to engage your community, Chao Bot has something for everyone.
+Chao Bot is a feature-rich Discord bot designed for fans of the Chao universe! Hatch, train, and evolve your very own digital Chao in your server. Whether you're nostalgic about the Chao Gardens from the Sonic games or just looking for a fun bot to engage your community, Chao Bot has something for everyone.
 
 ## Features
 
-### Hatch and Raise
+- **Hatch and Raise**  
+  Hatch Chao eggs, feed them fruits, and watch them grow into unique forms!
+- **Train**  
+  Increase stats like **Run**, **Swim**, **Fly**, **Power**, and **Stamina** through feeding and interaction.
+- **Customize and Interact**  
+  Rename your Chao, pet them to increase happiness, and see them evolve based on stats and alignment.
+- **Inventory and Market**  
+  Earn rings from chatting, manage an inventory, and buy items from the **Black Market**.
+- **Social Engagement**  
+  Compete with others in your server to raise the best Chao. (Chao trading and more upcoming!)
 
-* Start your journey by hatching a Chao egg into a unique Chao.
-* Feed your Chao various fruits to train its stats and influence its evolution.
-* Pet your Chao to increase its happiness.
+## Slash Commands (Examples)
 
-### Train
+- **/chao**  
+  Start your Chao journey!  
+- **/hatch**  
+  Hatch a new Chao egg.  
+- **/feed \<chao_name> \<fruit> \<amount>**  
+  Feed a fruit to your Chao (autocomplete available for both chao_name and fruit!).  
+- **/stats \<chao_name>**  
+  View your Chao's stats.  
+- **/rename \<current_name> \<new_name>**  
+  Rename your Chao (with autocomplete for the current_name).  
+- **/market**  
+  Access the Black Market (buy fruit and items).  
+- **/buy \<item> \<amount>**  
+  Purchase items from the market (with autocomplete for the item name).  
+- **/inventory**  
+  View your current inventory.  
+- **/restrict \<channel_id>**  
+  Restrict the bot to a specific channel (Admin only).  
+- **/goodbye \<chao_name>**  
+  Send your Chao away to the Chao Forest.  
 
-* Train your Chao in specific stats like **Run**, **Swim**, **Fly**, **Power**, and **Stamina**.
+## Get Started
 
-### Customize and Interact
+1. **Invite the bot** to your Discord server.  
+2. Type **/chao** to begin.  
+3. Hatch an egg with **/hatch**, then **/stats** to see your new Chao’s details!  
+4. Earn rings, visit **/market**, and **/buy** items to help your Chao grow.  
+5. Raise multiple Chao, or challenge your friends to see who can train the mightiest Chao.
 
-* Rename your Chao and personalize them.
-* View detailed stats, including levels, grades, and forms.
-* Evolve your Chao into new forms based on their training and alignment.
+## Roadmap
 
-### Inventory Management
-
-* Collect rings and items to enhance your Chao's abilities
-* Buy items in the **Black Market**.
-
-### Social Engagement
-
-* Compete with other users to raise the best Chao.
-* Trade items or Chao with your server members (upcoming feature).
-
-### Additional Features
-
-* Earn rings just by chatting in the server.
-* Restrict bot activity to specific channels for better management.
-
-## Commands
-
-Here are some of the available commands:
-
-* `$chao` \- Start your Chao journey\!
-* `$hatch` \- Hatch a new Chao egg\.
-* `$feed <Chao Name> <Fruit>` \- Feed a fruit to your Chao\.
-* `$stats <Chao Name>` \- View a Chao's stats\.
-* `$rename <Current Name> <New Name>` \- Rename your Chao\.
-* `$pet <Chao Name>` \- Pet your Chao to make it happy\.
-* `$inventory` \- View your current inventory\.
-* `$market` \- Access the Chao Black Market\.
-* `$buy <Item> <Quantity>` \- Buy items from the market\.
-* `$restrict <Channel ID>` \- Restrict bot activity to a specific channel \(Admin only\)\.
-* `$goodbye <Chao Name>` \- Send your Chao to live in the Chao Forest\.
+- **Chao Trading**  
+- **Chao Mating**  
+- **Daily Drops**  
+- **Shiny & Monotone Eggs**  
+- **More Evolutions**  
+- **Races & Minigames**  
 
 ## Credits
 
-Still working on it! Sorry!
+Chao Bot is under active development. Contributions, bug reports, and feature requests are welcome!  
+Stay tuned for updates, and thank you for trying out Chao Bot. 
