@@ -59,5 +59,5 @@ Chao Bot is a feature-rich Discord bot designed for fans of the Chao universe! H
 
 ## Credits
 
-Chao Bot is under active development. Contributions, bug reports, and feature requests are welcome!  
-Stay tuned for updates, and thank you for trying out Chao Bot. 
+Credits are still being built.
+Sorry!
