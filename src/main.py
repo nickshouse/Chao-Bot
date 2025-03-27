@@ -37,14 +37,14 @@ async def on_ready():
     """
     # Load cogs
     for cog in [
-        'cogs.image_utils', 
-        'cogs.data_utils', 
+        'cogs.image_utils',
+        'cogs.data_utils',
         'cogs.chao_helper',
-        'cogs.chao_decay', 
-        'cogs.chao', 
-        'cogs.black_market', 
-        'cogs.chao_lifecycle', 
-        'cogs.chao_admin', 
+        'cogs.chao_decay',
+        'cogs.chao',
+        'cogs.black_market',
+        'cogs.chao_lifecycle',
+        'cogs.chao_admin',
         'cogs.commands'
     ]:
         try:
@@ -126,16 +126,71 @@ async def on_message(message: discord.Message):
     guild_id = str(message.guild.id)
     channel_id = restricted_channels.get(guild_id)
 
-    # If a restriction is set and the message is not in the allowed channel, process commands only
+    # If a restriction is set and the message is not in the allowed channel, still add rings, but skip processing commands
     if channel_id and message.channel.id != channel_id:
         add_rings_for_user(message)
         return
 
     add_rings_for_user(message)
 
-    # Process commands if it's not a slash command
-    # (Slash commands do not go through on_message)
+    # Process normal prefix-based commands if needed (not slash commands)
     await bot.process_commands(message)
+
+
+@bot.event
+async def on_interaction(interaction: discord.Interaction):
+    """
+    Event triggered for every interaction (including slash commands and context menus).
+    We'll award rings for slash commands to ensure the user can gain rings from using them.
+    """
+    # Only handle slash or context commands invoked by real users in a guild
+    if (interaction.type == discord.InteractionType.application_command
+        and not interaction.user.bot
+        and interaction.guild):
+        
+        # If there's a restricted channel for this guild, we could optionally check 
+        # if the user is using slash commands in that channel, etc.
+        # We'll still award rings no matter what channel, but you can decide otherwise.
+        add_rings_for_slash_command(interaction)
+
+    # NOTICE: We do NOT call bot.process_application_commands(interaction) here
+    # because that method doesn't exist in recent discord.py versions.
+    # The library automatically handles slash command invocations.
+
+
+def add_rings_for_slash_command(interaction: discord.Interaction):
+    """
+    Award rings for a slash (or context) command usage.
+    We'll give them 5 rings for each slash command invoked, no spam check needed.
+    """
+    data_utils = bot.get_cog('DataUtils')
+    if not data_utils:
+        print("DataUtils cog is not loaded.")
+        return
+
+    guild = interaction.guild
+    user = interaction.user
+    guild_id = str(guild.id)
+    guild_name = guild.name
+
+    # Check if the user is initialized
+    if not data_utils.is_user_initialized(guild_id, guild_name, user):
+        print(f"User {user.name} is not initialized in the Chao system.")
+        return
+
+    try:
+        inventory_path = data_utils.get_path(guild_id, guild_name, user, 'user_data', 'inventory.parquet')
+        inventory_df = data_utils.load_inventory(inventory_path)
+        if inventory_df.empty:
+            current_inventory = {'rings': 0}
+        else:
+            current_inventory = inventory_df.iloc[-1].to_dict()
+
+        current_inventory['rings'] = current_inventory.get('rings', 0) + 5
+        data_utils.save_inventory(inventory_path, inventory_df, current_inventory)
+        print(f"Awarded 5 rings to {user.name} for slash command usage. (Guild={guild_id})")
+    except Exception as e:
+        print(f"Error adding slash command rings for {user.name}: {str(e)}")
 
 
 def save_restricted_channels():
