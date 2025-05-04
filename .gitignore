@@ -30,4 +30,4 @@ assets/graphics/cards/black_market_fruits_page_2.png
 src/stats_persistent_views.json
 src/market_persistent_views.json
 *.db
-/src/.venv
+/.venv
